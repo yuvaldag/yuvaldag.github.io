@@ -548,6 +548,13 @@ dialog::backdrop {
   color: var(--ink);
 }
 
+.cloud-details {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
 .config-textarea {
   min-height: 150px;
   font-family:
@@ -831,6 +838,7 @@ dialog::backdrop {
           <button id="closeCloudDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
         </div>
         <div id="cloudAccount" class="cloud-account">Not signed in.</div>
+        <div id="cloudDetails" class="cloud-details"></div>
         <label>
           <span class="eyebrow">Firebase web config</span>
           <textarea
@@ -986,6 +994,7 @@ const state = {
     initializing: false,
     applyingCloud: false,
     lastCloudUpdatedAtMillis: 0,
+    status: "idle",
   },
 };
 
@@ -1014,6 +1023,7 @@ const elements = {
   closeCloudDialogButton: document.querySelector("#closeCloudDialogButton"),
   closePasteCsvDialogButton: document.querySelector("#closePasteCsvDialogButton"),
   cloudAccount: document.querySelector("#cloudAccount"),
+  cloudDetails: document.querySelector("#cloudDetails"),
   firebaseConfigTextarea: document.querySelector("#firebaseConfigTextarea"),
   cloudMessage: document.querySelector("#cloudMessage"),
   saveFirebaseConfigButton: document.querySelector("#saveFirebaseConfigButton"),
@@ -1697,7 +1707,44 @@ function setCloudMessage(message) {
 function firebaseErrorMessage(error, fallback) {
   const code = error?.code ? String(error.code) : "";
   const message = error?.message ? String(error.message) : "";
-  return [fallback, code, message].filter(Boolean).join(" ");
+  const hintByCode = {
+    "auth/unauthorized-domain":
+      "Add this exact host in Firebase Authentication > Settings > Authorized domains.",
+    "permission-denied":
+      "Create Firestore and publish the rules from firestore.rules.",
+    "failed-precondition":
+      "Create/enable Firestore Database for this Firebase project.",
+    "unavailable":
+      "Firestore is temporarily unavailable or the network is offline.",
+  };
+  const hint = hintByCode[code] || "";
+  return [fallback, code, message, hint].filter(Boolean).join(" ");
+}
+
+function setCloudStatus(status, message = "") {
+  state.sync.status = status;
+  if (message) setCloudMessage(message);
+  renderCloudControls();
+}
+
+function formatSyncTime(value) {
+  const number = Number(value || 0);
+  if (!number) return "never";
+  return new Date(number).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function hasMeaningfulLocalState() {
+  return state.setups.some((setup) => setup.words.length > 0) || state.setups.length > 1;
+}
+
+function ensureLocalTimestampForExistingData() {
+  if (getLocalUpdatedAtMillis() || !hasMeaningfulLocalState()) return;
+  touchLocalState();
 }
 
 function userLabel(user = state.sync.user) {
@@ -1707,6 +1754,15 @@ function userLabel(user = state.sync.user) {
 function renderCloudControls() {
   const hasConfig = Boolean(state.sync.config);
   const isSignedIn = Boolean(state.sync.user);
+  const busy = state.sync.status === "syncing" || state.sync.initializing;
+  const localUpdatedAt = getLocalUpdatedAtMillis();
+  const remoteUpdatedAt = state.sync.lastCloudUpdatedAtMillis;
+  const statusLabel = {
+    idle: isSignedIn ? "Cloud connected" : hasConfig ? "Cloud ready" : "Local only",
+    syncing: "Cloud syncing...",
+    synced: "Cloud synced",
+    error: "Cloud needs attention",
+  }[state.sync.status] || "Cloud ready";
 
   elements.firebaseConfigTextarea.value = formatFirebaseConfig();
   elements.cloudAccount.innerHTML = isSignedIn
@@ -1714,15 +1770,21 @@ function renderCloudControls() {
     : hasConfig
       ? "Firebase is configured. Sign in to sync."
       : "Paste your Firebase web config first.";
+  elements.cloudDetails.textContent = [
+    `Status: ${statusLabel}`,
+    `Local edit: ${formatSyncTime(localUpdatedAt)}`,
+    `Cloud save: ${formatSyncTime(remoteUpdatedAt)}`,
+    "Manual Pull replaces this browser with cloud data. Manual Push uploads this browser to cloud.",
+  ].join("\n");
   elements.cloudStatus.textContent = isSignedIn
-    ? `Cloud: ${userLabel()}`
+    ? statusLabel
     : hasConfig
       ? "Cloud ready"
       : "Local only";
-  elements.signInButton.disabled = !hasConfig || isSignedIn || state.sync.initializing;
-  elements.signOutButton.disabled = !isSignedIn;
-  elements.pullCloudButton.disabled = !isSignedIn;
-  elements.pushCloudButton.disabled = !isSignedIn;
+  elements.signInButton.disabled = !hasConfig || isSignedIn || busy;
+  elements.signOutButton.disabled = !isSignedIn || busy;
+  elements.pullCloudButton.disabled = !isSignedIn || busy;
+  elements.pushCloudButton.disabled = !isSignedIn || busy;
 }
 
 function escapeHtml(value) {
@@ -1759,6 +1821,7 @@ async function initializeFirebaseFromSavedConfig() {
   }
 
   state.sync.initializing = true;
+  state.sync.status = "syncing";
   renderCloudControls();
   try {
     const modules = await loadFirebaseModules();
@@ -1780,12 +1843,13 @@ async function initializeFirebaseFromSavedConfig() {
     });
     modules.auth.getRedirectResult(state.sync.auth).catch((error) => {
       console.warn("Could not finish redirected Google sign-in.", error);
-      setCloudMessage(firebaseErrorMessage(error, "Could not finish Google sign-in."));
+      setCloudStatus("error", firebaseErrorMessage(error, "Could not finish Google sign-in."));
     });
     state.sync.initialized = true;
+    state.sync.status = state.sync.user ? "synced" : "idle";
   } catch (error) {
     console.warn("Could not initialize Firebase.", error);
-    setCloudMessage("Could not initialize Firebase. Check the config.");
+    setCloudStatus("error", firebaseErrorMessage(error, "Could not initialize Firebase."));
   } finally {
     state.sync.initializing = false;
     renderCloudControls();
@@ -1814,13 +1878,13 @@ async function saveFirebaseConfigFromDialog() {
 async function signInToCloud() {
   await initializeFirebaseFromSavedConfig();
   if (!state.sync.auth) {
-    setCloudMessage("Save Firebase config before signing in.");
+    setCloudStatus("error", "Save Firebase config before signing in.");
     return;
   }
 
   const { GoogleAuthProvider, signInWithPopup, signInWithRedirect } = state.sync.modules.auth;
   const provider = new GoogleAuthProvider();
-  setCloudMessage("Opening Google sign-in...");
+  setCloudStatus("syncing", "Opening Google sign-in...");
 
   try {
     if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
@@ -1835,7 +1899,9 @@ async function signInToCloud() {
     }
     if (error?.code !== "auth/popup-closed-by-user") {
       console.warn("Google sign-in failed.", error);
-      setCloudMessage(firebaseErrorMessage(error, "Google sign-in failed."));
+      setCloudStatus("error", firebaseErrorMessage(error, "Google sign-in failed."));
+    } else {
+      setCloudStatus("idle", "Google sign-in was cancelled.");
     }
   }
 }
@@ -1843,7 +1909,7 @@ async function signInToCloud() {
 async function signOutOfCloud() {
   if (!state.sync.auth) return;
   await state.sync.modules.auth.signOut(state.sync.auth);
-  setCloudMessage("Signed out. Local data is still saved in this browser.");
+  setCloudStatus("idle", "Signed out. Local data is still saved in this browser.");
   renderCloudControls();
 }
 
@@ -1871,22 +1937,24 @@ function buildCloudPayload() {
 }
 
 function applyCloudDocument(data) {
-  const appState = JSON.parse(String(data?.stateJson || "{}"));
-  const updatedAtMillis = Number(data?.updatedAtMillis || 0);
-
-  state.sync.applyingCloud = true;
   try {
+    const appState = JSON.parse(String(data?.stateJson || "{}"));
+    const updatedAtMillis = Number(data?.updatedAtMillis || 0);
+
+    state.sync.applyingCloud = true;
     importAppState(appState);
     setLocalUpdatedAtMillis(updatedAtMillis);
     localStorage.setItem(LAST_CLOUD_UPDATED_KEY, String(updatedAtMillis));
     state.sync.lastCloudUpdatedAtMillis = updatedAtMillis;
     saveSettings({ syncCloud: false, touch: false });
     saveSetups({ syncCloud: false, touch: false });
+    render();
+  } catch (error) {
+    console.warn("Could not apply cloud data.", error);
+    setCloudStatus("error", "Cloud data could not be loaded. Try Push to replace it with this browser's data.");
   } finally {
     state.sync.applyingCloud = false;
   }
-
-  render();
 }
 
 async function syncCloudAfterSignIn() {
@@ -1894,10 +1962,11 @@ async function syncCloudAfterSignIn() {
   if (!ref) return;
 
   try {
+    setCloudStatus("syncing", "Checking cloud state...");
     const snapshot = await state.sync.modules.firestore.getDoc(ref);
     if (!snapshot.exists()) {
       await pushCloudState({ silent: true });
-      setCloudMessage("Cloud sync is ready. Uploaded this device's data.");
+      setCloudStatus("synced", "Cloud sync is ready. Uploaded this device's data.");
       return;
     }
 
@@ -1905,14 +1974,14 @@ async function syncCloudAfterSignIn() {
     const localUpdatedAt = getLocalUpdatedAtMillis();
     if (localUpdatedAt > remoteUpdatedAt) {
       await pushCloudState({ silent: true });
-      setCloudMessage("Cloud sync is ready. Uploaded newer local data.");
+      setCloudStatus("synced", "Cloud sync is ready. Uploaded newer local data.");
     } else {
       applyCloudDocument(snapshot.data());
-      setCloudMessage("Cloud sync is ready. Loaded your saved data.");
+      setCloudStatus("synced", "Cloud sync is ready. Loaded your saved data.");
     }
   } catch (error) {
     console.warn("Could not sync after sign-in.", error);
-    setCloudMessage("Signed in, but cloud sync failed.");
+    setCloudStatus("error", firebaseErrorMessage(error, "Signed in, but cloud sync failed."));
   }
 }
 
@@ -1927,10 +1996,10 @@ function subscribeToCloudState() {
     const remoteUpdatedAt = Number(data?.updatedAtMillis || 0);
     if (!remoteUpdatedAt || remoteUpdatedAt <= getLocalUpdatedAtMillis()) return;
     applyCloudDocument(data);
-    setCloudMessage("Loaded newer cloud changes.");
+    setCloudStatus("synced", "Loaded newer cloud changes.");
   }, (error) => {
     console.warn("Cloud listener failed.", error);
-    setCloudMessage("Cloud listener failed.");
+    setCloudStatus("error", firebaseErrorMessage(error, "Cloud listener failed."));
   });
 }
 
@@ -1938,21 +2007,32 @@ async function pullCloudState(options = {}) {
   const { silent = false } = options;
   const ref = cloudStateDocRef();
   if (!ref) {
-    if (!silent) setCloudMessage("Sign in before pulling from cloud.");
+    if (!silent) setCloudStatus("error", "Sign in before pulling from cloud.");
     return;
   }
 
   try {
+    if (!silent) setCloudStatus("syncing", "Pulling from cloud...");
     const snapshot = await state.sync.modules.firestore.getDoc(ref);
     if (!snapshot.exists()) {
-      if (!silent) setCloudMessage("No cloud data exists yet.");
+      if (!silent) setCloudStatus("idle", "No cloud data exists yet.");
       return;
     }
+    const remoteUpdatedAt = Number(snapshot.data()?.updatedAtMillis || 0);
+    if (!silent && getLocalUpdatedAtMillis() > remoteUpdatedAt) {
+      const confirmed = window.confirm(
+        "Cloud data is older than this browser. Pulling will replace local words and scores. Pull anyway?",
+      );
+      if (!confirmed) {
+        setCloudStatus("idle", "Pull cancelled.");
+        return;
+      }
+    }
     applyCloudDocument(snapshot.data());
-    if (!silent) setCloudMessage("Pulled cloud data.");
+    if (!silent) setCloudStatus("synced", "Pulled cloud data into this browser.");
   } catch (error) {
     console.warn("Could not pull cloud data.", error);
-    if (!silent) setCloudMessage("Could not pull from cloud.");
+    if (!silent) setCloudStatus("error", firebaseErrorMessage(error, "Could not pull from cloud."));
   }
 }
 
@@ -1960,20 +2040,33 @@ async function pushCloudState(options = {}) {
   const { silent = false } = options;
   const ref = cloudStateDocRef();
   if (!ref) {
-    if (!silent) setCloudMessage("Sign in before pushing to cloud.");
+    if (!silent) setCloudStatus("error", "Sign in before pushing to cloud.");
     return;
   }
 
   try {
+    if (!silent) setCloudStatus("syncing", "Pushing to cloud...");
+    if (!silent) {
+      const snapshot = await state.sync.modules.firestore.getDoc(ref);
+      const remoteUpdatedAt = snapshot.exists() ? Number(snapshot.data()?.updatedAtMillis || 0) : 0;
+      if (remoteUpdatedAt > getLocalUpdatedAtMillis()) {
+        const confirmed = window.confirm(
+          "Cloud data is newer than this browser. Pushing will replace the cloud copy. Push anyway?",
+        );
+        if (!confirmed) {
+          setCloudStatus("idle", "Push cancelled.");
+          return;
+        }
+      }
+    }
     const payload = buildCloudPayload();
     await state.sync.modules.firestore.setDoc(ref, payload);
     localStorage.setItem(LAST_CLOUD_UPDATED_KEY, String(payload.updatedAtMillis));
     state.sync.lastCloudUpdatedAtMillis = payload.updatedAtMillis;
-    if (!silent) setCloudMessage("Pushed local data to cloud.");
-    renderCloudControls();
+    setCloudStatus("synced", silent ? "Saved to cloud." : "Pushed this browser to cloud.");
   } catch (error) {
     console.warn("Could not push cloud data.", error);
-    if (!silent) setCloudMessage("Could not push to cloud.");
+    setCloudStatus("error", firebaseErrorMessage(error, "Could not push to cloud."));
   }
 }
 
@@ -3102,6 +3195,7 @@ window.addEventListener("beforeunload", stopSpeechStream);
 loadSettings();
 loadSetups();
 loadFirebaseConfig();
+ensureLocalTimestampForExistingData();
 fillLanguageOptions();
 render();
 initializeFirebaseFromSavedConfig();
