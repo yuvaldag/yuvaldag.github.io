@@ -979,6 +979,7 @@ const state = {
     transcribing: false,
     stopTimer: null,
     logStartedAt: 0,
+    ttsToken: 0,
   },
   settings: { ...DEFAULT_SETTINGS },
   sync: {
@@ -1320,11 +1321,17 @@ function speakText(text, languageCode) {
     return;
   }
 
+  state.speech.ttsToken += 1;
+  const token = state.speech.ttsToken;
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = languageCode;
   utterance.voice = findVoiceForLanguage(languageCode);
   window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utterance);
+  window.speechSynthesis.resume?.();
+  window.setTimeout(() => {
+    if (token !== state.speech.ttsToken) return;
+    window.speechSynthesis.speak(utterance);
+  }, 0);
 }
 
 function speakCurrentPrompt() {
@@ -2756,8 +2763,6 @@ async function revealAnswer() {
     entry.recentWrong = true;
   }
 
-  await persistWords();
-
   elements.feedback.className = `feedback ${isCorrect ? "correct" : "incorrect"}`;
   const scoreText = document.createElement("strong");
   scoreText.textContent = String(entry[scoreKey]);
@@ -2798,6 +2803,7 @@ async function revealAnswer() {
   updateSpeechControls();
   renderWords();
   speakLearnedLanguageAnswer();
+  await persistWords();
 }
 
 function renderWords() {
