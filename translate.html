@@ -1,0 +1,2615 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Greek Vocabulary Trainer</title>
+    <style>
+:root {
+  color-scheme: light;
+  --bg: #f5f7f2;
+  --ink: #18211f;
+  --muted: #65716b;
+  --line: #d9e0d7;
+  --panel: #ffffff;
+  --accent: #126a6d;
+  --accent-strong: #0b4d51;
+  --accent-soft: #dff0ef;
+  --warn: #9a4d16;
+  --good: #1f7a42;
+  --bad: #b43535;
+  --shadow: 0 18px 45px rgba(35, 45, 38, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  min-height: 42px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.primary:hover {
+  background: var(--accent-strong);
+}
+
+.app-shell {
+  width: min(1180px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0;
+}
+
+.topbar,
+.panel-heading,
+.dialog-heading,
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.topbar {
+  margin-bottom: 20px;
+}
+
+.eyebrow,
+.panel-heading p,
+.dialog-heading p,
+.prompt-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+h1,
+h2 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+h1 {
+  font-size: clamp(2rem, 6vw, 4rem);
+  line-height: 1;
+}
+
+h2 {
+  font-size: 1.1rem;
+}
+
+.toolbar,
+.segmented,
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.word-count-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.setup-picker {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-picker select {
+  min-width: 0;
+}
+
+.workspace {
+  display: block;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.word-panel {
+  display: none;
+}
+
+.quiz-panel {
+  min-height: 560px;
+}
+
+.segmented {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+  background: #f8faf7;
+}
+
+.segmented button {
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  padding: 0 10px;
+}
+
+.segmented button.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.empty-state {
+  margin-top: 28px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  color: var(--muted);
+}
+
+.word-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  max-height: 455px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.word-list,
+.empty-state {
+  display: none;
+}
+
+.word-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto auto auto auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.word-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.word-row .arrow {
+  color: var(--muted);
+}
+
+.score {
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.82rem;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.recent-wrong {
+  background: #fae9e7;
+  color: var(--bad);
+}
+
+.delete-word {
+  width: 34px;
+  min-height: 34px;
+  padding: 0;
+  color: var(--bad);
+}
+
+.quiz-card {
+  display: grid;
+  align-content: center;
+  gap: 18px;
+  min-height: 440px;
+  padding: 28px 4px 8px;
+}
+
+.prompt-word {
+  min-height: 120px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  overflow-wrap: anywhere;
+  font-size: clamp(2.2rem, 7vw, 5.5rem);
+  line-height: 1.05;
+}
+
+.answer-form {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+}
+
+.speech-button {
+  min-width: 48px;
+  padding: 0 12px;
+}
+
+.speech-button.recording {
+  border-color: var(--bad);
+  background: #fae9e7;
+  color: var(--bad);
+}
+
+.speech-status {
+  min-height: 20px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.speech-status:empty {
+  display: none;
+}
+
+.speech-log {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8faf7;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.speech-log summary {
+  min-height: 34px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.speech-log pre {
+  max-height: 180px;
+  margin: 0;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  padding: 10px 12px;
+  white-space: pre-wrap;
+}
+
+.speech-log.empty {
+  display: none;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+}
+
+input {
+  min-height: 52px;
+  padding: 0 14px;
+  font-size: 1.05rem;
+}
+
+select {
+  min-height: 42px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--ink);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 220px;
+  padding: 14px;
+  line-height: 1.45;
+}
+
+input:focus,
+textarea:focus {
+  outline: 3px solid rgba(18, 106, 109, 0.18);
+  border-color: var(--accent);
+}
+
+.feedback {
+  min-height: 72px;
+  border-radius: 8px;
+  padding: 14px;
+  background: #f8faf7;
+  color: var(--muted);
+}
+
+.feedback.correct {
+  background: #e8f5ec;
+  color: var(--good);
+}
+
+.feedback.incorrect {
+  background: #fae9e7;
+  color: var(--bad);
+}
+
+.notes-panel {
+  min-height: 0;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  padding: 12px 14px;
+  white-space: pre-wrap;
+}
+
+.notes-panel:empty {
+  display: none;
+}
+
+.inline-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  margin: 4px 6px;
+  border-color: currentColor;
+  background: #fff;
+  color: inherit;
+}
+
+.edit-target-row {
+  background: var(--accent-soft);
+  outline: 2px solid rgba(18, 106, 109, 0.24);
+}
+
+dialog {
+  width: min(720px, calc(100vw - 28px));
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  box-shadow: var(--shadow);
+}
+
+#editWordsDialog {
+  width: min(1040px, calc(100vw - 28px));
+}
+
+dialog::backdrop {
+  background: rgba(18, 28, 25, 0.45);
+}
+
+.edit-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  max-height: min(62vh, 620px);
+}
+
+.edit-table {
+  width: 100%;
+  min-width: 1100px;
+  border-collapse: collapse;
+}
+
+.edit-table th,
+.edit-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 10px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.edit-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8faf7;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.edit-table td:nth-child(3),
+.edit-table td:nth-child(4),
+.edit-table th:nth-child(3),
+.edit-table th:nth-child(4),
+.edit-table td:nth-child(5),
+.edit-table th:nth-child(5) {
+  width: 132px;
+}
+
+.edit-table td:nth-child(6),
+.edit-table th:nth-child(6) {
+  width: 260px;
+}
+
+.edit-table td:nth-child(5),
+.edit-table th:nth-child(5) {
+  text-align: center;
+}
+
+.edit-table input[type="checkbox"] {
+  width: 20px;
+  min-height: 20px;
+}
+
+.edit-table td:last-child,
+.edit-table th:last-child {
+  width: 48px;
+  text-align: center;
+}
+
+.edit-table input {
+  min-height: 40px;
+}
+
+.edit-table textarea {
+  min-height: 64px;
+  resize: vertical;
+  padding: 10px;
+  line-height: 1.35;
+}
+
+.edit-table input[type="number"] {
+  padding: 0 8px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.settings-grid input {
+  color: var(--ink);
+}
+
+.dialog-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.icon-button {
+  width: 40px;
+  padding: 0;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.parse-message {
+  min-height: 22px;
+  color: var(--warn);
+}
+
+@media (max-width: 860px) {
+  .app-shell {
+    width: min(100vw - 20px, 680px);
+    padding: 16px 0;
+  }
+
+  .topbar,
+  .panel-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .word-panel,
+  .quiz-panel {
+    min-height: auto;
+  }
+
+  .answer-form {
+    grid-template-columns: 1fr auto;
+  }
+
+  .answer-form input {
+    grid-column: 1 / -1;
+  }
+
+  .word-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .word-row .arrow {
+    display: none;
+  }
+
+  .score {
+    grid-column: 1;
+    grid-row: auto;
+    width: fit-content;
+  }
+
+  .delete-word {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar" aria-label="Vocabulary tools">
+        <div>
+          <p id="languagePairLabel" class="eyebrow">English ⇄ Greek</p>
+          <h1 id="appTitle">Greek Vocabulary Trainer</h1>
+        </div>
+        <div class="toolbar">
+          <div class="setup-picker">
+            <select id="setupSelect" aria-label="Language setup"></select>
+            <button id="newSetupButton" type="button">New setup</button>
+            <button id="deleteSetupButton" type="button">Delete setup</button>
+          </div>
+          <span id="wordCount" class="word-count-pill">0 saved</span>
+          <button id="editWordsButton" type="button">Edit words</button>
+          <button id="addWordsButton" class="primary" type="button">Add words</button>
+          <button id="settingsButton" type="button" title="Settings">Settings</button>
+          <button id="openCsvButton" type="button" title="Open CSV">Open CSV</button>
+          <button id="pasteCsvButton" type="button" title="Paste CSV">Paste CSV</button>
+          <button id="saveCsvButton" type="button" title="Save CSV">Save CSV</button>
+          <button id="copyCsvButton" type="button" title="Copy CSV">Copy CSV</button>
+          <button id="downloadCsvButton" type="button" title="Download CSV">Download</button>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <section class="panel quiz-panel" aria-label="Quiz">
+          <div class="panel-heading">
+            <div>
+              <h2>Test</h2>
+              <p id="quizMeta">Add at least one word to begin</p>
+            </div>
+            <div class="segmented" role="group" aria-label="Test direction">
+              <button id="greekToEnglishButton" class="active" type="button">Greek → English</button>
+              <button id="englishToGreekButton" type="button">English → Greek</button>
+              <button id="mixedButton" type="button">Mixed</button>
+            </div>
+          </div>
+
+          <div class="quiz-card">
+            <p id="promptLabel" class="prompt-label">Prompt</p>
+            <div id="promptWord" class="prompt-word">No words yet</div>
+            <form id="answerForm" class="answer-form">
+              <input
+                id="answerInput"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Type the translation"
+                disabled
+              />
+              <button
+                id="speakAnswerButton"
+                class="speech-button"
+                type="button"
+                title="Speak answer (Ctrl+M / ⌘M)"
+                aria-label="Speak answer (Ctrl+M or Command+M)"
+                disabled
+              >Speak</button>
+              <button id="submitAnswerButton" class="primary" type="submit" disabled>Enter</button>
+            </form>
+            <div id="speechStatus" class="speech-status" aria-live="polite"></div>
+            <details id="speechLogDetails" class="speech-log empty">
+              <summary>Speech timing log</summary>
+              <pre id="speechLog"></pre>
+            </details>
+            <div id="feedback" class="feedback" aria-live="polite"></div>
+            <div id="notesPanel" class="notes-panel" aria-live="polite"></div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="addWordsDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <h2>Add Words</h2>
+            <p>One entry per line. Add optional explanations after ::.</p>
+          </div>
+          <button id="closeDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
+        </div>
+        <textarea
+          id="wordsTextarea"
+          rows="10"
+          placeholder="καλημέρα / καλημερα: good morning :: Used as a morning greeting.&#10;ευχαριστώ: thank you / thanks :: Ευχαριστώ πολύ = thank you very much."
+        ></textarea>
+        <div id="parseMessage" class="parse-message"></div>
+        <div class="dialog-actions">
+          <button id="clearTextareaButton" type="button">Clear</button>
+          <button id="importWordsButton" class="primary" type="button">Add to CSV</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="newSetupDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <h2>New Setup</h2>
+            <p>Choose the language you are learning and the language you translate from.</p>
+          </div>
+          <button id="closeNewSetupDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="settings-grid">
+          <label>
+            <span>Language to learn</span>
+            <input id="learnLanguageInput" type="text" placeholder="Greek" list="languageNameOptions" />
+          </label>
+          <label>
+            <span>Translate from</span>
+            <input id="fromLanguageInput" type="text" placeholder="English" list="languageNameOptions" />
+          </label>
+          <label>
+            <span>Learn language shortcut</span>
+            <input id="learnLanguageCodeInput" type="text" placeholder="el" />
+          </label>
+          <label>
+            <span>Translate-from shortcut</span>
+            <input id="fromLanguageCodeInput" type="text" placeholder="en" />
+          </label>
+        </div>
+        <datalist id="languageNameOptions"></datalist>
+        <div id="newSetupMessage" class="parse-message"></div>
+        <div class="dialog-actions">
+          <button id="cancelNewSetupButton" type="button">Cancel</button>
+          <button id="createSetupButton" class="primary" type="button">Create setup</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="editWordsDialog">
+      <form method="dialog" class="dialog-card edit-dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <h2>Edit Words</h2>
+            <p>Edit / separated alternatives and each direction score.</p>
+          </div>
+          <button id="closeEditDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="edit-table-wrap">
+          <table class="edit-table">
+            <thead>
+              <tr>
+                <th>Greek</th>
+                <th>English</th>
+                <th>Greek → English</th>
+                <th>English → Greek</th>
+                <th>Recent wrong</th>
+                <th>Explanations / examples</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="editWordsTableBody"></tbody>
+          </table>
+        </div>
+        <div id="editMessage" class="parse-message"></div>
+        <div class="dialog-actions">
+          <button id="cancelEditWordsButton" type="button">Cancel</button>
+          <button id="saveEditedWordsButton" class="primary" type="button">Save edits</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="settingsDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <h2>Settings</h2>
+            <p>Adjust score bounds and the recent-wrong list size.</p>
+          </div>
+          <button id="closeSettingsDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="settings-grid">
+          <label>
+            <span>Minimum score</span>
+            <input id="minScoreInput" type="number" step="1" />
+          </label>
+          <label>
+            <span>Maximum score</span>
+            <input id="maxScoreInput" type="number" step="1" />
+          </label>
+          <label>
+            <span>Recent-wrong list size</span>
+            <input id="recentWrongLimitInput" type="number" min="1" step="1" />
+          </label>
+          <label>
+            <span>Speech model</span>
+            <select id="speechModelSelect"></select>
+          </label>
+          <label>
+            <span>Max recording seconds</span>
+            <input id="speechMaxSecondsInput" type="number" min="1" max="10" step="0.5" />
+          </label>
+          <label>
+            <span>Speak new words aloud</span>
+            <input id="speakPromptsInput" type="checkbox" />
+          </label>
+        </div>
+        <div id="settingsMessage" class="parse-message"></div>
+        <div class="dialog-actions">
+          <button id="cancelSettingsButton" type="button">Cancel</button>
+          <button id="preloadSpeechModelButton" type="button">Preload speech model</button>
+          <button id="saveSettingsButton" class="primary" type="button">Save settings</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="pasteCsvDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <h2>Paste CSV</h2>
+            <p>Paste a full CSV export here to import it.</p>
+          </div>
+          <button id="closePasteCsvDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
+        </div>
+        <textarea
+          id="pasteCsvTextarea"
+          rows="12"
+          placeholder="greek,english,greek_to_english_score,english_to_greek_score,recent_wrong,explanations_examples"
+        ></textarea>
+        <div id="pasteCsvMessage" class="parse-message"></div>
+        <div class="dialog-actions">
+          <button id="cancelPasteCsvButton" type="button">Cancel</button>
+          <button id="importPastedCsvButton" class="primary" type="button">Import CSV</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script>
+const STORAGE_KEY = "greek-vocabulary-trainer.words";
+const SETUPS_KEY = "vocabulary-trainer.setups";
+const LAST_SETUP_KEY = "vocabulary-trainer.last-setup-id";
+const SETTINGS_KEY = "greek-vocabulary-trainer.settings";
+const CSV_MIME = "text/csv";
+const TRANSFORMERS_CDN =
+  "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js";
+const SPEECH_MODEL_OPTIONS = [
+  {
+    id: "onnx-community/whisper-tiny",
+    label: "Fast - Whisper tiny",
+  },
+  {
+    id: "onnx-community/whisper-base",
+    label: "Better - Whisper base",
+  },
+  {
+    id: "onnx-community/whisper-small",
+    label: "Best - Whisper small",
+  },
+];
+const DEFAULT_SPEECH_MODEL_ID = "onnx-community/whisper-base";
+const DEFAULT_SETUP = {
+  id: "greek-english",
+  learnLanguage: "Greek",
+  learnLanguageCode: "el",
+  fromLanguage: "English",
+  fromLanguageCode: "en",
+  words: [],
+};
+const LANGUAGE_SHORTCUTS = [
+  ["English", "en"],
+  ["Greek", "el"],
+  ["Hebrew", "he"],
+  ["Spanish", "es"],
+  ["French", "fr"],
+  ["German", "de"],
+  ["Italian", "it"],
+  ["Portuguese", "pt"],
+  ["Russian", "ru"],
+  ["Arabic", "ar"],
+  ["Turkish", "tr"],
+  ["Dutch", "nl"],
+  ["Polish", "pl"],
+  ["Swedish", "sv"],
+  ["Norwegian", "no"],
+  ["Danish", "da"],
+  ["Finnish", "fi"],
+  ["Chinese", "zh"],
+  ["Japanese", "ja"],
+  ["Korean", "ko"],
+];
+const LANGUAGE_CODE_BY_NAME = new Map(
+  LANGUAGE_SHORTCUTS.map(([name, code]) => [name.toLowerCase(), code]),
+);
+const DEFAULT_SETTINGS = {
+  minScore: -5,
+  maxScore: 5,
+  recentWrongLimit: 7,
+  speechModelId: DEFAULT_SPEECH_MODEL_ID,
+  speechMaxSeconds: 7,
+  speakPrompts: true,
+};
+
+const state = {
+  setups: [],
+  activeSetupId: DEFAULT_SETUP.id,
+  fileHandles: new Map(),
+  words: [],
+  direction: "el-en",
+  currentCard: null,
+  revealed: false,
+  fileHandle: null,
+  speech: {
+    transcriber: null,
+    loadPromise: null,
+    mediaRecorder: null,
+    chunks: [],
+    stream: null,
+    recording: false,
+    transcribing: false,
+    stopTimer: null,
+    logStartedAt: 0,
+  },
+  settings: { ...DEFAULT_SETTINGS },
+};
+
+const elements = {
+  languagePairLabel: document.querySelector("#languagePairLabel"),
+  appTitle: document.querySelector("#appTitle"),
+  setupSelect: document.querySelector("#setupSelect"),
+  newSetupButton: document.querySelector("#newSetupButton"),
+  deleteSetupButton: document.querySelector("#deleteSetupButton"),
+  addWordsButton: document.querySelector("#addWordsButton"),
+  editWordsButton: document.querySelector("#editWordsButton"),
+  settingsButton: document.querySelector("#settingsButton"),
+  pasteCsvButton: document.querySelector("#pasteCsvButton"),
+  newSetupDialog: document.querySelector("#newSetupDialog"),
+  addWordsDialog: document.querySelector("#addWordsDialog"),
+  editWordsDialog: document.querySelector("#editWordsDialog"),
+  settingsDialog: document.querySelector("#settingsDialog"),
+  pasteCsvDialog: document.querySelector("#pasteCsvDialog"),
+  closeNewSetupDialogButton: document.querySelector("#closeNewSetupDialogButton"),
+  closeDialogButton: document.querySelector("#closeDialogButton"),
+  closeEditDialogButton: document.querySelector("#closeEditDialogButton"),
+  closeSettingsDialogButton: document.querySelector("#closeSettingsDialogButton"),
+  closePasteCsvDialogButton: document.querySelector("#closePasteCsvDialogButton"),
+  learnLanguageInput: document.querySelector("#learnLanguageInput"),
+  learnLanguageCodeInput: document.querySelector("#learnLanguageCodeInput"),
+  fromLanguageInput: document.querySelector("#fromLanguageInput"),
+  fromLanguageCodeInput: document.querySelector("#fromLanguageCodeInput"),
+  languageNameOptions: document.querySelector("#languageNameOptions"),
+  wordsTextarea: document.querySelector("#wordsTextarea"),
+  pasteCsvTextarea: document.querySelector("#pasteCsvTextarea"),
+  createSetupButton: document.querySelector("#createSetupButton"),
+  importWordsButton: document.querySelector("#importWordsButton"),
+  importPastedCsvButton: document.querySelector("#importPastedCsvButton"),
+  saveEditedWordsButton: document.querySelector("#saveEditedWordsButton"),
+  saveSettingsButton: document.querySelector("#saveSettingsButton"),
+  cancelNewSetupButton: document.querySelector("#cancelNewSetupButton"),
+  cancelSettingsButton: document.querySelector("#cancelSettingsButton"),
+  cancelPasteCsvButton: document.querySelector("#cancelPasteCsvButton"),
+  cancelEditWordsButton: document.querySelector("#cancelEditWordsButton"),
+  newSetupMessage: document.querySelector("#newSetupMessage"),
+  clearTextareaButton: document.querySelector("#clearTextareaButton"),
+  parseMessage: document.querySelector("#parseMessage"),
+  pasteCsvMessage: document.querySelector("#pasteCsvMessage"),
+  editMessage: document.querySelector("#editMessage"),
+  settingsMessage: document.querySelector("#settingsMessage"),
+  editWordsTableBody: document.querySelector("#editWordsTableBody"),
+  minScoreInput: document.querySelector("#minScoreInput"),
+  maxScoreInput: document.querySelector("#maxScoreInput"),
+  recentWrongLimitInput: document.querySelector("#recentWrongLimitInput"),
+  speechModelSelect: document.querySelector("#speechModelSelect"),
+  speechMaxSecondsInput: document.querySelector("#speechMaxSecondsInput"),
+  speakPromptsInput: document.querySelector("#speakPromptsInput"),
+  preloadSpeechModelButton: document.querySelector("#preloadSpeechModelButton"),
+  wordList: document.querySelector("#wordList"),
+  emptyWords: document.querySelector("#emptyWords"),
+  wordCount: document.querySelector("#wordCount"),
+  promptLabel: document.querySelector("#promptLabel"),
+  promptWord: document.querySelector("#promptWord"),
+  answerForm: document.querySelector("#answerForm"),
+  answerInput: document.querySelector("#answerInput"),
+  speakAnswerButton: document.querySelector("#speakAnswerButton"),
+  speechStatus: document.querySelector("#speechStatus"),
+  speechLogDetails: document.querySelector("#speechLogDetails"),
+  speechLog: document.querySelector("#speechLog"),
+  submitAnswerButton: document.querySelector("#submitAnswerButton"),
+  feedback: document.querySelector("#feedback"),
+  notesPanel: document.querySelector("#notesPanel"),
+  quizMeta: document.querySelector("#quizMeta"),
+  greekToEnglishButton: document.querySelector("#greekToEnglishButton"),
+  englishToGreekButton: document.querySelector("#englishToGreekButton"),
+  mixedButton: document.querySelector("#mixedButton"),
+  openCsvButton: document.querySelector("#openCsvButton"),
+  saveCsvButton: document.querySelector("#saveCsvButton"),
+  copyCsvButton: document.querySelector("#copyCsvButton"),
+  downloadCsvButton: document.querySelector("#downloadCsvButton"),
+};
+
+function normalizeAnswer(value) {
+  return value
+    .trim()
+    .toLocaleLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\p{Punctuation}/gu, "")
+    .replace(/\s+/g, " ");
+}
+
+function splitVariants(value) {
+  const separator = value.includes("/") ? "/" : ",";
+  return value
+    .split(separator)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function joinVariants(values) {
+  return values.join(" / ");
+}
+
+function parseWordLines(text) {
+  const entries = [];
+  const errors = [];
+
+  text.split(/\r?\n/).forEach((line, index) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+
+    const separatorIndex = trimmed.indexOf(":");
+    if (separatorIndex === -1) {
+      errors.push(`Line ${index + 1} is missing ":"`);
+      return;
+    }
+
+    const greek = splitVariants(trimmed.slice(0, separatorIndex));
+    const translationAndNotes = trimmed.slice(separatorIndex + 1);
+    const notesSeparatorIndex = translationAndNotes.indexOf("::");
+    const englishText =
+      notesSeparatorIndex === -1
+        ? translationAndNotes
+        : translationAndNotes.slice(0, notesSeparatorIndex);
+    const notes =
+      notesSeparatorIndex === -1 ? "" : translationAndNotes.slice(notesSeparatorIndex + 2).trim();
+    const english = splitVariants(englishText);
+
+    if (!greek.length || !english.length) {
+      errors.push(`Line ${index + 1} needs words on both sides`);
+      return;
+    }
+
+    entries.push({
+      greek,
+      english,
+      elToEnScore: 0,
+      enToElScore: 0,
+      recentWrong: false,
+      notes,
+    });
+  });
+
+  return { entries, errors };
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      field += '"';
+      index += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      row.push(field);
+      field = "";
+    } else if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += char;
+    }
+  }
+
+  if (field || row.length) {
+    row.push(field);
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function csvEscape(value) {
+  const text = String(value);
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function toCsv(words) {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const learnKey = setup.learnLanguage.toLowerCase().replace(/\s+/g, "_");
+  const fromKey = setup.fromLanguage.toLowerCase().replace(/\s+/g, "_");
+  const rows = [
+    [
+      learnKey,
+      fromKey,
+      `${learnKey}_to_${fromKey}_score`,
+      `${fromKey}_to_${learnKey}_score`,
+      "recent_wrong",
+      "explanations_examples",
+    ],
+  ];
+  words.forEach((entry) => {
+    const word = normalizeWordEntry(entry);
+    rows.push([
+      joinVariants(word.greek),
+      joinVariants(word.english),
+      word.elToEnScore,
+      word.enToElScore,
+      word.recentWrong ? "1" : "0",
+      word.notes,
+    ]);
+  });
+  return `${rows.map((row) => row.map(csvEscape).join(",")).join("\n")}\n`;
+}
+
+function clampScore(score) {
+  const number = Number.parseInt(score, 10);
+  if (Number.isNaN(number)) return 0;
+  return Math.max(state.settings.minScore, Math.min(state.settings.maxScore, number));
+}
+
+function parseBoolean(value) {
+  return ["1", "true", "yes", "y"].includes(String(value).trim().toLowerCase());
+}
+
+function cleanLanguageName(value, fallback) {
+  return String(value || "").trim() || fallback;
+}
+
+function cleanLanguageCode(value, languageName) {
+  const explicitCode = String(value || "").trim().toLowerCase();
+  if (explicitCode) return explicitCode;
+  return LANGUAGE_CODE_BY_NAME.get(cleanLanguageName(languageName, "").toLowerCase()) || "";
+}
+
+function setupLabel(setup) {
+  return `${setup.fromLanguage} → ${setup.learnLanguage}`;
+}
+
+function createSetupId(learnLanguage, fromLanguage) {
+  const base = `${learnLanguage}-${fromLanguage}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `${base || "setup"}-${Date.now().toString(36)}`;
+}
+
+function normalizeSetup(setup) {
+  const learnLanguage = cleanLanguageName(setup?.learnLanguage, DEFAULT_SETUP.learnLanguage);
+  const fromLanguage = cleanLanguageName(setup?.fromLanguage, DEFAULT_SETUP.fromLanguage);
+  return {
+    id: String(setup?.id || createSetupId(setup?.learnLanguage, setup?.fromLanguage)),
+    learnLanguage,
+    learnLanguageCode: cleanLanguageCode(setup?.learnLanguageCode, learnLanguage),
+    fromLanguage,
+    fromLanguageCode: cleanLanguageCode(setup?.fromLanguageCode, fromLanguage),
+    words: Array.isArray(setup?.words) ? setup.words.map(normalizeWordEntry) : [],
+  };
+}
+
+function currentSetup() {
+  return state.setups.find((setup) => setup.id === state.activeSetupId) || state.setups[0];
+}
+
+function speechLanguageCodeForCurrentCard() {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  return state.currentCard?.direction === "el-en"
+    ? setup.fromLanguageCode
+    : setup.learnLanguageCode;
+}
+
+function speechLanguageNameForCurrentCard() {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  return state.currentCard?.direction === "el-en"
+    ? setup.fromLanguage
+    : setup.learnLanguage;
+}
+
+function promptLanguageCodeForCurrentCard() {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  return state.currentCard?.direction === "el-en"
+    ? setup.learnLanguageCode
+    : setup.fromLanguageCode;
+}
+
+function answerLanguageCodeForCurrentCard() {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  return state.currentCard?.direction === "el-en"
+    ? setup.fromLanguageCode
+    : setup.learnLanguageCode;
+}
+
+function findVoiceForLanguage(languageCode) {
+  const voices = window.speechSynthesis?.getVoices?.() || [];
+  return (
+    voices.find((voice) => voice.lang.toLowerCase() === languageCode.toLowerCase()) ||
+    voices.find((voice) => voice.lang.toLowerCase().startsWith(`${languageCode.toLowerCase()}-`)) ||
+    null
+  );
+}
+
+function speakText(text, languageCode) {
+  if (!state.settings.speakPrompts || !text) return;
+  if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+    console.warn("Speech synthesis is not available in this browser.");
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = languageCode;
+  utterance.voice = findVoiceForLanguage(languageCode);
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+}
+
+function speakCurrentPrompt() {
+  speakText(state.currentCard?.spokenPrompt, promptLanguageCodeForCurrentCard());
+}
+
+function speakLearnedLanguageAnswer() {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  if (answerLanguageCodeForCurrentCard() !== setup.learnLanguageCode) return;
+  speakText(state.currentCard?.answers?.[0], setup.learnLanguageCode);
+}
+
+function setSpeechStatus(message) {
+  elements.speechStatus.textContent = message;
+}
+
+function resetSpeechLog() {
+  state.speech.logStartedAt = performance.now();
+  elements.speechLog.textContent = "";
+  elements.speechLogDetails.classList.add("empty");
+}
+
+function logSpeechStep(label, detail = "") {
+  if (!state.speech.logStartedAt) state.speech.logStartedAt = performance.now();
+  const elapsed = performance.now() - state.speech.logStartedAt;
+  const line = `${elapsed.toFixed(0).padStart(5, " ")} ms  ${label}${detail ? ` - ${detail}` : ""}`;
+  elements.speechLog.textContent += `${line}\n`;
+  elements.speechLogDetails.classList.remove("empty");
+  elements.speechLog.scrollTop = elements.speechLog.scrollHeight;
+}
+
+function updateSpeechControls() {
+  const canSpeak =
+    Boolean(state.currentCard) &&
+    !state.revealed &&
+    state.words.length > 0 &&
+    !state.speech.transcribing;
+
+  elements.speakAnswerButton.disabled = !canSpeak && !state.speech.recording;
+  elements.speakAnswerButton.textContent = state.speech.recording ? "Stop" : "Speak";
+  elements.speakAnswerButton.classList.toggle("recording", state.speech.recording);
+}
+
+function toggleSpeechRecording() {
+  if (state.speech.recording) {
+    stopSpeechRecording();
+    return;
+  }
+
+  if (elements.speakAnswerButton.disabled) return;
+  startSpeechRecording();
+}
+
+async function loadSpeechTranscriber() {
+  if (state.speech.transcriber) {
+    logSpeechStep("model ready", "reusing already-loaded model");
+    return state.speech.transcriber;
+  }
+  if (state.speech.loadPromise) {
+    logSpeechStep("model loading", "waiting for existing load");
+    return state.speech.loadPromise;
+  }
+
+  state.speech.loadPromise = (async () => {
+    const modelId = state.settings.speechModelId || DEFAULT_SPEECH_MODEL_ID;
+    setSpeechStatus(`Loading ${speechModelLabel(modelId)}...`);
+    logSpeechStep("model load start", speechModelLabel(modelId));
+    const importStartedAt = performance.now();
+    const { pipeline } = await import(TRANSFORMERS_CDN);
+    logSpeechStep("library import done", `${(performance.now() - importStartedAt).toFixed(0)} ms`);
+    logSpeechStep("webgpu available", navigator.gpu ? "yes" : "no");
+    const options = navigator.gpu ? [{ device: "webgpu" }, { device: "wasm" }] : [{ device: "wasm" }];
+    let lastError = null;
+
+    for (const option of options) {
+      try {
+        const loadStartedAt = performance.now();
+        logSpeechStep("backend try", option.device);
+        const transcriber = await pipeline("automatic-speech-recognition", modelId, option);
+        logSpeechStep("model load done", `${option.device}, ${(performance.now() - loadStartedAt).toFixed(0)} ms`);
+        state.speech.transcriber = transcriber;
+        return transcriber;
+      } catch (error) {
+        lastError = error;
+        logSpeechStep("backend failed", option.device);
+        console.warn(`Could not load speech model with ${option.device}.`, error);
+      }
+    }
+
+    throw lastError || new Error("Could not load speech model.");
+  })();
+
+  try {
+    return await state.speech.loadPromise;
+  } finally {
+    state.speech.loadPromise = null;
+  }
+}
+
+async function startSpeechRecording() {
+  resetSpeechLog();
+  logSpeechStep("speak clicked", `${speechLanguageNameForCurrentCard()} (${speechLanguageCodeForCurrentCard()})`);
+
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    setSpeechStatus("Speech input needs microphone support in this browser.");
+    logSpeechStep("microphone unavailable");
+    return;
+  }
+
+  try {
+    const micStartedAt = performance.now();
+    const streamAlreadyReady =
+      state.speech.stream?.active &&
+      state.speech.stream.getAudioTracks().some((track) => track.readyState === "live");
+    logSpeechStep(streamAlreadyReady ? "microphone reuse" : "microphone request");
+    state.speech.stream = await getSpeechStream();
+    logSpeechStep("microphone ready", `${(performance.now() - micStartedAt).toFixed(0)} ms`);
+    state.speech.chunks = [];
+    state.speech.mediaRecorder = new MediaRecorder(state.speech.stream);
+    logSpeechStep("recorder created", state.speech.mediaRecorder.mimeType || "default mime type");
+    state.speech.mediaRecorder.addEventListener("dataavailable", (event) => {
+      if (event.data.size) state.speech.chunks.push(event.data);
+    });
+    state.speech.mediaRecorder.addEventListener("stop", transcribeRecordedSpeech, { once: true });
+    state.speech.mediaRecorder.start();
+    state.speech.recording = true;
+    logSpeechStep("recording start");
+    setSpeechStatus(`Listening for ${speechLanguageNameForCurrentCard()}...`);
+    updateSpeechControls();
+    state.speech.stopTimer = window.setTimeout(() => {
+      if (state.speech.recording) {
+        logSpeechStep("auto stop timer");
+        stopSpeechRecording();
+      }
+    }, state.settings.speechMaxSeconds * 1000);
+  } catch (error) {
+    console.warn("Could not start speech recording.", error);
+    setSpeechStatus("Could not access the microphone.");
+    logSpeechStep("microphone failed", error?.message || String(error));
+    stopSpeechStream();
+  }
+}
+
+async function getSpeechStream() {
+  const existingStream = state.speech.stream;
+  const hasLiveAudio =
+    existingStream?.active &&
+    existingStream.getAudioTracks().some((track) => track.readyState === "live");
+
+  if (hasLiveAudio) return existingStream;
+
+  return navigator.mediaDevices.getUserMedia({ audio: true });
+}
+
+function stopSpeechStream() {
+  state.speech.stream?.getTracks().forEach((track) => track.stop());
+  state.speech.stream = null;
+}
+
+function stopSpeechRecording() {
+  if (!state.speech.recording) return;
+  logSpeechStep("recording stop requested");
+  window.clearTimeout(state.speech.stopTimer);
+  state.speech.stopTimer = null;
+  state.speech.recording = false;
+  setSpeechStatus("Transcribing...");
+  updateSpeechControls();
+
+  if (state.speech.mediaRecorder?.state !== "inactive") {
+    logSpeechStep("recorder stopping", state.speech.mediaRecorder.state);
+    state.speech.mediaRecorder.stop();
+  } else {
+    transcribeRecordedSpeech();
+  }
+}
+
+async function transcribeRecordedSpeech() {
+  logSpeechStep("recorder stopped", `${state.speech.chunks.length} chunk(s)`);
+  state.speech.transcribing = true;
+  updateSpeechControls();
+  let audioUrl = null;
+
+  try {
+    if (!state.speech.chunks.length) {
+      setSpeechStatus("No speech was recorded.");
+      logSpeechStep("no audio chunks");
+      return;
+    }
+
+    const audioBlob = new Blob(state.speech.chunks, { type: state.speech.mediaRecorder?.mimeType || "audio/webm" });
+    logSpeechStep("audio blob", `${Math.round(audioBlob.size / 1024)} KB, ${audioBlob.type || "unknown type"}`);
+    audioUrl = URL.createObjectURL(audioBlob);
+    const transcriber = await loadSpeechTranscriber();
+    setSpeechStatus(`Transcribing ${speechLanguageNameForCurrentCard()}...`);
+    const language = speechLanguageCodeForCurrentCard();
+    logSpeechStep("transcription start", `${speechModelLabel()}, language ${language}`);
+    const transcriptionStartedAt = performance.now();
+    const result = await transcriber(audioUrl, {
+      language,
+      task: "transcribe",
+    });
+    logSpeechStep("transcription done", `${(performance.now() - transcriptionStartedAt).toFixed(0)} ms`);
+
+    const text = String(result?.text || "").trim();
+    if (!text) {
+      setSpeechStatus("No words detected.");
+      logSpeechStep("empty transcript");
+      return;
+    }
+
+    elements.answerInput.value = text;
+    elements.answerInput.focus();
+    setSpeechStatus(`Heard: ${text} (${speechModelLabel()})`);
+    logSpeechStep("answer filled", text);
+  } catch (error) {
+    console.warn("Could not transcribe speech.", error);
+    setSpeechStatus("Could not transcribe that recording.");
+    logSpeechStep("speech error", error?.message || String(error));
+  } finally {
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    state.speech.chunks = [];
+    state.speech.mediaRecorder = null;
+    state.speech.transcribing = false;
+    updateSpeechControls();
+    logSpeechStep("speech flow done");
+  }
+}
+
+function syncActiveSetupWords() {
+  const setup = currentSetup();
+  if (!setup) return;
+  setup.words = state.words.map(normalizeWordEntry);
+}
+
+function serializableSetups() {
+  return state.setups.map((setup) => ({
+    id: setup.id,
+    learnLanguage: setup.learnLanguage,
+    learnLanguageCode: setup.learnLanguageCode,
+    fromLanguage: setup.fromLanguage,
+    fromLanguageCode: setup.fromLanguageCode,
+    words: setup.words.map(normalizeWordEntry),
+  }));
+}
+
+function saveSetups() {
+  syncActiveSetupWords();
+  localStorage.setItem(SETUPS_KEY, JSON.stringify(serializableSetups()));
+  localStorage.setItem(LAST_SETUP_KEY, state.activeSetupId);
+}
+
+function normalizeSettings(settings) {
+  const minScore = Number.parseInt(settings?.minScore, 10);
+  const maxScore = Number.parseInt(settings?.maxScore, 10);
+  const recentWrongLimit = Number.parseInt(settings?.recentWrongLimit, 10);
+  const speechMaxSeconds = Number.parseFloat(settings?.speechMaxSeconds);
+  const speechModelId = SPEECH_MODEL_OPTIONS.some((option) => option.id === settings?.speechModelId)
+    ? settings.speechModelId
+    : DEFAULT_SETTINGS.speechModelId;
+  const normalized = {
+    minScore: Number.isNaN(minScore) ? DEFAULT_SETTINGS.minScore : minScore,
+    maxScore: Number.isNaN(maxScore) ? DEFAULT_SETTINGS.maxScore : maxScore,
+    recentWrongLimit: Number.isNaN(recentWrongLimit)
+      ? DEFAULT_SETTINGS.recentWrongLimit
+      : Math.max(1, recentWrongLimit),
+    speechModelId,
+    speechMaxSeconds: Number.isNaN(speechMaxSeconds)
+      ? DEFAULT_SETTINGS.speechMaxSeconds
+      : Math.max(1, Math.min(10, speechMaxSeconds)),
+    speakPrompts:
+      typeof settings?.speakPrompts === "boolean"
+        ? settings.speakPrompts
+        : DEFAULT_SETTINGS.speakPrompts,
+  };
+
+  if (normalized.minScore >= normalized.maxScore) {
+    return { ...DEFAULT_SETTINGS };
+  }
+
+  return normalized;
+}
+
+function loadSettings() {
+  try {
+    state.settings = normalizeSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null"));
+  } catch {
+    state.settings = { ...DEFAULT_SETTINGS };
+  }
+}
+
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+}
+
+function speechModelLabel(modelId = state.settings.speechModelId) {
+  return SPEECH_MODEL_OPTIONS.find((option) => option.id === modelId)?.label || modelId;
+}
+
+function applySettingsToWords() {
+  state.words = state.words.map(normalizeWordEntry);
+  enforceRecentWrongLimit();
+}
+
+function normalizeWordEntry(entry) {
+  const legacyScore = clampScore(entry.score || 0);
+  return {
+    greek: Array.isArray(entry.greek) ? entry.greek.filter(Boolean) : splitVariants(entry.greek || ""),
+    english: Array.isArray(entry.english)
+      ? entry.english.filter(Boolean)
+      : splitVariants(entry.english || ""),
+    elToEnScore: clampScore(entry.elToEnScore ?? legacyScore),
+    enToElScore: clampScore(entry.enToElScore ?? legacyScore),
+    recentWrong: Boolean(entry.recentWrong),
+    notes: String(entry.notes || ""),
+  };
+}
+
+function getScoreForDirection(entry, direction) {
+  const word = normalizeWordEntry(entry);
+  return direction === "el-en" ? word.elToEnScore : word.enToElScore;
+}
+
+function wordsFromCsv(text) {
+  const rows = parseCsv(text).filter((row) => row.some((field) => field.trim()));
+  const header = rows[0]?.map((field) => field.trim().toLowerCase());
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const learnKey = setup.learnLanguage.toLowerCase().replace(/\s+/g, "_");
+  const fromKey = setup.fromLanguage.toLowerCase().replace(/\s+/g, "_");
+  const hasHeader =
+    header?.[0] === "greek" ||
+    header?.[0] === learnKey ||
+    header?.includes("recent_wrong") ||
+    header?.includes("explanations_examples") ||
+    header?.includes("notes");
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+  const scoreIndex = hasHeader ? header.indexOf("score") : 2;
+  const elToEnIndex = hasHeader
+    ? Math.max(header.indexOf("greek_to_english_score"), header.indexOf(`${learnKey}_to_${fromKey}_score`))
+    : 2;
+  const enToElIndex = hasHeader
+    ? Math.max(header.indexOf("english_to_greek_score"), header.indexOf(`${fromKey}_to_${learnKey}_score`))
+    : 3;
+  const recentWrongIndex = hasHeader ? header.indexOf("recent_wrong") : 4;
+  const notesIndex = hasHeader
+    ? Math.max(header.indexOf("explanations_examples"), header.indexOf("notes"))
+    : 5;
+
+  const words = dataRows
+    .map((row) => {
+      const legacyScore = clampScore(scoreIndex >= 0 ? row[scoreIndex] : 0);
+      return {
+        greek: splitVariants(row[0] || ""),
+        english: splitVariants(row[1] || ""),
+        elToEnScore: clampScore(elToEnIndex >= 0 ? row[elToEnIndex] : legacyScore),
+        enToElScore: clampScore(enToElIndex >= 0 ? row[enToElIndex] : legacyScore),
+        recentWrong: recentWrongIndex >= 0 ? parseBoolean(row[recentWrongIndex]) : false,
+        notes: notesIndex >= 0 ? row[notesIndex] || "" : "",
+      };
+    })
+    .filter((entry) => entry.greek.length && entry.english.length);
+
+  enforceRecentWrongLimit(words);
+  return words;
+}
+
+function saveBackup() {
+  saveSetups();
+}
+
+async function persistWords() {
+  saveBackup();
+  if (!state.fileHandle) return;
+
+  try {
+    await saveToHandle();
+  } catch (error) {
+    console.warn("Could not write to the selected CSV file.", error);
+  }
+}
+
+function getBackupWords() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    if (Array.isArray(saved)) {
+      const words = saved
+        .filter((entry) => Array.isArray(entry.greek) && Array.isArray(entry.english))
+        .map(normalizeWordEntry);
+      enforceRecentWrongLimit(words);
+      return words;
+    }
+  } catch {
+    return [];
+  }
+  return [];
+}
+
+function loadSetups() {
+  let setups = [];
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETUPS_KEY) || "[]");
+    if (Array.isArray(saved)) {
+      setups = saved.map(normalizeSetup).filter((setup) => setup.words);
+    }
+  } catch {
+    setups = [];
+  }
+
+  if (!setups.length) {
+    setups = [{ ...DEFAULT_SETUP, words: getBackupWords() }].map(normalizeSetup);
+  }
+
+  state.setups = setups;
+  const lastSetupId = localStorage.getItem(LAST_SETUP_KEY);
+  state.activeSetupId = setups.some((setup) => setup.id === lastSetupId)
+    ? lastSetupId
+    : setups[0].id;
+  const setup = currentSetup();
+  state.words = setup ? setup.words.map(normalizeWordEntry) : [];
+  state.fileHandle = state.fileHandles.get(state.activeSetupId) || null;
+}
+
+function switchSetup(setupId) {
+  if (!state.setups.some((setup) => setup.id === setupId)) return;
+  syncActiveSetupWords();
+  state.fileHandles.set(state.activeSetupId, state.fileHandle);
+  state.activeSetupId = setupId;
+  const setup = currentSetup();
+  state.words = setup.words.map(normalizeWordEntry);
+  state.fileHandle = state.fileHandles.get(setupId) || null;
+  state.currentCard = null;
+  state.revealed = false;
+  localStorage.setItem(LAST_SETUP_KEY, setupId);
+  saveSetups();
+  render();
+}
+
+function deleteCurrentSetup() {
+  const setup = currentSetup();
+  if (!setup) return;
+
+  if (state.setups.length <= 1) {
+    window.alert("Create another setup before deleting this one.");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete setup "${setupLabel(setup)}" and its saved words from this browser?`,
+  );
+  if (!confirmed) return;
+
+  const deletedSetupId = setup.id;
+  const deletedIndex = state.setups.findIndex((item) => item.id === deletedSetupId);
+  state.fileHandles.delete(deletedSetupId);
+  state.setups = state.setups.filter((item) => item.id !== deletedSetupId);
+
+  const nextSetup = state.setups[Math.max(0, deletedIndex - 1)] || state.setups[0];
+  state.activeSetupId = nextSetup.id;
+  state.words = nextSetup.words.map(normalizeWordEntry);
+  state.fileHandle = state.fileHandles.get(nextSetup.id) || null;
+  state.currentCard = null;
+  state.revealed = false;
+  saveSetups();
+  render();
+}
+
+function createNewSetup() {
+  const learnLanguage = cleanLanguageName(elements.learnLanguageInput.value, "");
+  const fromLanguage = cleanLanguageName(elements.fromLanguageInput.value, "");
+  const learnLanguageCode = cleanLanguageCode(elements.learnLanguageCodeInput.value, learnLanguage);
+  const fromLanguageCode = cleanLanguageCode(elements.fromLanguageCodeInput.value, fromLanguage);
+
+  if (!learnLanguage || !fromLanguage) {
+    elements.newSetupMessage.textContent = "Enter both languages.";
+    return;
+  }
+
+  if (!learnLanguageCode || !fromLanguageCode) {
+    elements.newSetupMessage.textContent = "Enter speech shortcuts for both languages.";
+    return;
+  }
+
+  syncActiveSetupWords();
+  state.fileHandles.set(state.activeSetupId, state.fileHandle);
+  const setup = normalizeSetup({
+    id: createSetupId(learnLanguage, fromLanguage),
+    learnLanguage,
+    learnLanguageCode,
+    fromLanguage,
+    fromLanguageCode,
+    words: [],
+  });
+  state.setups.push(setup);
+  state.activeSetupId = setup.id;
+  state.words = [];
+  state.fileHandle = null;
+  state.currentCard = null;
+  state.revealed = false;
+  saveSetups();
+  elements.learnLanguageInput.value = "";
+  elements.learnLanguageCodeInput.value = "";
+  elements.fromLanguageInput.value = "";
+  elements.fromLanguageCodeInput.value = "";
+  elements.newSetupMessage.textContent = "";
+  elements.newSetupDialog.close();
+  render();
+}
+
+function fillLanguageOptions() {
+  elements.languageNameOptions.innerHTML = "";
+  LANGUAGE_SHORTCUTS.forEach(([name, code]) => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.label = `${name} (${code})`;
+    elements.languageNameOptions.append(option);
+  });
+}
+
+function autofillLanguageCode(nameInput, codeInput) {
+  const nextCode = cleanLanguageCode("", nameInput.value);
+  if (!nextCode) return;
+
+  const previousAutoCode = codeInput.dataset.autoCode || "";
+  if (!codeInput.value.trim() || codeInput.value.trim() === previousAutoCode) {
+    codeInput.value = nextCode;
+    codeInput.dataset.autoCode = nextCode;
+  }
+}
+
+function enforceRecentWrongLimit(words = state.words, preserveEntry = null) {
+  const overflow = words.filter((entry) => entry.recentWrong).length - state.settings.recentWrongLimit;
+  if (overflow <= 0) return;
+
+  let removed = 0;
+  for (const entry of words) {
+    if (entry === preserveEntry) continue;
+    if (!entry.recentWrong) continue;
+    entry.recentWrong = false;
+    removed += 1;
+    if (removed >= overflow) return;
+  }
+}
+
+async function mergeWords(entries) {
+  const existingKeys = new Set(
+    state.words.map((entry) => `${entry.greek.join("|")}::${entry.english.join("|")}`),
+  );
+
+  let added = 0;
+  entries.forEach((entry) => {
+    const key = `${entry.greek.join("|")}::${entry.english.join("|")}`;
+    if (!existingKeys.has(key)) {
+      state.words.push(entry);
+      existingKeys.add(key);
+      added += 1;
+    }
+  });
+
+  await persistWords();
+  render();
+  return added;
+}
+
+function chooseDirection() {
+  if (state.direction !== "mixed") return state.direction;
+  return Math.random() > 0.5 ? "el-en" : "en-el";
+}
+
+function chooseWeightedWord(direction, excludedEntry = null) {
+  const candidates =
+    state.words.length > 1
+      ? state.words.filter((entry) => entry !== excludedEntry)
+      : state.words;
+  const weights = candidates.map((entry) => Math.exp(-0.5 * getScoreForDirection(entry, direction)));
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  let target = Math.random() * totalWeight;
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    target -= weights[index];
+    if (target <= 0) return candidates[index];
+  }
+
+  return candidates[candidates.length - 1];
+}
+
+function chooseRecentWrongWord(excludedEntry = null) {
+  const allRecentWrongWords = state.words.filter((entry) => entry.recentWrong);
+  const recentWrongWords = allRecentWrongWords.filter((entry) => entry !== excludedEntry);
+
+  if (!recentWrongWords.length) return null;
+
+  return recentWrongWords[Math.floor(Math.random() * recentWrongWords.length)];
+}
+
+function chooseNextWord(direction) {
+  const recentWrongCount = state.words.filter((entry) => entry.recentWrong).length;
+  const excludedEntry = state.currentCard?.entry || null;
+
+  if (
+    recentWrongCount > 0 &&
+    Math.random() < recentWrongCount / state.settings.recentWrongLimit
+  ) {
+    const recentWrongWord = chooseRecentWrongWord(excludedEntry);
+    if (recentWrongWord) return recentWrongWord;
+  }
+
+  return chooseWeightedWord(direction, excludedEntry);
+}
+
+function nextCard() {
+  if (!state.words.length) {
+    state.currentCard = null;
+    state.revealed = false;
+    renderQuiz();
+    return;
+  }
+
+  const direction = chooseDirection();
+  const entry = chooseNextWord(direction);
+  const promptSide = direction === "el-en" ? entry.greek : entry.english;
+  const answerSide = direction === "el-en" ? entry.english : entry.greek;
+  const answerKey = direction === "el-en" ? "english" : "greek";
+
+  state.currentCard = {
+    direction,
+    entry,
+    prompt: joinVariants(promptSide),
+    spokenPrompt: promptSide[0] || "",
+    answers: answerSide,
+    answerKey,
+    submittedAnswer: "",
+  };
+  state.revealed = false;
+  elements.answerInput.value = "";
+  setSpeechStatus("");
+  renderQuiz();
+  speakCurrentPrompt();
+  elements.answerInput.focus();
+}
+
+function answerMatches(input, answers) {
+  const normalizedInput = normalizeAnswer(input);
+  return answers.some((answer) => normalizeAnswer(answer) === normalizedInput);
+}
+
+async function addSubmittedAnswerAsTranslation() {
+  if (!state.currentCard?.submittedAnswer) return;
+
+  const answer = state.currentCard.submittedAnswer.trim();
+  const translations = state.currentCard.entry[state.currentCard.answerKey];
+  const alreadyExists = translations.some(
+    (translation) => normalizeAnswer(translation) === normalizeAnswer(answer),
+  );
+
+  if (!alreadyExists) {
+    translations.push(answer);
+    await persistWords();
+    renderWords();
+  }
+
+  const addedAnswer = document.createElement("strong");
+  addedAnswer.textContent = answer;
+  elements.feedback.className = "feedback correct";
+  elements.feedback.replaceChildren(
+    "Added ",
+    addedAnswer,
+    " as an accepted answer. ",
+    createEditCurrentWordButton(),
+    " Press Enter for the next word.",
+  );
+  elements.notesPanel.textContent = state.currentCard.entry.notes || "";
+}
+
+function createEditCurrentWordButton() {
+  const editButton = document.createElement("button");
+  editButton.className = "inline-action";
+  editButton.type = "button";
+  editButton.textContent = "Edit word";
+  editButton.addEventListener("click", () => {
+    openEditWordsDialog(state.currentCard?.entry);
+  });
+  return editButton;
+}
+
+function createTextInput(value, label) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = value;
+  input.setAttribute("aria-label", label);
+  return input;
+}
+
+function createNotesInput(value) {
+  const textarea = document.createElement("textarea");
+  textarea.className = "notes-input";
+  textarea.rows = 2;
+  textarea.value = value;
+  textarea.setAttribute("aria-label", "Explanations and examples");
+  return textarea;
+}
+
+function createScoreInput(value, label) {
+  const input = document.createElement("input");
+  input.type = "number";
+  input.min = String(state.settings.minScore);
+  input.max = String(state.settings.maxScore);
+  input.step = "1";
+  input.value = clampScore(value);
+  input.setAttribute("aria-label", label);
+  return input;
+}
+
+function createRecentWrongInput(value) {
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.checked = Boolean(value);
+  input.setAttribute("aria-label", "In recent wrong list");
+  return input;
+}
+
+function renderSettingsDialog() {
+  elements.minScoreInput.value = state.settings.minScore;
+  elements.maxScoreInput.value = state.settings.maxScore;
+  elements.recentWrongLimitInput.value = state.settings.recentWrongLimit;
+  elements.speechMaxSecondsInput.value = state.settings.speechMaxSeconds;
+  elements.speakPromptsInput.checked = state.settings.speakPrompts;
+  elements.speechModelSelect.innerHTML = "";
+  SPEECH_MODEL_OPTIONS.forEach((option) => {
+    const modelOption = document.createElement("option");
+    modelOption.value = option.id;
+    modelOption.textContent = option.label;
+    modelOption.selected = option.id === state.settings.speechModelId;
+    elements.speechModelSelect.append(modelOption);
+  });
+  elements.settingsMessage.textContent = "";
+}
+
+async function saveSettingsFromDialog() {
+  const minScore = Number.parseInt(elements.minScoreInput.value, 10);
+  const maxScore = Number.parseInt(elements.maxScoreInput.value, 10);
+  const recentWrongLimit = Number.parseInt(elements.recentWrongLimitInput.value, 10);
+  const speechMaxSeconds = Number.parseFloat(elements.speechMaxSecondsInput.value);
+  const speechModelId = elements.speechModelSelect.value || DEFAULT_SETTINGS.speechModelId;
+  const speakPrompts = elements.speakPromptsInput.checked;
+  const previousSpeechModelId = state.settings.speechModelId;
+
+  if (Number.isNaN(minScore) || Number.isNaN(maxScore) || minScore >= maxScore) {
+    elements.settingsMessage.textContent = "Minimum score must be lower than maximum score.";
+    return;
+  }
+
+  if (Number.isNaN(recentWrongLimit) || recentWrongLimit < 1) {
+    elements.settingsMessage.textContent = "Recent-wrong list size must be at least 1.";
+    return;
+  }
+
+  if (Number.isNaN(speechMaxSeconds) || speechMaxSeconds < 1 || speechMaxSeconds > 10) {
+    elements.settingsMessage.textContent = "Max recording seconds must be between 1 and 10.";
+    return;
+  }
+
+  state.settings = {
+    minScore,
+    maxScore,
+    recentWrongLimit,
+    speechModelId,
+    speechMaxSeconds,
+    speakPrompts,
+  };
+  if (!speakPrompts) window.speechSynthesis?.cancel?.();
+  if (speechModelId !== previousSpeechModelId) {
+    state.speech.transcriber = null;
+    state.speech.loadPromise = null;
+    setSpeechStatus("");
+  }
+  saveSettings();
+  applySettingsToWords();
+  await persistWords();
+  elements.settingsDialog.close();
+  render();
+}
+
+function renderEditTable(focusEntry = null) {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  elements.editWordsTableBody.innerHTML = "";
+  elements.editMessage.textContent = "";
+
+  state.words.forEach((entry) => {
+    const row = document.createElement("tr");
+    const greekCell = document.createElement("td");
+    const englishCell = document.createElement("td");
+    const elToEnCell = document.createElement("td");
+    const enToElCell = document.createElement("td");
+    const recentWrongCell = document.createElement("td");
+    const notesCell = document.createElement("td");
+    const actionCell = document.createElement("td");
+
+    greekCell.append(createTextInput(joinVariants(entry.greek), `${setup.learnLanguage} translations`));
+    englishCell.append(createTextInput(joinVariants(entry.english), `${setup.fromLanguage} translations`));
+    elToEnCell.append(createScoreInput(entry.elToEnScore, `${setup.learnLanguage} to ${setup.fromLanguage} score`));
+    enToElCell.append(createScoreInput(entry.enToElScore, `${setup.fromLanguage} to ${setup.learnLanguage} score`));
+    recentWrongCell.append(createRecentWrongInput(entry.recentWrong));
+    notesCell.append(createNotesInput(entry.notes || ""));
+
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "delete-word";
+    deleteButton.type = "button";
+    deleteButton.setAttribute("aria-label", "Delete row");
+    deleteButton.textContent = "×";
+    deleteButton.addEventListener("click", () => {
+      row.remove();
+    });
+    actionCell.append(deleteButton);
+
+    if (entry === focusEntry) {
+      row.className = "edit-target-row";
+    }
+
+    row.append(greekCell, englishCell, elToEnCell, enToElCell, recentWrongCell, notesCell, actionCell);
+    elements.editWordsTableBody.append(row);
+  });
+}
+
+function openEditWordsDialog(focusEntry = null) {
+  renderEditTable(focusEntry);
+  elements.editWordsDialog.showModal();
+
+  if (!focusEntry) return;
+
+  const targetRow = elements.editWordsTableBody.querySelector(".edit-target-row");
+  targetRow?.scrollIntoView({ block: "center" });
+  targetRow?.querySelector("input")?.focus();
+}
+
+async function saveEditedWords() {
+  const rows = [...elements.editWordsTableBody.querySelectorAll("tr")];
+  const nextWords = [];
+  const errors = [];
+
+  rows.forEach((row, index) => {
+    const inputs = row.querySelectorAll("input");
+    const notesInput = row.querySelector("textarea");
+    const greek = splitVariants(inputs[0].value);
+    const english = splitVariants(inputs[1].value);
+
+    if (!greek.length || !english.length) {
+      errors.push(`Row ${index + 1} needs words on both sides.`);
+      return;
+    }
+
+    nextWords.push({
+      greek,
+      english,
+      elToEnScore: clampScore(inputs[2].value),
+      enToElScore: clampScore(inputs[3].value),
+      recentWrong: inputs[4].checked,
+      notes: notesInput?.value.trim() || "",
+    });
+  });
+
+  if (errors.length) {
+    elements.editMessage.textContent = errors.slice(0, 3).join(" ");
+    return;
+  }
+
+  state.words = nextWords;
+  enforceRecentWrongLimit();
+  state.currentCard = null;
+  await persistWords();
+  elements.editWordsDialog.close();
+  render();
+}
+
+async function revealAnswer() {
+  if (!state.currentCard) return;
+
+  const isCorrect = answerMatches(elements.answerInput.value, state.currentCard.answers);
+  const entry = state.currentCard.entry;
+  state.currentCard.submittedAnswer = elements.answerInput.value.trim();
+  const scoreKey = state.currentCard.direction === "el-en" ? "elToEnScore" : "enToElScore";
+  entry[scoreKey] = clampScore((entry[scoreKey] || 0) + (isCorrect ? 1 : -1));
+
+  if (isCorrect) {
+    entry.recentWrong = false;
+  } else if (
+    entry.recentWrong ||
+    state.words.filter((word) => word.recentWrong).length < state.settings.recentWrongLimit
+  ) {
+    entry.recentWrong = true;
+  }
+
+  await persistWords();
+
+  elements.feedback.className = `feedback ${isCorrect ? "correct" : "incorrect"}`;
+  const scoreText = document.createElement("strong");
+  scoreText.textContent = String(entry[scoreKey]);
+  const answersText = document.createElement("strong");
+  answersText.textContent = joinVariants(state.currentCard.answers);
+
+  if (isCorrect) {
+    elements.feedback.replaceChildren(
+      "Correct. Accepted: ",
+      answersText,
+      ". Score is now ",
+      scoreText,
+      ". ",
+      createEditCurrentWordButton(),
+      " Press Enter for the next word.",
+    );
+  } else {
+    const addButton = document.createElement("button");
+    addButton.className = "inline-action";
+    addButton.type = "button";
+    addButton.textContent = "Add my answer";
+    addButton.addEventListener("click", addSubmittedAnswerAsTranslation);
+    elements.feedback.replaceChildren(
+      "Not quite. Accepted: ",
+      answersText,
+      ". Score is now ",
+      scoreText,
+      ". ",
+      addButton,
+      createEditCurrentWordButton(),
+      " Press Enter for the next word.",
+    );
+  }
+
+  elements.submitAnswerButton.textContent = "Next";
+  state.revealed = true;
+  elements.notesPanel.textContent = entry.notes || "";
+  updateSpeechControls();
+  renderWords();
+  speakLearnedLanguageAnswer();
+}
+
+function renderWords() {
+  if (elements.wordList) elements.wordList.innerHTML = "";
+  if (elements.emptyWords) elements.emptyWords.hidden = state.words.length > 0;
+  elements.wordCount.textContent = `${state.words.length} saved`;
+  if (!elements.wordList) return;
+
+  state.words.forEach((entry, index) => {
+    const row = document.createElement("div");
+    row.className = "word-row";
+    const greek = document.createElement("span");
+    const arrow = document.createElement("span");
+    const english = document.createElement("span");
+    const elToEnScore = document.createElement("span");
+    const enToElScore = document.createElement("span");
+    const recentWrong = document.createElement("span");
+    const deleteButton = document.createElement("button");
+
+    greek.textContent = joinVariants(entry.greek);
+    arrow.className = "arrow";
+    arrow.textContent = "→";
+    english.textContent = joinVariants(entry.english);
+    elToEnScore.className = "score";
+    elToEnScore.textContent = `EL→EN ${clampScore(entry.elToEnScore)}`;
+    enToElScore.className = "score";
+    enToElScore.textContent = `EN→EL ${clampScore(entry.enToElScore)}`;
+    recentWrong.className = "score recent-wrong";
+    recentWrong.textContent = "Recent wrong";
+    recentWrong.hidden = !entry.recentWrong;
+    deleteButton.className = "delete-word";
+    deleteButton.type = "button";
+    deleteButton.setAttribute("aria-label", "Delete word");
+    deleteButton.textContent = "×";
+
+    deleteButton.addEventListener("click", async () => {
+      state.words.splice(index, 1);
+      await persistWords();
+      if (!state.words.length) state.currentCard = null;
+      render();
+    });
+
+    row.append(greek, arrow, english, elToEnScore, enToElScore, recentWrong, deleteButton);
+    elements.wordList.append(row);
+  });
+}
+
+function renderQuiz() {
+  const hasWords = state.words.length > 0;
+  const recentWrongCount = state.words.filter((entry) => entry.recentWrong).length;
+  elements.answerInput.disabled = !hasWords;
+  elements.submitAnswerButton.disabled = !hasWords;
+  elements.quizMeta.textContent = hasWords
+    ? `${state.words.length} ${state.words.length === 1 ? "entry" : "entries"} ready · ${recentWrongCount}/${state.settings.recentWrongLimit} recent wrong`
+    : "Add at least one word to begin";
+
+  if (!state.currentCard) {
+    elements.promptLabel.textContent = "Prompt";
+    elements.promptWord.textContent = hasWords ? "Press Enter to begin" : "No words yet";
+    elements.feedback.className = "feedback";
+    elements.feedback.textContent = "";
+    elements.notesPanel.textContent = "";
+    elements.submitAnswerButton.textContent = "Enter";
+    updateSpeechControls();
+    return;
+  }
+
+  const setup = currentSetup() || DEFAULT_SETUP;
+  elements.promptLabel.textContent =
+    state.currentCard.direction === "el-en"
+      ? `${setup.learnLanguage} to ${setup.fromLanguage}`
+      : `${setup.fromLanguage} to ${setup.learnLanguage}`;
+  elements.promptWord.textContent = state.currentCard.prompt;
+
+  if (!state.revealed) {
+    elements.feedback.className = "feedback";
+    elements.feedback.textContent = "";
+    elements.notesPanel.textContent = "";
+    elements.submitAnswerButton.textContent = "Check";
+  }
+
+  updateSpeechControls();
+}
+
+function renderDirections() {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  elements.greekToEnglishButton.textContent = `${setup.learnLanguage} → ${setup.fromLanguage}`;
+  elements.englishToGreekButton.textContent = `${setup.fromLanguage} → ${setup.learnLanguage}`;
+
+  const buttons = {
+    "el-en": elements.greekToEnglishButton,
+    "en-el": elements.englishToGreekButton,
+    mixed: elements.mixedButton,
+  };
+
+  Object.entries(buttons).forEach(([direction, button]) => {
+    button.classList.toggle("active", state.direction === direction);
+  });
+}
+
+function renderSetupControls() {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  elements.languagePairLabel.textContent = `${setup.fromLanguage} ⇄ ${setup.learnLanguage}`;
+  elements.appTitle.textContent = `${setup.learnLanguage} Vocabulary Trainer`;
+  document.title = elements.appTitle.textContent;
+  elements.answerInput.placeholder = `Type the ${setup.learnLanguage} or ${setup.fromLanguage} translation`;
+  elements.wordsTextarea.placeholder =
+    `${setup.learnLanguage} word / alternative: ${setup.fromLanguage} translation :: Optional explanation`;
+  elements.pasteCsvTextarea.placeholder =
+    `${setup.learnLanguage.toLowerCase()},${setup.fromLanguage.toLowerCase()},${setup.learnLanguage.toLowerCase()}_to_${setup.fromLanguage.toLowerCase()}_score,${setup.fromLanguage.toLowerCase()}_to_${setup.learnLanguage.toLowerCase()}_score,recent_wrong,explanations_examples`;
+
+  elements.setupSelect.innerHTML = "";
+  state.setups.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.textContent = setupLabel(item);
+    option.selected = item.id === state.activeSetupId;
+    elements.setupSelect.append(option);
+  });
+  elements.deleteSetupButton.disabled = state.setups.length <= 1;
+
+  const headers = elements.editWordsDialog.querySelectorAll("th");
+  if (headers[0]) headers[0].textContent = setup.learnLanguage;
+  if (headers[1]) headers[1].textContent = setup.fromLanguage;
+  if (headers[2]) headers[2].textContent = `${setup.learnLanguage} → ${setup.fromLanguage}`;
+  if (headers[3]) headers[3].textContent = `${setup.fromLanguage} → ${setup.learnLanguage}`;
+}
+
+function render() {
+  renderSetupControls();
+  renderWords();
+  renderDirections();
+  if (!state.currentCard && state.words.length) {
+    nextCard();
+    return;
+  }
+  renderQuiz();
+}
+
+async function saveToHandle() {
+  if (!state.fileHandle) return false;
+  syncActiveSetupWords();
+  if (state.fileHandle.queryPermission && state.fileHandle.requestPermission) {
+    const options = { mode: "readwrite" };
+    const permission =
+      (await state.fileHandle.queryPermission(options)) === "granted"
+        ? "granted"
+        : await state.fileHandle.requestPermission(options);
+
+    if (permission !== "granted") return false;
+  }
+
+  const writable = await state.fileHandle.createWritable();
+  await writable.write(toCsv(state.words));
+  await writable.close();
+  return true;
+}
+
+function downloadCsv() {
+  syncActiveSetupWords();
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const blob = new Blob([toCsv(state.words)], { type: CSV_MIME });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${setup.learnLanguage}-${setup.fromLanguage}-vocabulary.csv`.replace(/\s+/g, "-");
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function copyCsvToClipboard() {
+  syncActiveSetupWords();
+  const csvText = toCsv(state.words);
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(csvText);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = csvText;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.append(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+
+    elements.copyCsvButton.textContent = "Copied";
+    window.setTimeout(() => {
+      elements.copyCsvButton.textContent = "Copy CSV";
+    }, 1600);
+  } catch (error) {
+    console.warn("Could not copy CSV to clipboard.", error);
+    elements.copyCsvButton.textContent = "Copy failed";
+    window.setTimeout(() => {
+      elements.copyCsvButton.textContent = "Copy CSV";
+    }, 2200);
+  }
+}
+
+async function loadCsvFile(file) {
+  loadCsvText(await file.text());
+}
+
+function loadCsvText(text) {
+  state.words = wordsFromCsv(text);
+  saveBackup();
+  state.currentCard = null;
+  render();
+}
+
+function openCsvWithFileInput() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".csv,text/csv,text/plain,application/vnd.ms-excel,*/*";
+  input.addEventListener("change", async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    state.fileHandle = null;
+    state.fileHandles.delete(state.activeSetupId);
+    await loadCsvFile(file);
+  });
+  input.click();
+}
+
+function importPastedCsv() {
+  const text = elements.pasteCsvTextarea.value.trim();
+  if (!text) {
+    elements.pasteCsvMessage.textContent = "Paste CSV text before importing.";
+    return;
+  }
+
+  const words = wordsFromCsv(text);
+  if (!words.length) {
+    elements.pasteCsvMessage.textContent = "No valid words found in that CSV.";
+    return;
+  }
+
+  state.words = words;
+  saveBackup();
+  state.fileHandle = null;
+  state.fileHandles.delete(state.activeSetupId);
+  state.currentCard = null;
+  elements.pasteCsvTextarea.value = "";
+  elements.pasteCsvDialog.close();
+  render();
+}
+
+elements.addWordsButton.addEventListener("click", () => {
+  elements.parseMessage.textContent = "";
+  elements.addWordsDialog.showModal();
+  elements.wordsTextarea.focus();
+});
+
+elements.newSetupButton.addEventListener("click", () => {
+  elements.learnLanguageInput.value = "";
+  elements.learnLanguageCodeInput.value = "";
+  elements.fromLanguageInput.value = "";
+  elements.fromLanguageCodeInput.value = "";
+  elements.newSetupMessage.textContent = "";
+  elements.newSetupDialog.showModal();
+  elements.learnLanguageInput.focus();
+});
+
+elements.setupSelect.addEventListener("change", () => {
+  switchSetup(elements.setupSelect.value);
+});
+
+elements.deleteSetupButton.addEventListener("click", deleteCurrentSetup);
+
+elements.pasteCsvButton.addEventListener("click", () => {
+  elements.pasteCsvMessage.textContent = "";
+  elements.pasteCsvDialog.showModal();
+  elements.pasteCsvTextarea.focus();
+});
+
+elements.settingsButton.addEventListener("click", () => {
+  renderSettingsDialog();
+  elements.settingsDialog.showModal();
+});
+
+elements.editWordsButton.addEventListener("click", () => {
+  openEditWordsDialog();
+});
+
+elements.closeDialogButton.addEventListener("click", () => {
+  elements.addWordsDialog.close();
+});
+
+elements.closeNewSetupDialogButton.addEventListener("click", () => {
+  elements.newSetupDialog.close();
+});
+
+elements.closeEditDialogButton.addEventListener("click", () => {
+  elements.editWordsDialog.close();
+});
+
+elements.closeSettingsDialogButton.addEventListener("click", () => {
+  elements.settingsDialog.close();
+});
+
+elements.closePasteCsvDialogButton.addEventListener("click", () => {
+  elements.pasteCsvDialog.close();
+});
+
+elements.cancelPasteCsvButton.addEventListener("click", () => {
+  elements.pasteCsvDialog.close();
+});
+
+elements.cancelNewSetupButton.addEventListener("click", () => {
+  elements.newSetupDialog.close();
+});
+
+elements.importPastedCsvButton.addEventListener("click", importPastedCsv);
+
+elements.createSetupButton.addEventListener("click", createNewSetup);
+
+elements.learnLanguageInput.addEventListener("input", () => {
+  autofillLanguageCode(elements.learnLanguageInput, elements.learnLanguageCodeInput);
+});
+
+elements.fromLanguageInput.addEventListener("input", () => {
+  autofillLanguageCode(elements.fromLanguageInput, elements.fromLanguageCodeInput);
+});
+
+elements.newSetupDialog.querySelector("form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  createNewSetup();
+});
+
+elements.cancelSettingsButton.addEventListener("click", () => {
+  elements.settingsDialog.close();
+});
+
+elements.saveSettingsButton.addEventListener("click", saveSettingsFromDialog);
+
+elements.preloadSpeechModelButton.addEventListener("click", async () => {
+  resetSpeechLog();
+  logSpeechStep("preload clicked", speechModelLabel());
+  try {
+    await loadSpeechTranscriber();
+    setSpeechStatus(`${speechModelLabel()} is ready.`);
+  } catch (error) {
+    console.warn("Could not preload speech model.", error);
+    setSpeechStatus("Could not preload the speech model.");
+  }
+});
+
+elements.cancelEditWordsButton.addEventListener("click", () => {
+  elements.editWordsDialog.close();
+});
+
+elements.saveEditedWordsButton.addEventListener("click", saveEditedWords);
+
+elements.clearTextareaButton.addEventListener("click", () => {
+  elements.wordsTextarea.value = "";
+  elements.parseMessage.textContent = "";
+  elements.wordsTextarea.focus();
+});
+
+elements.importWordsButton.addEventListener("click", async () => {
+  const { entries, errors } = parseWordLines(elements.wordsTextarea.value);
+  const added = await mergeWords(entries);
+  elements.parseMessage.textContent = [
+    added ? `Added ${added} ${added === 1 ? "entry" : "entries"}.` : "",
+    errors.slice(0, 3).join(" "),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  if (entries.length && !errors.length) {
+    elements.wordsTextarea.value = "";
+    elements.addWordsDialog.close();
+  }
+});
+
+elements.answerForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  if (!state.currentCard && state.words.length) {
+    nextCard();
+    return;
+  }
+
+  if (state.revealed) {
+    nextCard();
+    return;
+  }
+
+  await revealAnswer();
+});
+
+elements.speakAnswerButton.addEventListener("click", toggleSpeechRecording);
+
+document.addEventListener("keydown", (event) => {
+  if (event.key.toLowerCase() !== "m" || (!event.ctrlKey && !event.metaKey)) return;
+
+  event.preventDefault();
+  toggleSpeechRecording();
+});
+
+[
+  [elements.greekToEnglishButton, "el-en"],
+  [elements.englishToGreekButton, "en-el"],
+  [elements.mixedButton, "mixed"],
+].forEach(([button, direction]) => {
+  button.addEventListener("click", () => {
+    state.direction = direction;
+    nextCard();
+    renderDirections();
+  });
+});
+
+elements.openCsvButton.addEventListener("click", async () => {
+  if ("showOpenFilePicker" in window) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: "CSV files", accept: { [CSV_MIME]: [".csv"] } }],
+        multiple: false,
+      });
+      state.fileHandle = handle;
+      state.fileHandles.set(state.activeSetupId, handle);
+      await loadCsvFile(await handle.getFile());
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      console.warn("Falling back to regular file input.", error);
+    }
+  }
+
+  openCsvWithFileInput();
+});
+
+elements.saveCsvButton.addEventListener("click", async () => {
+  if ("showSaveFilePicker" in window) {
+    if (!state.fileHandle) {
+      const setup = currentSetup() || DEFAULT_SETUP;
+      state.fileHandle = await window.showSaveFilePicker({
+        suggestedName: `${setup.learnLanguage}-${setup.fromLanguage}-vocabulary.csv`.replace(/\s+/g, "-"),
+        types: [{ description: "CSV files", accept: { [CSV_MIME]: [".csv"] } }],
+      });
+      state.fileHandles.set(state.activeSetupId, state.fileHandle);
+    }
+    await saveToHandle();
+    return;
+  }
+
+  downloadCsv();
+});
+
+elements.downloadCsvButton.addEventListener("click", downloadCsv);
+
+elements.copyCsvButton.addEventListener("click", copyCsvToClipboard);
+
+window.addEventListener("beforeunload", stopSpeechStream);
+
+loadSettings();
+loadSetups();
+fillLanguageOptions();
+render();
+
+    </script>
+  </body>
+</html>
