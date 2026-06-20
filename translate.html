@@ -894,6 +894,7 @@ const CSV_MIME = "text/csv";
 const TRANSFORMERS_CDN =
   "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js";
 const FIREBASE_MODULE_VERSION = "12.15.0";
+const CLOUD_TIMEOUT_MS = 15000;
 const DEFAULT_FIREBASE_CONFIG = {
   apiKey: "AIzaSyDCHhuwbnIOfCf49i44kvHJYwyJoVvVGBw",
   authDomain: "translate-5e2b4.firebaseapp.com",
@@ -990,11 +991,13 @@ const state = {
     unsubscribeAuth: null,
     unsubscribeState: null,
     saveTimer: null,
+    initPromise: null,
     initialized: false,
     initializing: false,
     applyingCloud: false,
     lastCloudUpdatedAtMillis: 0,
     status: "idle",
+    lastMessage: "",
   },
 };
 
@@ -1701,7 +1704,24 @@ function formatFirebaseConfig(config = state.sync.config) {
 }
 
 function setCloudMessage(message) {
+  state.sync.lastMessage = message;
   elements.cloudMessage.textContent = message;
+}
+
+function cloudTimeoutError(label) {
+  const error = new Error(`${label} did not respond within ${Math.round(CLOUD_TIMEOUT_MS / 1000)} seconds.`);
+  error.code = "timeout";
+  return error;
+}
+
+function withCloudTimeout(promise, label) {
+  let timeoutId = null;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(cloudTimeoutError(label)), CLOUD_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    window.clearTimeout(timeoutId);
+  });
 }
 
 function firebaseErrorMessage(error, fallback) {
@@ -1716,6 +1736,8 @@ function firebaseErrorMessage(error, fallback) {
       "Create/enable Firestore Database for this Firebase project.",
     "unavailable":
       "Firestore is temporarily unavailable or the network is offline.",
+    timeout:
+      "This usually means the browser could not reach Firebase or Firestore is not enabled yet.",
   };
   const hint = hintByCode[code] || "";
   return [fallback, code, message, hint].filter(Boolean).join(" ");
@@ -1772,6 +1794,7 @@ function renderCloudControls() {
       : "Paste your Firebase web config first.";
   elements.cloudDetails.textContent = [
     `Status: ${statusLabel}`,
+    `Last message: ${state.sync.lastMessage || "none"}`,
     `Local edit: ${formatSyncTime(localUpdatedAt)}`,
     `Cloud save: ${formatSyncTime(remoteUpdatedAt)}`,
     "Manual Pull replaces this browser with cloud data. Manual Push uploads this browser to cloud.",
@@ -1802,11 +1825,14 @@ function escapeHtml(value) {
 async function loadFirebaseModules() {
   if (state.sync.modules) return state.sync.modules;
 
-  const [appModule, authModule, firestoreModule] = await Promise.all([
-    import(`https://www.gstatic.com/firebasejs/${FIREBASE_MODULE_VERSION}/firebase-app.js`),
-    import(`https://www.gstatic.com/firebasejs/${FIREBASE_MODULE_VERSION}/firebase-auth.js`),
-    import(`https://www.gstatic.com/firebasejs/${FIREBASE_MODULE_VERSION}/firebase-firestore.js`),
-  ]);
+  const [appModule, authModule, firestoreModule] = await withCloudTimeout(
+    Promise.all([
+      import(`https://www.gstatic.com/firebasejs/${FIREBASE_MODULE_VERSION}/firebase-app.js`),
+      import(`https://www.gstatic.com/firebasejs/${FIREBASE_MODULE_VERSION}/firebase-auth.js`),
+      import(`https://www.gstatic.com/firebasejs/${FIREBASE_MODULE_VERSION}/firebase-firestore.js`),
+    ]),
+    "Loading Firebase scripts",
+  );
 
   state.sync.modules = {
     app: appModule,
@@ -1817,45 +1843,56 @@ async function loadFirebaseModules() {
 }
 
 async function initializeFirebaseFromSavedConfig() {
-  if (!state.sync.config || state.sync.initialized || state.sync.initializing) {
+  if (!state.sync.config || state.sync.initialized) {
     renderCloudControls();
     return;
   }
+  if (state.sync.initPromise) return state.sync.initPromise;
 
-  state.sync.initializing = true;
-  state.sync.status = "syncing";
-  renderCloudControls();
-  try {
-    const modules = await loadFirebaseModules();
-    const existingApp = modules.app.getApps().find((app) => app.name === "language-trainer");
-    state.sync.app = existingApp || modules.app.initializeApp(state.sync.config, "language-trainer");
-    state.sync.auth = modules.auth.getAuth(state.sync.app);
-    state.sync.db = modules.firestore.getFirestore(state.sync.app);
-    state.sync.unsubscribeAuth?.();
-    state.sync.unsubscribeAuth = modules.auth.onAuthStateChanged(state.sync.auth, async (user) => {
-      state.sync.user = user;
-      renderCloudControls();
-      if (user) {
-        await syncCloudAfterSignIn();
-        subscribeToCloudState();
-      } else {
-        state.sync.unsubscribeState?.();
-        state.sync.unsubscribeState = null;
-      }
-    });
+  state.sync.initPromise = (async () => {
+    state.sync.initializing = true;
+    state.sync.status = "syncing";
+    setCloudMessage("Loading Firebase...");
+    renderCloudControls();
+    try {
+      const modules = await loadFirebaseModules();
+      const existingApp = modules.app.getApps().find((app) => app.name === "language-trainer");
+      state.sync.app = existingApp || modules.app.initializeApp(state.sync.config, "language-trainer");
+      state.sync.auth = modules.auth.getAuth(state.sync.app);
+      state.sync.db = modules.firestore.getFirestore(state.sync.app);
+      state.sync.unsubscribeAuth?.();
+      state.sync.unsubscribeAuth = modules.auth.onAuthStateChanged(state.sync.auth, async (user) => {
+        state.sync.user = user;
+        renderCloudControls();
+        if (user) {
+          await syncCloudAfterSignIn();
+          subscribeToCloudState();
+        } else {
+          state.sync.unsubscribeState?.();
+          state.sync.unsubscribeState = null;
+          setCloudStatus("idle", "Firebase is ready. Sign in to sync.");
+        }
+      });
     modules.auth.getRedirectResult(state.sync.auth).catch((error) => {
       console.warn("Could not finish redirected Google sign-in.", error);
       setCloudStatus("error", firebaseErrorMessage(error, "Could not finish Google sign-in."));
     });
     state.sync.initialized = true;
-    state.sync.status = state.sync.user ? "synced" : "idle";
-  } catch (error) {
-    console.warn("Could not initialize Firebase.", error);
-    setCloudStatus("error", firebaseErrorMessage(error, "Could not initialize Firebase."));
-  } finally {
-    state.sync.initializing = false;
-    renderCloudControls();
-  }
+    if (!state.sync.user && state.sync.status === "syncing") {
+      state.sync.status = "idle";
+    }
+    } catch (error) {
+      console.warn("Could not initialize Firebase.", error);
+      setCloudStatus("error", firebaseErrorMessage(error, "Could not initialize Firebase."));
+      throw error;
+    } finally {
+      state.sync.initializing = false;
+      state.sync.initPromise = null;
+      renderCloudControls();
+    }
+  })();
+
+  return state.sync.initPromise;
 }
 
 async function saveFirebaseConfigFromDialog() {
@@ -1878,7 +1915,11 @@ async function saveFirebaseConfigFromDialog() {
 }
 
 async function signInToCloud() {
-  await initializeFirebaseFromSavedConfig();
+  try {
+    await initializeFirebaseFromSavedConfig();
+  } catch {
+    return;
+  }
   if (!state.sync.auth) {
     setCloudStatus("error", "Save Firebase config before signing in.");
     return;
@@ -1890,12 +1931,24 @@ async function signInToCloud() {
 
   try {
     if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      setCloudMessage("Redirecting to Google sign-in...");
       await signInWithRedirect(state.sync.auth, provider);
       return;
     }
-    await signInWithPopup(state.sync.auth, provider);
+    const result = await withCloudTimeout(
+      signInWithPopup(state.sync.auth, provider),
+      "Google sign-in popup",
+    );
+    state.sync.user = result.user || state.sync.auth.currentUser;
+    if (state.sync.user) {
+      await syncCloudAfterSignIn();
+      subscribeToCloudState();
+    } else {
+      setCloudStatus("error", "Google sign-in finished, but no Firebase user was returned.");
+    }
   } catch (error) {
     if (error?.code === "auth/popup-blocked" || error?.code === "auth/cancelled-popup-request") {
+      setCloudMessage("Popup was blocked. Redirecting to Google sign-in...");
       await signInWithRedirect(state.sync.auth, provider);
       return;
     }
@@ -1965,7 +2018,10 @@ async function syncCloudAfterSignIn() {
 
   try {
     setCloudStatus("syncing", "Checking cloud state...");
-    const snapshot = await state.sync.modules.firestore.getDoc(ref);
+    const snapshot = await withCloudTimeout(
+      state.sync.modules.firestore.getDoc(ref),
+      "Reading cloud state",
+    );
     if (!snapshot.exists()) {
       await pushCloudState({ silent: true });
       setCloudStatus("synced", "Cloud sync is ready. Uploaded this device's data.");
@@ -2015,7 +2071,10 @@ async function pullCloudState(options = {}) {
 
   try {
     if (!silent) setCloudStatus("syncing", "Pulling from cloud...");
-    const snapshot = await state.sync.modules.firestore.getDoc(ref);
+    const snapshot = await withCloudTimeout(
+      state.sync.modules.firestore.getDoc(ref),
+      "Pulling cloud state",
+    );
     if (!snapshot.exists()) {
       if (!silent) setCloudStatus("idle", "No cloud data exists yet.");
       return;
@@ -2043,13 +2102,16 @@ async function pushCloudState(options = {}) {
   const ref = cloudStateDocRef();
   if (!ref) {
     if (!silent) setCloudStatus("error", "Sign in before pushing to cloud.");
-    return;
+    return false;
   }
 
   try {
     if (!silent) setCloudStatus("syncing", "Pushing to cloud...");
     if (!silent) {
-      const snapshot = await state.sync.modules.firestore.getDoc(ref);
+      const snapshot = await withCloudTimeout(
+        state.sync.modules.firestore.getDoc(ref),
+        "Checking existing cloud state",
+      );
       const remoteUpdatedAt = snapshot.exists() ? Number(snapshot.data()?.updatedAtMillis || 0) : 0;
       if (remoteUpdatedAt > getLocalUpdatedAtMillis()) {
         const confirmed = window.confirm(
@@ -2062,13 +2124,19 @@ async function pushCloudState(options = {}) {
       }
     }
     const payload = buildCloudPayload();
-    await state.sync.modules.firestore.setDoc(ref, payload);
+    await withCloudTimeout(
+      state.sync.modules.firestore.setDoc(ref, payload),
+      "Writing cloud state",
+    );
     localStorage.setItem(LAST_CLOUD_UPDATED_KEY, String(payload.updatedAtMillis));
     state.sync.lastCloudUpdatedAtMillis = payload.updatedAtMillis;
     setCloudStatus("synced", silent ? "Saved to cloud." : "Pushed this browser to cloud.");
+    return true;
   } catch (error) {
     console.warn("Could not push cloud data.", error);
     setCloudStatus("error", firebaseErrorMessage(error, "Could not push to cloud."));
+    if (silent) throw error;
+    return false;
   }
 }
 
@@ -2076,7 +2144,7 @@ function queueCloudSave() {
   if (state.sync.applyingCloud || !state.sync.user || !state.sync.db) return;
   window.clearTimeout(state.sync.saveTimer);
   state.sync.saveTimer = window.setTimeout(() => {
-    pushCloudState({ silent: true });
+    pushCloudState({ silent: true }).catch(() => {});
   }, 700);
 }
 
