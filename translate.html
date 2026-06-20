@@ -1859,6 +1859,7 @@ async function initializeFirebaseFromSavedConfig() {
       const existingApp = modules.app.getApps().find((app) => app.name === "language-trainer");
       state.sync.app = existingApp || modules.app.initializeApp(state.sync.config, "language-trainer");
       state.sync.auth = modules.auth.getAuth(state.sync.app);
+      await configureAuthPersistence(modules.auth);
       state.sync.db = modules.firestore.getFirestore(state.sync.app);
       state.sync.unsubscribeAuth?.();
       state.sync.unsubscribeAuth = modules.auth.onAuthStateChanged(state.sync.auth, async (user) => {
@@ -1893,6 +1894,23 @@ async function initializeFirebaseFromSavedConfig() {
   })();
 
   return state.sync.initPromise;
+}
+
+async function configureAuthPersistence(authModule) {
+  const persistenceOptions = [
+    authModule.browserLocalPersistence,
+    authModule.browserSessionPersistence,
+    authModule.inMemoryPersistence,
+  ].filter(Boolean);
+
+  for (const persistence of persistenceOptions) {
+    try {
+      await authModule.setPersistence(state.sync.auth, persistence);
+      return;
+    } catch (error) {
+      console.warn("Could not set Firebase Auth persistence.", error);
+    }
+  }
 }
 
 async function saveFirebaseConfigFromDialog() {
@@ -1930,11 +1948,6 @@ async function signInToCloud() {
   setCloudStatus("syncing", "Opening Google sign-in...");
 
   try {
-    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-      setCloudMessage("Redirecting to Google sign-in...");
-      await signInWithRedirect(state.sync.auth, provider);
-      return;
-    }
     const result = await withCloudTimeout(
       signInWithPopup(state.sync.auth, provider),
       "Google sign-in popup",
