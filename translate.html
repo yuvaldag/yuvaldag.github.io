@@ -1783,8 +1783,10 @@ function renderCloudControls() {
       : "Local only";
   elements.signInButton.disabled = !hasConfig || isSignedIn || busy;
   elements.signOutButton.disabled = !isSignedIn || busy;
-  elements.pullCloudButton.disabled = !isSignedIn || busy;
-  elements.pushCloudButton.disabled = !isSignedIn || busy;
+  elements.pullCloudButton.disabled = busy;
+  elements.pushCloudButton.disabled = busy;
+  elements.pullCloudButton.textContent = busy ? "Pulling..." : "Pull from cloud";
+  elements.pushCloudButton.textContent = busy ? "Pushing..." : "Push to cloud";
 }
 
 function escapeHtml(value) {
