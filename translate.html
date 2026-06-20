@@ -2168,13 +2168,15 @@ function applySettingsToWords() {
 
 function normalizeWordEntry(entry) {
   const legacyScore = clampScore(entry.score || 0);
+  const greekSource = entry.greek ?? entry.learn ?? "";
+  const englishSource = entry.english ?? entry.from ?? "";
   return {
-    greek: Array.isArray(entry.greek) ? entry.greek.filter(Boolean) : splitVariants(entry.greek || ""),
-    english: Array.isArray(entry.english)
-      ? entry.english.filter(Boolean)
-      : splitVariants(entry.english || ""),
-    elToEnScore: clampScore(entry.elToEnScore ?? legacyScore),
-    enToElScore: clampScore(entry.enToElScore ?? legacyScore),
+    greek: Array.isArray(greekSource) ? greekSource.filter(Boolean) : splitVariants(greekSource || ""),
+    english: Array.isArray(englishSource)
+      ? englishSource.filter(Boolean)
+      : splitVariants(englishSource || ""),
+    elToEnScore: clampScore(entry.elToEnScore ?? entry.learnToFromScore ?? legacyScore),
+    enToElScore: clampScore(entry.enToElScore ?? entry.fromToLearnScore ?? legacyScore),
     recentWrong: Boolean(entry.recentWrong),
     notes: String(entry.notes || ""),
   };
