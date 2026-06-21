@@ -976,7 +976,7 @@ dialog::backdrop {
         <div class="dialog-heading">
           <div>
             <h2>Default Words</h2>
-            <p>Start a language setup from a clean built-in CSV.</p>
+            <p>Start a language setup from a clean built-in word list.</p>
           </div>
           <button id="closeDefaultDatabaseDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
         </div>
@@ -1069,7 +1069,7 @@ const DEFAULT_DATABASES = [
     learnLanguageCode: "ar",
     fromLanguage: "Hebrew",
     fromLanguageCode: "he",
-    path: "data/arabic_hebrew_vocabulary.csv",
+    path: "data/arabic_hebrew_vocabulary.txt",
   },
   {
     id: "hebrew-english",
@@ -1078,7 +1078,7 @@ const DEFAULT_DATABASES = [
     learnLanguageCode: "he",
     fromLanguage: "English",
     fromLanguageCode: "en",
-    path: "data/hebrew_english_vocabulary.csv",
+    path: "data/hebrew_english_vocabulary.txt",
   },
   {
     id: "greek-english",
@@ -1087,7 +1087,7 @@ const DEFAULT_DATABASES = [
     learnLanguageCode: "el",
     fromLanguage: "English",
     fromLanguageCode: "en",
-    path: "data/greek_english_vocabulary.csv",
+    path: "data/greek_english_vocabulary.txt",
   },
 ];
 const LANGUAGE_SHORTCUTS = [
@@ -2758,6 +2758,22 @@ function wordsFromCsv(text, setupOverride = null) {
   return words;
 }
 
+function looksLikeCsv(text) {
+  const firstLine = text.split(/\r?\n/).find((line) => line.trim());
+  return Boolean(firstLine && firstLine.includes(",") && !firstLine.includes(":"));
+}
+
+function wordsFromDefaultText(text, setupOverride = null) {
+  if (looksLikeCsv(text)) return wordsFromCsv(text, setupOverride);
+
+  const setup = setupOverride || currentSetup() || DEFAULT_SETUP;
+  const settings = normalizeSetupSettings(setup.settings);
+  const { entries } = parseWordLines(text);
+  const words = entries.map((entry) => normalizeWordEntry(entry, settings));
+  enforceRecentWrongLimit(words);
+  return words;
+}
+
 function saveBackup() {
   saveSetups();
 }
@@ -2967,9 +2983,9 @@ async function importDefaultDatabase(database) {
   try {
     const response = await fetch(database.path, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const csvText = await response.text();
+    const wordsText = await response.text();
     const setup = defaultDatabaseSetup(database);
-    setup.words = wordsFromCsv(csvText, setup).map((entry) => ({
+    setup.words = wordsFromDefaultText(wordsText, setup).map((entry) => ({
       ...entry,
       elToEnScore: 0,
       enToElScore: 0,
@@ -2991,7 +3007,7 @@ async function importDefaultDatabase(database) {
   } catch (error) {
     console.warn("Could not import default database.", error);
     elements.defaultDatabaseMessage.textContent =
-      "Could not load that default CSV. On the website this uses the data/ CSV files from GitHub.";
+      "Could not load that default word file. On the website this uses the data/ files from GitHub.";
   }
 }
 
