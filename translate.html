@@ -1152,6 +1152,8 @@ const state = {
     stopTimer: null,
     logStartedAt: 0,
     ttsToken: 0,
+    ttsTimer: null,
+    currentUtterance: null,
   },
   settings: { ...DEFAULT_SETTINGS },
   sync: {
@@ -1535,6 +1537,14 @@ function findVoiceForLanguage(languageCode) {
   );
 }
 
+function stopTextToSpeech() {
+  state.speech.ttsToken += 1;
+  window.clearTimeout(state.speech.ttsTimer);
+  state.speech.ttsTimer = null;
+  state.speech.currentUtterance = null;
+  window.speechSynthesis?.cancel?.();
+}
+
 function speakText(text, languageCode) {
   if (!state.settings.speakPrompts || !text) return;
   if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
@@ -1542,17 +1552,23 @@ function speakText(text, languageCode) {
     return;
   }
 
-  state.speech.ttsToken += 1;
+  stopTextToSpeech();
   const token = state.speech.ttsToken;
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = languageCode;
   utterance.voice = findVoiceForLanguage(languageCode);
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.resume?.();
-  window.setTimeout(() => {
+  utterance.onend = utterance.onerror = () => {
     if (token !== state.speech.ttsToken) return;
+    state.speech.currentUtterance = null;
+  };
+  state.speech.currentUtterance = utterance;
+  state.speech.ttsTimer = window.setTimeout(() => {
+    if (token !== state.speech.ttsToken) return;
+    state.speech.ttsTimer = null;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.resume?.();
     window.speechSynthesis.speak(utterance);
-  }, 0);
+  }, 50);
 }
 
 function speakCurrentPrompt() {
@@ -2849,6 +2865,7 @@ function loadSetups() {
 
 function switchSetup(setupId) {
   if (!state.setups.some((setup) => setup.id === setupId)) return;
+  stopTextToSpeech();
   syncActiveSetupWords();
   if (state.activeSetupId) state.fileHandles.set(state.activeSetupId, state.fileHandle);
   state.activeSetupId = setupId;
@@ -2882,6 +2899,7 @@ function deleteCurrentSetup() {
   state.fileHandle = nextSetup ? state.fileHandles.get(nextSetup.id) || null : null;
   state.currentCard = null;
   state.revealed = false;
+  stopTextToSpeech();
   saveSetups();
   render();
 }
@@ -3114,6 +3132,7 @@ function chooseNextWord(direction) {
 }
 
 function nextCard() {
+  stopTextToSpeech();
   if (!state.words.length) {
     state.currentCard = null;
     state.revealed = false;
@@ -3293,7 +3312,7 @@ async function saveSettingsFromDialog() {
     speechMaxSeconds,
     speakPrompts,
   };
-  if (!speakPrompts) window.speechSynthesis?.cancel?.();
+  if (!speakPrompts) stopTextToSpeech();
   if (speechModelId !== previousSpeechModelId) {
     state.speech.transcriber = null;
     state.speech.loadPromise = null;
