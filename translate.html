@@ -1159,6 +1159,7 @@ const state = {
     initialized: false,
     initializing: false,
     applyingCloud: false,
+    mergingCloud: false,
     lastCloudUpdatedAtMillis: 0,
     status: "idle",
     lastMessage: "",
@@ -2183,20 +2184,28 @@ function mergeAppStates(baseState, localState, remoteState) {
 
 function shouldMergeSync(remoteUpdatedAt) {
   const baseUpdatedAt = Number(localStorage.getItem(LAST_CLOUD_UPDATED_KEY) || 0);
-  return remoteUpdatedAt > baseUpdatedAt && getLocalUpdatedAtMillis() > baseUpdatedAt;
+  return !state.sync.mergingCloud && remoteUpdatedAt > baseUpdatedAt && getLocalUpdatedAtMillis() > baseUpdatedAt;
 }
 
 async function mergeCloudDataAndPush(data, message = "Merged local and cloud progress.") {
-  const remoteState = JSON.parse(String(data?.stateJson || "{}"));
-  const mergedState = mergeAppStates(lastSyncedState(), exportAppState(), remoteState);
-  state.sync.applyingCloud = true;
-  importAppState(mergedState);
-  state.sync.applyingCloud = false;
-  touchLocalState();
-  saveSettings({ syncCloud: false, touch: false });
-  saveSetups({ syncCloud: false, touch: false });
-  await pushCloudState({ silent: true, skipConflictCheck: true });
-  setCloudStatus("synced", message);
+  if (state.sync.mergingCloud) return false;
+  state.sync.mergingCloud = true;
+  try {
+    const remoteState = JSON.parse(String(data?.stateJson || "{}"));
+    const mergedState = mergeAppStates(lastSyncedState(), exportAppState(), remoteState);
+    state.sync.applyingCloud = true;
+    importAppState(mergedState);
+    touchLocalState();
+    saveSettings({ syncCloud: false, touch: false });
+    saveSetups({ syncCloud: false, touch: false });
+    state.sync.applyingCloud = false;
+    await pushCloudState({ silent: true, skipConflictCheck: true });
+    setCloudStatus("synced", message);
+    return true;
+  } finally {
+    state.sync.applyingCloud = false;
+    state.sync.mergingCloud = false;
+  }
 }
 
 function maybeShowAccountModeDialog() {
@@ -2551,7 +2560,12 @@ function subscribeToCloudState() {
 
   state.sync.unsubscribeState?.();
   state.sync.unsubscribeState = state.sync.modules.firestore.onSnapshot(ref, (snapshot) => {
-    if (!snapshot.exists() || state.sync.applyingCloud) return;
+    if (
+      !snapshot.exists()
+      || snapshot.metadata?.hasPendingWrites
+      || state.sync.applyingCloud
+      || state.sync.mergingCloud
+    ) return;
     const data = snapshot.data();
     const remoteUpdatedAt = Number(data?.updatedAtMillis || 0);
     if (!remoteUpdatedAt) return;
@@ -2656,7 +2670,7 @@ async function pushCloudState(options = {}) {
 }
 
 function queueCloudSave() {
-  if (state.sync.applyingCloud || !state.sync.user || !state.sync.db) return;
+  if (state.sync.applyingCloud || state.sync.mergingCloud || !state.sync.user || !state.sync.db) return;
   window.clearTimeout(state.sync.saveTimer);
   state.sync.saveTimer = window.setTimeout(() => {
     pushCloudState({ silent: true }).catch(() => {});
