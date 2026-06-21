@@ -153,6 +153,51 @@ h2 {
   min-width: 0;
 }
 
+.action-menu {
+  position: relative;
+}
+
+.action-menu summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 0 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.action-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.action-menu[open] summary {
+  border-color: var(--accent);
+}
+
+.action-menu-content {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 5;
+  display: grid;
+  gap: 8px;
+  min-width: 190px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  padding: 8px;
+}
+
+.action-menu-content button {
+  justify-content: flex-start;
+  text-align: left;
+}
+
 .workspace {
   display: block;
 }
@@ -198,6 +243,37 @@ h2 {
   border-radius: 8px;
   padding: 18px;
   color: var(--muted);
+}
+
+.start-actions,
+.default-database-list {
+  display: grid;
+  gap: 10px;
+}
+
+.start-actions {
+  margin-top: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.default-database-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.default-database-row strong,
+.default-database-row span {
+  display: block;
+}
+
+.default-database-row span {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .word-list {
@@ -634,14 +710,25 @@ dialog::backdrop {
           <span id="cloudStatus" class="word-count-pill cloud-status">Local only</span>
           <button id="cloudButton" type="button">Cloud</button>
           <span id="wordCount" class="word-count-pill">0 saved</span>
-          <button id="editWordsButton" type="button">Edit words</button>
-          <button id="addWordsButton" class="primary" type="button">Add words</button>
+          <button id="defaultDatabaseButton" type="button">Default words</button>
+          <details class="action-menu">
+            <summary>Words</summary>
+            <div class="action-menu-content">
+              <button id="addWordsButton" class="primary" type="button">Add words</button>
+              <button id="editWordsButton" type="button">Edit words</button>
+            </div>
+          </details>
+          <details class="action-menu">
+            <summary>CSV</summary>
+            <div class="action-menu-content">
+              <button id="openCsvButton" type="button" title="Open CSV">Open CSV</button>
+              <button id="pasteCsvButton" type="button" title="Paste CSV">Paste CSV</button>
+              <button id="saveCsvButton" type="button" title="Save CSV">Save CSV</button>
+              <button id="copyCsvButton" type="button" title="Copy CSV">Copy CSV</button>
+              <button id="downloadCsvButton" type="button" title="Download CSV">Download CSV</button>
+            </div>
+          </details>
           <button id="settingsButton" type="button" title="Settings">Settings</button>
-          <button id="openCsvButton" type="button" title="Open CSV">Open CSV</button>
-          <button id="pasteCsvButton" type="button" title="Paste CSV">Paste CSV</button>
-          <button id="saveCsvButton" type="button" title="Save CSV">Save CSV</button>
-          <button id="copyCsvButton" type="button" title="Copy CSV">Copy CSV</button>
-          <button id="downloadCsvButton" type="button" title="Download CSV">Download</button>
         </div>
       </section>
 
@@ -860,6 +947,36 @@ dialog::backdrop {
       </form>
     </dialog>
 
+    <dialog id="accountModeDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <h2>Choose Account</h2>
+            <p>Save progress only on this device, or connect it to Google cloud sync.</p>
+          </div>
+        </div>
+        <div id="accountModeMessage" class="parse-message"></div>
+        <div class="dialog-actions">
+          <button id="chooseLocalAccountButton" type="button">Use local account</button>
+          <button id="chooseGoogleAccountButton" class="primary" type="button">Use Google account</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="defaultDatabaseDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <h2>Default Words</h2>
+            <p>Start a language setup from a clean built-in CSV.</p>
+          </div>
+          <button id="closeDefaultDatabaseDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
+        </div>
+        <div id="defaultDatabaseList" class="default-database-list"></div>
+        <div id="defaultDatabaseMessage" class="parse-message"></div>
+      </form>
+    </dialog>
+
     <dialog id="pasteCsvDialog">
       <form method="dialog" class="dialog-card">
         <div class="dialog-heading">
@@ -888,6 +1005,7 @@ const SETUPS_KEY = "vocabulary-trainer.setups";
 const LAST_SETUP_KEY = "vocabulary-trainer.last-setup-id";
 const SETTINGS_KEY = "greek-vocabulary-trainer.settings";
 const FIREBASE_CONFIG_KEY = "vocabulary-trainer.firebase-config";
+const ACCOUNT_MODE_KEY = "vocabulary-trainer.account-mode";
 const LOCAL_UPDATED_KEY = "vocabulary-trainer.local-updated-at";
 const LAST_CLOUD_UPDATED_KEY = "vocabulary-trainer.last-cloud-updated-at";
 const CSV_MIME = "text/csv";
@@ -918,14 +1036,49 @@ const SPEECH_MODEL_OPTIONS = [
   },
 ];
 const DEFAULT_SPEECH_MODEL_ID = "onnx-community/whisper-base";
+const DEFAULT_SETUP_SETTINGS = {
+  minScore: -5,
+  maxScore: 5,
+  recentWrongLimit: 7,
+};
 const DEFAULT_SETUP = {
   id: "greek-english",
   learnLanguage: "Greek",
   learnLanguageCode: "el",
   fromLanguage: "English",
   fromLanguageCode: "en",
+  settings: { ...DEFAULT_SETUP_SETTINGS },
   words: [],
 };
+const DEFAULT_DATABASES = [
+  {
+    id: "arabic-hebrew",
+    label: "Arabic ↔ Hebrew",
+    learnLanguage: "Arabic",
+    learnLanguageCode: "ar",
+    fromLanguage: "Hebrew",
+    fromLanguageCode: "he",
+    path: "data/arabic_hebrew_vocabulary.csv",
+  },
+  {
+    id: "hebrew-english",
+    label: "Hebrew ↔ English",
+    learnLanguage: "Hebrew",
+    learnLanguageCode: "he",
+    fromLanguage: "English",
+    fromLanguageCode: "en",
+    path: "data/hebrew_english_vocabulary.csv",
+  },
+  {
+    id: "greek-english",
+    label: "Greek ↔ English",
+    learnLanguage: "Greek",
+    learnLanguageCode: "el",
+    fromLanguage: "English",
+    fromLanguageCode: "en",
+    path: "data/greek_english_vocabulary.csv",
+  },
+];
 const LANGUAGE_SHORTCUTS = [
   ["English", "en"],
   ["Greek", "el"],
@@ -952,9 +1105,6 @@ const LANGUAGE_CODE_BY_NAME = new Map(
   LANGUAGE_SHORTCUTS.map(([name, code]) => [name.toLowerCase(), code]),
 );
 const DEFAULT_SETTINGS = {
-  minScore: -5,
-  maxScore: 5,
-  recentWrongLimit: 7,
   speechModelId: DEFAULT_SPEECH_MODEL_ID,
   speechMaxSeconds: 7,
   speakPrompts: true,
@@ -962,7 +1112,9 @@ const DEFAULT_SETTINGS = {
 
 const state = {
   setups: [],
-  activeSetupId: DEFAULT_SETUP.id,
+  activeSetupId: "",
+  accountMode: "",
+  pendingLocalMigration: null,
   fileHandles: new Map(),
   words: [],
   direction: "el-en",
@@ -1010,10 +1162,13 @@ const elements = {
   deleteSetupButton: document.querySelector("#deleteSetupButton"),
   cloudStatus: document.querySelector("#cloudStatus"),
   cloudButton: document.querySelector("#cloudButton"),
+  defaultDatabaseButton: document.querySelector("#defaultDatabaseButton"),
   addWordsButton: document.querySelector("#addWordsButton"),
   editWordsButton: document.querySelector("#editWordsButton"),
   settingsButton: document.querySelector("#settingsButton"),
   pasteCsvButton: document.querySelector("#pasteCsvButton"),
+  accountModeDialog: document.querySelector("#accountModeDialog"),
+  defaultDatabaseDialog: document.querySelector("#defaultDatabaseDialog"),
   newSetupDialog: document.querySelector("#newSetupDialog"),
   addWordsDialog: document.querySelector("#addWordsDialog"),
   editWordsDialog: document.querySelector("#editWordsDialog"),
@@ -1025,7 +1180,13 @@ const elements = {
   closeEditDialogButton: document.querySelector("#closeEditDialogButton"),
   closeSettingsDialogButton: document.querySelector("#closeSettingsDialogButton"),
   closeCloudDialogButton: document.querySelector("#closeCloudDialogButton"),
+  closeDefaultDatabaseDialogButton: document.querySelector("#closeDefaultDatabaseDialogButton"),
   closePasteCsvDialogButton: document.querySelector("#closePasteCsvDialogButton"),
+  chooseLocalAccountButton: document.querySelector("#chooseLocalAccountButton"),
+  chooseGoogleAccountButton: document.querySelector("#chooseGoogleAccountButton"),
+  accountModeMessage: document.querySelector("#accountModeMessage"),
+  defaultDatabaseList: document.querySelector("#defaultDatabaseList"),
+  defaultDatabaseMessage: document.querySelector("#defaultDatabaseMessage"),
   cloudAccount: document.querySelector("#cloudAccount"),
   cloudDetails: document.querySelector("#cloudDetails"),
   firebaseConfigTextarea: document.querySelector("#firebaseConfigTextarea"),
@@ -1228,10 +1389,33 @@ function toCsv(words) {
   return `${rows.map((row) => row.map(csvEscape).join(",")).join("\n")}\n`;
 }
 
-function clampScore(score) {
+function normalizeSetupSettings(settings = {}) {
+  const minScore = Number.parseInt(settings?.minScore, 10);
+  const maxScore = Number.parseInt(settings?.maxScore, 10);
+  const recentWrongLimit = Number.parseInt(settings?.recentWrongLimit, 10);
+  const normalized = {
+    minScore: Number.isNaN(minScore) ? DEFAULT_SETUP_SETTINGS.minScore : minScore,
+    maxScore: Number.isNaN(maxScore) ? DEFAULT_SETUP_SETTINGS.maxScore : maxScore,
+    recentWrongLimit: Number.isNaN(recentWrongLimit)
+      ? DEFAULT_SETUP_SETTINGS.recentWrongLimit
+      : Math.max(1, recentWrongLimit),
+  };
+
+  if (normalized.minScore >= normalized.maxScore) {
+    return { ...DEFAULT_SETUP_SETTINGS };
+  }
+
+  return normalized;
+}
+
+function currentSetupSettings() {
+  return normalizeSetupSettings(currentSetup()?.settings || DEFAULT_SETUP_SETTINGS);
+}
+
+function clampScore(score, settings = currentSetupSettings()) {
   const number = Number.parseInt(score, 10);
   if (Number.isNaN(number)) return 0;
-  return Math.max(state.settings.minScore, Math.min(state.settings.maxScore, number));
+  return Math.max(settings.minScore, Math.min(settings.maxScore, number));
 }
 
 function parseBoolean(value) {
@@ -1263,13 +1447,17 @@ function createSetupId(learnLanguage, fromLanguage) {
 function normalizeSetup(setup) {
   const learnLanguage = cleanLanguageName(setup?.learnLanguage, DEFAULT_SETUP.learnLanguage);
   const fromLanguage = cleanLanguageName(setup?.fromLanguage, DEFAULT_SETUP.fromLanguage);
+  const settings = normalizeSetupSettings(setup?.settings || state.settings || DEFAULT_SETUP_SETTINGS);
   return {
     id: String(setup?.id || createSetupId(setup?.learnLanguage, setup?.fromLanguage)),
     learnLanguage,
     learnLanguageCode: cleanLanguageCode(setup?.learnLanguageCode, learnLanguage),
     fromLanguage,
     fromLanguageCode: cleanLanguageCode(setup?.fromLanguageCode, fromLanguage),
-    words: Array.isArray(setup?.words) ? setup.words.map(normalizeWordEntry) : [],
+    settings,
+    words: Array.isArray(setup?.words)
+      ? setup.words.map((entry) => normalizeWordEntry(entry, settings))
+      : [],
   };
 }
 
@@ -1573,33 +1761,36 @@ function serializableSetups() {
     learnLanguageCode: setup.learnLanguageCode,
     fromLanguage: setup.fromLanguage,
     fromLanguageCode: setup.fromLanguageCode,
-    words: setup.words.map(normalizeWordEntry),
+    settings: normalizeSetupSettings(setup.settings),
+    words: setup.words.map((entry) => normalizeWordEntry(entry, normalizeSetupSettings(setup.settings))),
   }));
 }
 
 function exportAppState() {
   syncActiveSetupWords();
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     activeSetupId: state.activeSetupId,
     setups: serializableSetups(),
     settings: state.settings,
+    accountMode: state.accountMode,
   };
 }
 
 function importAppState(appState) {
+  const nextSettings = normalizeSettings(appState?.settings || DEFAULT_SETTINGS);
+  const legacySetupSettings = normalizeSetupSettings(appState?.settings || DEFAULT_SETUP_SETTINGS);
   const setups = Array.isArray(appState?.setups)
-    ? appState.setups.map(normalizeSetup).filter((setup) => setup.words)
+    ? appState.setups
+        .map((setup) => normalizeSetup({ ...setup, settings: setup?.settings || legacySetupSettings }))
+        .filter((setup) => setup.words)
     : [];
-  if (!setups.length) {
-    throw new Error("Cloud state does not contain any language setups.");
-  }
-
   state.setups = setups;
   state.activeSetupId = setups.some((setup) => setup.id === appState?.activeSetupId)
     ? appState.activeSetupId
-    : setups[0].id;
-  state.settings = normalizeSettings(appState?.settings || DEFAULT_SETTINGS);
+    : setups[0]?.id || "";
+  state.settings = nextSettings;
+  state.accountMode = normalizeAccountMode(appState?.accountMode || state.accountMode);
   const setup = currentSetup();
   state.words = setup ? setup.words.map(normalizeWordEntry) : [];
   state.fileHandle = state.fileHandles.get(state.activeSetupId) || null;
@@ -1631,19 +1822,11 @@ function saveSetups(options = {}) {
 }
 
 function normalizeSettings(settings) {
-  const minScore = Number.parseInt(settings?.minScore, 10);
-  const maxScore = Number.parseInt(settings?.maxScore, 10);
-  const recentWrongLimit = Number.parseInt(settings?.recentWrongLimit, 10);
   const speechMaxSeconds = Number.parseFloat(settings?.speechMaxSeconds);
   const speechModelId = SPEECH_MODEL_OPTIONS.some((option) => option.id === settings?.speechModelId)
     ? settings.speechModelId
     : DEFAULT_SETTINGS.speechModelId;
-  const normalized = {
-    minScore: Number.isNaN(minScore) ? DEFAULT_SETTINGS.minScore : minScore,
-    maxScore: Number.isNaN(maxScore) ? DEFAULT_SETTINGS.maxScore : maxScore,
-    recentWrongLimit: Number.isNaN(recentWrongLimit)
-      ? DEFAULT_SETTINGS.recentWrongLimit
-      : Math.max(1, recentWrongLimit),
+  return {
     speechModelId,
     speechMaxSeconds: Number.isNaN(speechMaxSeconds)
       ? DEFAULT_SETTINGS.speechMaxSeconds
@@ -1653,12 +1836,20 @@ function normalizeSettings(settings) {
         ? settings.speakPrompts
         : DEFAULT_SETTINGS.speakPrompts,
   };
+}
 
-  if (normalized.minScore >= normalized.maxScore) {
-    return { ...DEFAULT_SETTINGS };
-  }
+function normalizeAccountMode(mode) {
+  return mode === "google" || mode === "local" ? mode : "";
+}
 
-  return normalized;
+function loadAccountMode() {
+  state.accountMode = normalizeAccountMode(localStorage.getItem(ACCOUNT_MODE_KEY) || "");
+}
+
+function saveAccountMode(mode) {
+  state.accountMode = normalizeAccountMode(mode);
+  if (state.accountMode) localStorage.setItem(ACCOUNT_MODE_KEY, state.accountMode);
+  else localStorage.removeItem(ACCOUNT_MODE_KEY);
 }
 
 function loadSettings() {
@@ -1771,6 +1962,62 @@ function hasMeaningfulLocalState() {
   return state.setups.some((setup) => setup.words.length > 0) || state.setups.length > 1;
 }
 
+function cloneAppState(appState = exportAppState()) {
+  return JSON.parse(JSON.stringify(appState));
+}
+
+function uniqueSetupId(baseId, existingIds) {
+  const root = baseId || `setup-${Date.now().toString(36)}`;
+  let candidate = root;
+  let index = 2;
+  while (existingIds.has(candidate)) {
+    candidate = `${root}-${index}`;
+    index += 1;
+  }
+  existingIds.add(candidate);
+  return candidate;
+}
+
+function mergeLocalStateIntoCloud(remoteState, localState) {
+  const remoteSetups = Array.isArray(remoteState?.setups)
+    ? remoteState.setups.map(normalizeSetup)
+    : [];
+  const localSetups = Array.isArray(localState?.setups)
+    ? localState.setups.map(normalizeSetup)
+    : [];
+  const existingIds = new Set(remoteSetups.map((setup) => setup.id));
+  const mergedLocalSetups = localSetups.map((setup) => ({
+    ...setup,
+    id: uniqueSetupId(setup.id, existingIds),
+  }));
+  const setups = [...remoteSetups, ...mergedLocalSetups];
+  return {
+    schemaVersion: 2,
+    activeSetupId: mergedLocalSetups[0]?.id || remoteState?.activeSetupId || setups[0]?.id || "",
+    setups,
+    settings: remoteState?.settings || localState?.settings || DEFAULT_SETTINGS,
+    accountMode: "google",
+  };
+}
+
+function maybeShowAccountModeDialog() {
+  if (state.accountMode || elements.accountModeDialog.open) return;
+  elements.accountModeMessage.textContent = "";
+  elements.accountModeDialog.showModal();
+}
+
+function chooseLocalAccount() {
+  saveAccountMode("local");
+  elements.accountModeDialog.close();
+  render();
+}
+
+async function chooseGoogleAccount() {
+  saveAccountMode("google");
+  elements.accountModeDialog.close();
+  await signInToCloud({ offerMigration: false });
+}
+
 function ensureLocalTimestampForExistingData() {
   if (getLocalUpdatedAtMillis() || !hasMeaningfulLocalState()) return;
   touchLocalState();
@@ -1797,8 +2044,8 @@ function renderCloudControls() {
   elements.cloudAccount.innerHTML = isSignedIn
     ? `Signed in as <strong>${escapeHtml(userLabel())}</strong>.`
     : hasConfig
-      ? "Firebase is configured. Sign in to sync."
-      : "Paste your Firebase web config first.";
+      ? `Account mode: ${state.accountMode || "not chosen"}. Firebase is configured. Sign in to sync.`
+      : `Account mode: ${state.accountMode || "not chosen"}. Paste your Firebase web config first.`;
   elements.cloudDetails.textContent = [
     `Status: ${statusLabel}`,
     `Last message: ${state.sync.lastMessage || "none"}`,
@@ -1808,10 +2055,16 @@ function renderCloudControls() {
   ].join("\n");
   elements.cloudStatus.textContent = isSignedIn
     ? statusLabel
+    : state.accountMode === "local"
+      ? "Local account"
     : hasConfig
       ? "Cloud ready"
       : "Local only";
   elements.signInButton.disabled = !hasConfig || isSignedIn || busy;
+  elements.signInButton.textContent =
+    state.accountMode === "local" && hasMeaningfulLocalState()
+      ? "Sign in / migrate"
+      : "Sign in with Google";
   elements.signOutButton.disabled = !isSignedIn || busy;
   elements.pullCloudButton.disabled = busy;
   elements.pushCloudButton.disabled = busy;
@@ -1871,6 +2124,7 @@ async function initializeFirebaseFromSavedConfig() {
       state.sync.unsubscribeAuth?.();
       state.sync.unsubscribeAuth = modules.auth.onAuthStateChanged(state.sync.auth, async (user) => {
         state.sync.user = user;
+        if (user) saveAccountMode("google");
         renderCloudControls();
         if (user) {
           await syncCloudAfterSignIn();
@@ -1939,7 +2193,8 @@ async function saveFirebaseConfigFromDialog() {
   }
 }
 
-async function signInToCloud() {
+async function signInToCloud(options = {}) {
+  const { offerMigration = true } = options;
   try {
     await initializeFirebaseFromSavedConfig();
   } catch {
@@ -1952,6 +2207,14 @@ async function signInToCloud() {
 
   const { GoogleAuthProvider, signInWithPopup, signInWithRedirect } = state.sync.modules.auth;
   const provider = new GoogleAuthProvider();
+  state.pendingLocalMigration = null;
+  if (offerMigration && state.accountMode === "local" && hasMeaningfulLocalState()) {
+    const migrate = window.confirm(
+      "Migrate this local progress into your Google account? Existing Google setups will stay and these local setups will be added.",
+    );
+    if (migrate) state.pendingLocalMigration = cloneAppState();
+  }
+  saveAccountMode("google");
   setCloudStatus("syncing", "Opening Google sign-in...");
 
   try {
@@ -1984,6 +2247,7 @@ async function signInToCloud() {
 async function signOutOfCloud() {
   if (!state.sync.auth) return;
   await state.sync.modules.auth.signOut(state.sync.auth);
+  saveAccountMode("local");
   setCloudStatus("idle", "Signed out. Local data is still saved in this browser.");
   renderCloudControls();
 }
@@ -2042,6 +2306,22 @@ async function syncCloudAfterSignIn() {
       state.sync.modules.firestore.getDoc(ref),
       "Reading cloud state",
     );
+    if (state.pendingLocalMigration) {
+      const localState = state.pendingLocalMigration;
+      state.pendingLocalMigration = null;
+      const remoteState = snapshot.exists()
+        ? JSON.parse(String(snapshot.data()?.stateJson || "{}"))
+        : { setups: [], settings: state.settings };
+      const mergedState = mergeLocalStateIntoCloud(remoteState, localState);
+      importAppState(mergedState);
+      saveAccountMode("google");
+      saveSettings({ syncCloud: false });
+      saveSetups({ syncCloud: false });
+      touchLocalState();
+      await pushCloudState({ silent: true });
+      setCloudStatus("synced", "Migrated local progress into your Google account.");
+      return;
+    }
     if (!snapshot.exists()) {
       await pushCloudState({ silent: true });
       setCloudStatus("synced", "Cloud sync is ready. Uploaded this device's data.");
@@ -2173,8 +2453,8 @@ function applySettingsToWords() {
   enforceRecentWrongLimit();
 }
 
-function normalizeWordEntry(entry) {
-  const legacyScore = clampScore(entry.score || 0);
+function normalizeWordEntry(entry, settings = currentSetupSettings()) {
+  const legacyScore = clampScore(entry.score || 0, settings);
   const greekSource = entry.greek ?? entry.learn ?? "";
   const englishSource = entry.english ?? entry.from ?? "";
   return {
@@ -2182,8 +2462,8 @@ function normalizeWordEntry(entry) {
     english: Array.isArray(englishSource)
       ? englishSource.filter(Boolean)
       : splitVariants(englishSource || ""),
-    elToEnScore: clampScore(entry.elToEnScore ?? entry.learnToFromScore ?? legacyScore),
-    enToElScore: clampScore(entry.enToElScore ?? entry.fromToLearnScore ?? legacyScore),
+    elToEnScore: clampScore(entry.elToEnScore ?? entry.learnToFromScore ?? legacyScore, settings),
+    enToElScore: clampScore(entry.enToElScore ?? entry.fromToLearnScore ?? legacyScore, settings),
     recentWrong: Boolean(entry.recentWrong),
     notes: String(entry.notes || ""),
   };
@@ -2194,10 +2474,11 @@ function getScoreForDirection(entry, direction) {
   return direction === "el-en" ? word.elToEnScore : word.enToElScore;
 }
 
-function wordsFromCsv(text) {
+function wordsFromCsv(text, setupOverride = null) {
   const rows = parseCsv(text).filter((row) => row.some((field) => field.trim()));
   const header = rows[0]?.map((field) => field.trim().toLowerCase());
-  const setup = currentSetup() || DEFAULT_SETUP;
+  const setup = setupOverride || currentSetup() || DEFAULT_SETUP;
+  const settings = normalizeSetupSettings(setup.settings);
   const learnKey = setup.learnLanguage.toLowerCase().replace(/\s+/g, "_");
   const fromKey = setup.fromLanguage.toLowerCase().replace(/\s+/g, "_");
   const hasHeader =
@@ -2221,12 +2502,12 @@ function wordsFromCsv(text) {
 
   const words = dataRows
     .map((row) => {
-      const legacyScore = clampScore(scoreIndex >= 0 ? row[scoreIndex] : 0);
+      const legacyScore = clampScore(scoreIndex >= 0 ? row[scoreIndex] : 0, settings);
       return {
         greek: splitVariants(row[0] || ""),
         english: splitVariants(row[1] || ""),
-        elToEnScore: clampScore(elToEnIndex >= 0 ? row[elToEnIndex] : legacyScore),
-        enToElScore: clampScore(enToElIndex >= 0 ? row[enToElIndex] : legacyScore),
+        elToEnScore: clampScore(elToEnIndex >= 0 ? row[elToEnIndex] : legacyScore, settings),
+        enToElScore: clampScore(enToElIndex >= 0 ? row[enToElIndex] : legacyScore, settings),
         recentWrong: recentWrongIndex >= 0 ? parseBoolean(row[recentWrongIndex]) : false,
         notes: notesIndex >= 0 ? row[notesIndex] || "" : "",
       };
@@ -2281,23 +2562,30 @@ function loadSetups() {
   }
 
   if (!setups.length) {
-    setups = [{ ...DEFAULT_SETUP, words: getBackupWords() }].map(normalizeSetup);
+    const backupWords = getBackupWords();
+    if (backupWords.length) {
+      setups = [{ ...DEFAULT_SETUP, words: backupWords }].map(normalizeSetup);
+    }
   }
 
   state.setups = setups;
   const lastSetupId = localStorage.getItem(LAST_SETUP_KEY);
   state.activeSetupId = setups.some((setup) => setup.id === lastSetupId)
     ? lastSetupId
-    : setups[0].id;
+    : setups[0]?.id || "";
   const setup = currentSetup();
   state.words = setup ? setup.words.map(normalizeWordEntry) : [];
   state.fileHandle = state.fileHandles.get(state.activeSetupId) || null;
+
+  if (!state.accountMode && setups.length) {
+    saveAccountMode("local");
+  }
 }
 
 function switchSetup(setupId) {
   if (!state.setups.some((setup) => setup.id === setupId)) return;
   syncActiveSetupWords();
-  state.fileHandles.set(state.activeSetupId, state.fileHandle);
+  if (state.activeSetupId) state.fileHandles.set(state.activeSetupId, state.fileHandle);
   state.activeSetupId = setupId;
   const setup = currentSetup();
   state.words = setup.words.map(normalizeWordEntry);
@@ -2313,11 +2601,6 @@ function deleteCurrentSetup() {
   const setup = currentSetup();
   if (!setup) return;
 
-  if (state.setups.length <= 1) {
-    window.alert("Create another setup before deleting this one.");
-    return;
-  }
-
   const confirmed = window.confirm(
     `Delete setup "${setupLabel(setup)}" and its saved words from this browser?`,
   );
@@ -2328,10 +2611,10 @@ function deleteCurrentSetup() {
   state.fileHandles.delete(deletedSetupId);
   state.setups = state.setups.filter((item) => item.id !== deletedSetupId);
 
-  const nextSetup = state.setups[Math.max(0, deletedIndex - 1)] || state.setups[0];
-  state.activeSetupId = nextSetup.id;
-  state.words = nextSetup.words.map(normalizeWordEntry);
-  state.fileHandle = state.fileHandles.get(nextSetup.id) || null;
+  const nextSetup = state.setups[Math.max(0, deletedIndex - 1)] || state.setups[0] || null;
+  state.activeSetupId = nextSetup?.id || "";
+  state.words = nextSetup ? nextSetup.words.map(normalizeWordEntry) : [];
+  state.fileHandle = nextSetup ? state.fileHandles.get(nextSetup.id) || null : null;
   state.currentCard = null;
   state.revealed = false;
   saveSetups();
@@ -2355,13 +2638,14 @@ function createNewSetup() {
   }
 
   syncActiveSetupWords();
-  state.fileHandles.set(state.activeSetupId, state.fileHandle);
+  if (state.activeSetupId) state.fileHandles.set(state.activeSetupId, state.fileHandle);
   const setup = normalizeSetup({
     id: createSetupId(learnLanguage, fromLanguage),
     learnLanguage,
     learnLanguageCode,
     fromLanguage,
     fromLanguageCode,
+    settings: { ...DEFAULT_SETUP_SETTINGS },
     words: [],
   });
   state.setups.push(setup);
@@ -2401,8 +2685,78 @@ function autofillLanguageCode(nameInput, codeInput) {
   }
 }
 
+function renderDefaultDatabaseDialog() {
+  elements.defaultDatabaseList.innerHTML = "";
+  elements.defaultDatabaseMessage.textContent = "";
+
+  DEFAULT_DATABASES.forEach((database) => {
+    const row = document.createElement("div");
+    row.className = "default-database-row";
+    const copy = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = database.label;
+    const detail = document.createElement("span");
+    detail.textContent = `${database.learnLanguage} to learn · translate from ${database.fromLanguage}`;
+    copy.append(title, detail);
+
+    const importButton = document.createElement("button");
+    importButton.type = "button";
+    importButton.className = "primary";
+    importButton.textContent = "Start";
+    importButton.addEventListener("click", () => importDefaultDatabase(database));
+
+    row.append(copy, importButton);
+    elements.defaultDatabaseList.append(row);
+  });
+}
+
+function defaultDatabaseSetup(database) {
+  return normalizeSetup({
+    id: `${database.id}-${Date.now().toString(36)}`,
+    learnLanguage: database.learnLanguage,
+    learnLanguageCode: database.learnLanguageCode,
+    fromLanguage: database.fromLanguage,
+    fromLanguageCode: database.fromLanguageCode,
+    settings: { ...DEFAULT_SETUP_SETTINGS },
+    words: [],
+  });
+}
+
+async function importDefaultDatabase(database) {
+  elements.defaultDatabaseMessage.textContent = `Loading ${database.label}...`;
+  try {
+    const response = await fetch(database.path, { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const csvText = await response.text();
+    const setup = defaultDatabaseSetup(database);
+    setup.words = wordsFromCsv(csvText, setup).map((entry) => ({
+      ...entry,
+      elToEnScore: 0,
+      enToElScore: 0,
+      recentWrong: false,
+    }));
+    if (!setup.words.length) throw new Error("No words found.");
+
+    syncActiveSetupWords();
+    if (state.activeSetupId) state.fileHandles.set(state.activeSetupId, state.fileHandle);
+    state.setups.push(setup);
+    state.activeSetupId = setup.id;
+    state.words = setup.words.map(normalizeWordEntry);
+    state.fileHandle = null;
+    state.currentCard = null;
+    state.revealed = false;
+    saveSetups();
+    elements.defaultDatabaseDialog.close();
+    render();
+  } catch (error) {
+    console.warn("Could not import default database.", error);
+    elements.defaultDatabaseMessage.textContent =
+      "Could not load that default CSV. On the website this uses the data/ CSV files from GitHub.";
+  }
+}
+
 function enforceRecentWrongLimit(words = state.words, preserveEntry = null) {
-  const overflow = words.filter((entry) => entry.recentWrong).length - state.settings.recentWrongLimit;
+  const overflow = words.filter((entry) => entry.recentWrong).length - currentSetupSettings().recentWrongLimit;
   if (overflow <= 0) return;
 
   let removed = 0;
@@ -2472,7 +2826,7 @@ function chooseNextWord(direction) {
 
   if (
     recentWrongCount > 0 &&
-    Math.random() < recentWrongCount / state.settings.recentWrongLimit
+    Math.random() < recentWrongCount / currentSetupSettings().recentWrongLimit
   ) {
     const recentWrongWord = chooseRecentWrongWord(excludedEntry);
     if (recentWrongWord) return recentWrongWord;
@@ -2574,10 +2928,11 @@ function createNotesInput(value) {
 }
 
 function createScoreInput(value, label) {
+  const settings = currentSetupSettings();
   const input = document.createElement("input");
   input.type = "number";
-  input.min = String(state.settings.minScore);
-  input.max = String(state.settings.maxScore);
+  input.min = String(settings.minScore);
+  input.max = String(settings.maxScore);
   input.step = "1";
   input.value = clampScore(value);
   input.setAttribute("aria-label", label);
@@ -2593,9 +2948,10 @@ function createRecentWrongInput(value) {
 }
 
 function renderSettingsDialog() {
-  elements.minScoreInput.value = state.settings.minScore;
-  elements.maxScoreInput.value = state.settings.maxScore;
-  elements.recentWrongLimitInput.value = state.settings.recentWrongLimit;
+  const setupSettings = currentSetupSettings();
+  elements.minScoreInput.value = setupSettings.minScore;
+  elements.maxScoreInput.value = setupSettings.maxScore;
+  elements.recentWrongLimitInput.value = setupSettings.recentWrongLimit;
   elements.speechMaxSecondsInput.value = state.settings.speechMaxSeconds;
   elements.speakPromptsInput.checked = state.settings.speakPrompts;
   elements.speechModelSelect.innerHTML = "";
@@ -2633,10 +2989,15 @@ async function saveSettingsFromDialog() {
     return;
   }
 
+  const setup = currentSetup();
+  if (setup) {
+    setup.settings = normalizeSetupSettings({
+      minScore,
+      maxScore,
+      recentWrongLimit,
+    });
+  }
   state.settings = {
-    minScore,
-    maxScore,
-    recentWrongLimit,
     speechModelId,
     speechMaxSeconds,
     speakPrompts,
@@ -2758,7 +3119,7 @@ async function revealAnswer() {
     entry.recentWrong = false;
   } else if (
     entry.recentWrong ||
-    state.words.filter((word) => word.recentWrong).length < state.settings.recentWrongLimit
+    state.words.filter((word) => word.recentWrong).length < currentSetupSettings().recentWrongLimit
   ) {
     entry.recentWrong = true;
   }
@@ -2853,18 +3214,44 @@ function renderWords() {
 
 function renderQuiz() {
   const hasWords = state.words.length > 0;
+  const hasSetup = Boolean(currentSetup());
   const recentWrongCount = state.words.filter((entry) => entry.recentWrong).length;
-  elements.answerInput.disabled = !hasWords;
-  elements.submitAnswerButton.disabled = !hasWords;
+  elements.answerInput.disabled = !hasWords || !hasSetup;
+  elements.submitAnswerButton.disabled = !hasWords || !hasSetup;
   elements.quizMeta.textContent = hasWords
-    ? `${state.words.length} ${state.words.length === 1 ? "entry" : "entries"} ready · ${recentWrongCount}/${state.settings.recentWrongLimit} recent wrong`
-    : "Add at least one word to begin";
+    ? `${state.words.length} ${state.words.length === 1 ? "entry" : "entries"} ready · ${recentWrongCount}/${currentSetupSettings().recentWrongLimit} recent wrong`
+    : hasSetup
+      ? "Add at least one word to begin"
+      : "Choose or create a language setup to begin";
 
   if (!state.currentCard) {
     elements.promptLabel.textContent = "Prompt";
-    elements.promptWord.textContent = hasWords ? "Press Enter to begin" : "No words yet";
+    elements.promptWord.textContent = hasWords
+      ? "Press Enter to begin"
+      : hasSetup
+        ? "No words yet"
+        : "Start a setup";
     elements.feedback.className = "feedback";
-    elements.feedback.textContent = "";
+    if (!hasSetup) {
+      const startDefault = document.createElement("button");
+      startDefault.type = "button";
+      startDefault.className = "primary";
+      startDefault.textContent = "Start from default words";
+      startDefault.addEventListener("click", () => {
+        renderDefaultDatabaseDialog();
+        elements.defaultDatabaseDialog.showModal();
+      });
+      const createBlank = document.createElement("button");
+      createBlank.type = "button";
+      createBlank.textContent = "Create blank setup";
+      createBlank.addEventListener("click", () => elements.newSetupButton.click());
+      const actions = document.createElement("div");
+      actions.className = "start-actions";
+      actions.append(startDefault, createBlank);
+      elements.feedback.replaceChildren("Choose how to begin, then your progress will be saved to this account.", actions);
+    } else {
+      elements.feedback.textContent = "";
+    }
     elements.notesPanel.textContent = "";
     elements.submitAnswerButton.textContent = "Enter";
     updateSpeechControls();
@@ -2901,35 +3288,55 @@ function renderDirections() {
 
   Object.entries(buttons).forEach(([direction, button]) => {
     button.classList.toggle("active", state.direction === direction);
+    button.disabled = !currentSetup();
   });
 }
 
 function renderSetupControls() {
-  const setup = currentSetup() || DEFAULT_SETUP;
-  elements.languagePairLabel.textContent = `${setup.fromLanguage} ⇄ ${setup.learnLanguage}`;
-  elements.appTitle.textContent = `${setup.learnLanguage} Vocabulary Trainer`;
+  const setup = currentSetup();
+  const displaySetup = setup || DEFAULT_SETUP;
+  elements.languagePairLabel.textContent = setup
+    ? `${setup.fromLanguage} ⇄ ${setup.learnLanguage}`
+    : "No language setup";
+  elements.appTitle.textContent = setup ? `${setup.learnLanguage} Vocabulary Trainer` : "Vocabulary Trainer";
   document.title = elements.appTitle.textContent;
-  elements.answerInput.placeholder = `Type the ${setup.learnLanguage} or ${setup.fromLanguage} translation`;
+  elements.answerInput.placeholder = `Type the ${displaySetup.learnLanguage} or ${displaySetup.fromLanguage} translation`;
   elements.wordsTextarea.placeholder =
-    `${setup.learnLanguage} word / alternative: ${setup.fromLanguage} translation :: Optional explanation`;
+    `${displaySetup.learnLanguage} word / alternative: ${displaySetup.fromLanguage} translation :: Optional explanation`;
   elements.pasteCsvTextarea.placeholder =
-    `${setup.learnLanguage.toLowerCase()},${setup.fromLanguage.toLowerCase()},${setup.learnLanguage.toLowerCase()}_to_${setup.fromLanguage.toLowerCase()}_score,${setup.fromLanguage.toLowerCase()}_to_${setup.learnLanguage.toLowerCase()}_score,recent_wrong,explanations_examples`;
+    `${displaySetup.learnLanguage.toLowerCase()},${displaySetup.fromLanguage.toLowerCase()},${displaySetup.learnLanguage.toLowerCase()}_to_${displaySetup.fromLanguage.toLowerCase()}_score,${displaySetup.fromLanguage.toLowerCase()}_to_${displaySetup.learnLanguage.toLowerCase()}_score,recent_wrong,explanations_examples`;
 
   elements.setupSelect.innerHTML = "";
-  state.setups.forEach((item) => {
+  if (!state.setups.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No setup yet";
+    elements.setupSelect.append(option);
+  } else {
+    state.setups.forEach((item) => {
     const option = document.createElement("option");
     option.value = item.id;
     option.textContent = setupLabel(item);
     option.selected = item.id === state.activeSetupId;
     elements.setupSelect.append(option);
-  });
-  elements.deleteSetupButton.disabled = state.setups.length <= 1;
+    });
+  }
+  elements.setupSelect.disabled = !state.setups.length;
+  elements.deleteSetupButton.disabled = !setup;
+  elements.addWordsButton.disabled = !setup;
+  elements.editWordsButton.disabled = !setup;
+  elements.openCsvButton.disabled = !setup;
+  elements.pasteCsvButton.disabled = !setup;
+  elements.saveCsvButton.disabled = !setup;
+  elements.copyCsvButton.disabled = !setup;
+  elements.downloadCsvButton.disabled = !setup;
+  elements.settingsButton.disabled = !setup;
 
   const headers = elements.editWordsDialog.querySelectorAll("th");
-  if (headers[0]) headers[0].textContent = setup.learnLanguage;
-  if (headers[1]) headers[1].textContent = setup.fromLanguage;
-  if (headers[2]) headers[2].textContent = `${setup.learnLanguage} → ${setup.fromLanguage}`;
-  if (headers[3]) headers[3].textContent = `${setup.fromLanguage} → ${setup.learnLanguage}`;
+  if (headers[0]) headers[0].textContent = displaySetup.learnLanguage;
+  if (headers[1]) headers[1].textContent = displaySetup.fromLanguage;
+  if (headers[2]) headers[2].textContent = `${displaySetup.learnLanguage} → ${displaySetup.fromLanguage}`;
+  if (headers[3]) headers[3].textContent = `${displaySetup.fromLanguage} → ${displaySetup.learnLanguage}`;
 }
 
 function render() {
@@ -2937,7 +3344,7 @@ function render() {
   renderSetupControls();
   renderWords();
   renderDirections();
-  if (!state.currentCard && state.words.length) {
+  if (currentSetup() && !state.currentCard && state.words.length) {
     nextCard();
     return;
   }
@@ -3094,6 +3501,11 @@ elements.cloudButton.addEventListener("click", () => {
   elements.cloudDialog.showModal();
 });
 
+elements.defaultDatabaseButton.addEventListener("click", () => {
+  renderDefaultDatabaseDialog();
+  elements.defaultDatabaseDialog.showModal();
+});
+
 elements.editWordsButton.addEventListener("click", () => {
   openEditWordsDialog();
 });
@@ -3118,9 +3530,17 @@ elements.closeCloudDialogButton.addEventListener("click", () => {
   elements.cloudDialog.close();
 });
 
+elements.closeDefaultDatabaseDialogButton.addEventListener("click", () => {
+  elements.defaultDatabaseDialog.close();
+});
+
 elements.closePasteCsvDialogButton.addEventListener("click", () => {
   elements.pasteCsvDialog.close();
 });
+
+elements.chooseLocalAccountButton.addEventListener("click", chooseLocalAccount);
+
+elements.chooseGoogleAccountButton.addEventListener("click", chooseGoogleAccount);
 
 elements.cancelPasteCsvButton.addEventListener("click", () => {
   elements.pasteCsvDialog.close();
@@ -3283,13 +3703,24 @@ elements.copyCsvButton.addEventListener("click", copyCsvToClipboard);
 
 window.addEventListener("beforeunload", stopSpeechStream);
 
+loadAccountMode();
 loadSettings();
 loadSetups();
 loadFirebaseConfig();
 ensureLocalTimestampForExistingData();
 fillLanguageOptions();
 render();
-initializeFirebaseFromSavedConfig();
+initializeFirebaseFromSavedConfig()
+  .catch(() => {})
+  .finally(() => {
+    const existingUser = state.sync.user || state.sync.auth?.currentUser || null;
+    if (existingUser) {
+      state.sync.user = existingUser;
+      saveAccountMode("google");
+    }
+    if (!existingUser) maybeShowAccountModeDialog();
+    render();
+  });
 
     </script>
   </body>
