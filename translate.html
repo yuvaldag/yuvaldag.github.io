@@ -890,8 +890,16 @@ dialog::backdrop {
             <input id="maxScoreInput" type="number" step="1" />
           </label>
           <label>
-            <span>Recent-wrong list size</span>
+            <span>Mistake list 1 cap</span>
             <input id="recentWrongLimitInput" type="number" min="1" step="1" />
+          </label>
+          <label>
+            <span>Mistake list 2 cap</span>
+            <input id="mistakeList2LimitInput" type="number" min="1" step="1" />
+          </label>
+          <label>
+            <span>Mistake list 3 cap</span>
+            <input id="mistakeList3LimitInput" type="number" min="1" step="1" />
           </label>
           <label>
             <span>Speech model</span>
@@ -1039,7 +1047,9 @@ const DEFAULT_SPEECH_MODEL_ID = "onnx-community/whisper-base";
 const DEFAULT_SETUP_SETTINGS = {
   minScore: -5,
   maxScore: 5,
-  recentWrongLimit: 7,
+  mistakeList1Limit: 7,
+  mistakeList2Limit: 7,
+  mistakeList3Limit: 7,
 };
 const DEFAULT_SETUP = {
   id: "greek-english",
@@ -1222,6 +1232,8 @@ const elements = {
   minScoreInput: document.querySelector("#minScoreInput"),
   maxScoreInput: document.querySelector("#maxScoreInput"),
   recentWrongLimitInput: document.querySelector("#recentWrongLimitInput"),
+  mistakeList2LimitInput: document.querySelector("#mistakeList2LimitInput"),
+  mistakeList3LimitInput: document.querySelector("#mistakeList3LimitInput"),
   speechModelSelect: document.querySelector("#speechModelSelect"),
   speechMaxSecondsInput: document.querySelector("#speechMaxSecondsInput"),
   speakPromptsInput: document.querySelector("#speakPromptsInput"),
@@ -1308,6 +1320,8 @@ function parseWordLines(text) {
       english,
       elToEnScore: 0,
       enToElScore: 0,
+      mistakeStage: 0,
+      mistakeUpdatedAt: 0,
       recentWrong: false,
       notes,
     });
@@ -1392,13 +1406,21 @@ function toCsv(words) {
 function normalizeSetupSettings(settings = {}) {
   const minScore = Number.parseInt(settings?.minScore, 10);
   const maxScore = Number.parseInt(settings?.maxScore, 10);
-  const recentWrongLimit = Number.parseInt(settings?.recentWrongLimit, 10);
+  const list1Limit = Number.parseInt(settings?.mistakeList1Limit ?? settings?.recentWrongLimit, 10);
+  const list2Limit = Number.parseInt(settings?.mistakeList2Limit ?? settings?.recentWrongLimit, 10);
+  const list3Limit = Number.parseInt(settings?.mistakeList3Limit ?? settings?.recentWrongLimit, 10);
   const normalized = {
     minScore: Number.isNaN(minScore) ? DEFAULT_SETUP_SETTINGS.minScore : minScore,
     maxScore: Number.isNaN(maxScore) ? DEFAULT_SETUP_SETTINGS.maxScore : maxScore,
-    recentWrongLimit: Number.isNaN(recentWrongLimit)
-      ? DEFAULT_SETUP_SETTINGS.recentWrongLimit
-      : Math.max(1, recentWrongLimit),
+    mistakeList1Limit: Number.isNaN(list1Limit)
+      ? DEFAULT_SETUP_SETTINGS.mistakeList1Limit
+      : Math.max(1, list1Limit),
+    mistakeList2Limit: Number.isNaN(list2Limit)
+      ? DEFAULT_SETUP_SETTINGS.mistakeList2Limit
+      : Math.max(1, list2Limit),
+    mistakeList3Limit: Number.isNaN(list3Limit)
+      ? DEFAULT_SETUP_SETTINGS.mistakeList3Limit
+      : Math.max(1, list3Limit),
   };
 
   if (normalized.minScore >= normalized.maxScore) {
@@ -2457,6 +2479,13 @@ function normalizeWordEntry(entry, settings = currentSetupSettings()) {
   const legacyScore = clampScore(entry.score || 0, settings);
   const greekSource = entry.greek ?? entry.learn ?? "";
   const englishSource = entry.english ?? entry.from ?? "";
+  const rawStage = Number.parseInt(entry.mistakeStage, 10);
+  const mistakeStage = Number.isNaN(rawStage)
+    ? entry.recentWrong
+      ? 1
+      : 0
+    : Math.max(0, Math.min(3, rawStage));
+  const rawMistakeUpdatedAt = Number(entry.mistakeUpdatedAt || 0);
   return {
     greek: Array.isArray(greekSource) ? greekSource.filter(Boolean) : splitVariants(greekSource || ""),
     english: Array.isArray(englishSource)
@@ -2464,7 +2493,9 @@ function normalizeWordEntry(entry, settings = currentSetupSettings()) {
       : splitVariants(englishSource || ""),
     elToEnScore: clampScore(entry.elToEnScore ?? entry.learnToFromScore ?? legacyScore, settings),
     enToElScore: clampScore(entry.enToElScore ?? entry.fromToLearnScore ?? legacyScore, settings),
-    recentWrong: Boolean(entry.recentWrong),
+    mistakeStage,
+    mistakeUpdatedAt: Number.isFinite(rawMistakeUpdatedAt) ? rawMistakeUpdatedAt : 0,
+    recentWrong: mistakeStage > 0,
     notes: String(entry.notes || ""),
   };
 }
@@ -2508,6 +2539,8 @@ function wordsFromCsv(text, setupOverride = null) {
         english: splitVariants(row[1] || ""),
         elToEnScore: clampScore(elToEnIndex >= 0 ? row[elToEnIndex] : legacyScore, settings),
         enToElScore: clampScore(enToElIndex >= 0 ? row[enToElIndex] : legacyScore, settings),
+        mistakeStage: recentWrongIndex >= 0 && parseBoolean(row[recentWrongIndex]) ? 1 : 0,
+        mistakeUpdatedAt: 0,
         recentWrong: recentWrongIndex >= 0 ? parseBoolean(row[recentWrongIndex]) : false,
         notes: notesIndex >= 0 ? row[notesIndex] || "" : "",
       };
@@ -2755,18 +2788,31 @@ async function importDefaultDatabase(database) {
   }
 }
 
-function enforceRecentWrongLimit(words = state.words, preserveEntry = null) {
-  const overflow = words.filter((entry) => entry.recentWrong).length - currentSetupSettings().recentWrongLimit;
-  if (overflow <= 0) return;
+function mistakeCap(stage, settings = currentSetupSettings()) {
+  if (stage === 1) return settings.mistakeList1Limit;
+  if (stage === 2) return settings.mistakeList2Limit;
+  return settings.mistakeList3Limit;
+}
 
-  let removed = 0;
-  for (const entry of words) {
-    if (entry === preserveEntry) continue;
-    if (!entry.recentWrong) continue;
-    entry.recentWrong = false;
-    removed += 1;
-    if (removed >= overflow) return;
-  }
+function mistakeCounts(words = state.words) {
+  return [1, 2, 3].map((stage) => words.filter((entry) => entry.mistakeStage === stage).length);
+}
+
+function enforceRecentWrongLimit(words = state.words, preserveEntry = null) {
+  [1, 2, 3].forEach((stage) => {
+    const cap = mistakeCap(stage);
+    const entries = words
+      .filter((entry) => entry.mistakeStage === stage && entry !== preserveEntry)
+      .sort((a, b) => (a.mistakeUpdatedAt || 0) - (b.mistakeUpdatedAt || 0));
+    let overflow = words.filter((entry) => entry.mistakeStage === stage).length - cap;
+    for (const entry of entries) {
+      if (overflow <= 0) return;
+      entry.mistakeStage = 0;
+      entry.recentWrong = false;
+      entry.mistakeUpdatedAt = Date.now();
+      overflow -= 1;
+    }
+  });
 }
 
 async function mergeWords(entries) {
@@ -2812,7 +2858,7 @@ function chooseWeightedWord(direction, excludedEntry = null) {
 }
 
 function chooseRecentWrongWord(excludedEntry = null) {
-  const allRecentWrongWords = state.words.filter((entry) => entry.recentWrong);
+  const allRecentWrongWords = state.words.filter((entry) => entry.mistakeStage > 0);
   const recentWrongWords = allRecentWrongWords.filter((entry) => entry !== excludedEntry);
 
   if (!recentWrongWords.length) return null;
@@ -2821,15 +2867,15 @@ function chooseRecentWrongWord(excludedEntry = null) {
 }
 
 function chooseNextWord(direction) {
-  const recentWrongCount = state.words.filter((entry) => entry.recentWrong).length;
   const excludedEntry = state.currentCard?.entry || null;
 
-  if (
-    recentWrongCount > 0 &&
-    Math.random() < recentWrongCount / currentSetupSettings().recentWrongLimit
-  ) {
-    const recentWrongWord = chooseRecentWrongWord(excludedEntry);
-    if (recentWrongWord) return recentWrongWord;
+  for (const stage of [1, 2, 3]) {
+    const candidates = state.words.filter((entry) => entry.mistakeStage === stage && entry !== excludedEntry);
+    if (!candidates.length) continue;
+    const probability = Math.min(1, candidates.length / mistakeCap(stage));
+    if (Math.random() < probability) {
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    }
   }
 
   return chooseWeightedWord(direction, excludedEntry);
@@ -2951,7 +2997,9 @@ function renderSettingsDialog() {
   const setupSettings = currentSetupSettings();
   elements.minScoreInput.value = setupSettings.minScore;
   elements.maxScoreInput.value = setupSettings.maxScore;
-  elements.recentWrongLimitInput.value = setupSettings.recentWrongLimit;
+  elements.recentWrongLimitInput.value = setupSettings.mistakeList1Limit;
+  elements.mistakeList2LimitInput.value = setupSettings.mistakeList2Limit;
+  elements.mistakeList3LimitInput.value = setupSettings.mistakeList3Limit;
   elements.speechMaxSecondsInput.value = state.settings.speechMaxSeconds;
   elements.speakPromptsInput.checked = state.settings.speakPrompts;
   elements.speechModelSelect.innerHTML = "";
@@ -2968,7 +3016,9 @@ function renderSettingsDialog() {
 async function saveSettingsFromDialog() {
   const minScore = Number.parseInt(elements.minScoreInput.value, 10);
   const maxScore = Number.parseInt(elements.maxScoreInput.value, 10);
-  const recentWrongLimit = Number.parseInt(elements.recentWrongLimitInput.value, 10);
+  const mistakeList1Limit = Number.parseInt(elements.recentWrongLimitInput.value, 10);
+  const mistakeList2Limit = Number.parseInt(elements.mistakeList2LimitInput.value, 10);
+  const mistakeList3Limit = Number.parseInt(elements.mistakeList3LimitInput.value, 10);
   const speechMaxSeconds = Number.parseFloat(elements.speechMaxSecondsInput.value);
   const speechModelId = elements.speechModelSelect.value || DEFAULT_SETTINGS.speechModelId;
   const speakPrompts = elements.speakPromptsInput.checked;
@@ -2979,8 +3029,15 @@ async function saveSettingsFromDialog() {
     return;
   }
 
-  if (Number.isNaN(recentWrongLimit) || recentWrongLimit < 1) {
-    elements.settingsMessage.textContent = "Recent-wrong list size must be at least 1.";
+  if (
+    Number.isNaN(mistakeList1Limit) ||
+    Number.isNaN(mistakeList2Limit) ||
+    Number.isNaN(mistakeList3Limit) ||
+    mistakeList1Limit < 1 ||
+    mistakeList2Limit < 1 ||
+    mistakeList3Limit < 1
+  ) {
+    elements.settingsMessage.textContent = "Mistake list caps must be at least 1.";
     return;
   }
 
@@ -2994,7 +3051,9 @@ async function saveSettingsFromDialog() {
     setup.settings = normalizeSetupSettings({
       minScore,
       maxScore,
-      recentWrongLimit,
+      mistakeList1Limit,
+      mistakeList2Limit,
+      mistakeList3Limit,
     });
   }
   state.settings = {
@@ -3088,6 +3147,8 @@ async function saveEditedWords() {
       english,
       elToEnScore: clampScore(inputs[2].value),
       enToElScore: clampScore(inputs[3].value),
+      mistakeStage: inputs[4].checked ? 1 : 0,
+      mistakeUpdatedAt: inputs[4].checked ? Date.now() : 0,
       recentWrong: inputs[4].checked,
       notes: notesInput?.value.trim() || "",
     });
@@ -3116,13 +3177,13 @@ async function revealAnswer() {
   entry[scoreKey] = clampScore((entry[scoreKey] || 0) + (isCorrect ? 1 : -1));
 
   if (isCorrect) {
-    entry.recentWrong = false;
-  } else if (
-    entry.recentWrong ||
-    state.words.filter((word) => word.recentWrong).length < currentSetupSettings().recentWrongLimit
-  ) {
-    entry.recentWrong = true;
+    entry.mistakeStage = entry.mistakeStage > 0 ? (entry.mistakeStage >= 3 ? 0 : entry.mistakeStage + 1) : 0;
+  } else {
+    entry.mistakeStage = 1;
   }
+  entry.recentWrong = entry.mistakeStage > 0;
+  entry.mistakeUpdatedAt = Date.now();
+  enforceRecentWrongLimit(state.words, entry);
 
   elements.feedback.className = `feedback ${isCorrect ? "correct" : "incorrect"}`;
   const scoreText = document.createElement("strong");
@@ -3193,8 +3254,8 @@ function renderWords() {
     enToElScore.className = "score";
     enToElScore.textContent = `EN→EL ${clampScore(entry.enToElScore)}`;
     recentWrong.className = "score recent-wrong";
-    recentWrong.textContent = "Recent wrong";
-    recentWrong.hidden = !entry.recentWrong;
+    recentWrong.textContent = entry.mistakeStage > 0 ? `Mistake list ${entry.mistakeStage}` : "";
+    recentWrong.hidden = entry.mistakeStage <= 0;
     deleteButton.className = "delete-word";
     deleteButton.type = "button";
     deleteButton.setAttribute("aria-label", "Delete word");
@@ -3215,11 +3276,12 @@ function renderWords() {
 function renderQuiz() {
   const hasWords = state.words.length > 0;
   const hasSetup = Boolean(currentSetup());
-  const recentWrongCount = state.words.filter((entry) => entry.recentWrong).length;
+  const [mistake1, mistake2, mistake3] = mistakeCounts();
+  const settings = currentSetupSettings();
   elements.answerInput.disabled = !hasWords || !hasSetup;
   elements.submitAnswerButton.disabled = !hasWords || !hasSetup;
   elements.quizMeta.textContent = hasWords
-    ? `${state.words.length} ${state.words.length === 1 ? "entry" : "entries"} ready · ${recentWrongCount}/${currentSetupSettings().recentWrongLimit} recent wrong`
+    ? `${state.words.length} ${state.words.length === 1 ? "entry" : "entries"} ready · mistakes ${mistake1}/${settings.mistakeList1Limit}, ${mistake2}/${settings.mistakeList2Limit}, ${mistake3}/${settings.mistakeList3Limit}`
     : hasSetup
       ? "Add at least one word to begin"
       : "Choose or create a language setup to begin";
