@@ -1016,6 +1016,7 @@ const FIREBASE_CONFIG_KEY = "vocabulary-trainer.firebase-config";
 const ACCOUNT_MODE_KEY = "vocabulary-trainer.account-mode";
 const LOCAL_UPDATED_KEY = "vocabulary-trainer.local-updated-at";
 const LAST_CLOUD_UPDATED_KEY = "vocabulary-trainer.last-cloud-updated-at";
+const LAST_SYNCED_STATE_KEY = "vocabulary-trainer.last-synced-state";
 const CSV_MIME = "text/csv";
 const TRANSFORMERS_CDN =
   "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js";
@@ -2022,6 +2023,182 @@ function mergeLocalStateIntoCloud(remoteState, localState) {
   };
 }
 
+function lastSyncedState() {
+  try {
+    return JSON.parse(localStorage.getItem(LAST_SYNCED_STATE_KEY) || "null") || null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLastSyncedState(appState = exportAppState()) {
+  localStorage.setItem(LAST_SYNCED_STATE_KEY, JSON.stringify(appState));
+}
+
+function setupMergeKey(setup) {
+  return setup?.id || `${setup?.learnLanguageCode || ""}:${setup?.fromLanguageCode || ""}`;
+}
+
+function wordMergeKey(word) {
+  const normalizedSide = (values) =>
+    (Array.isArray(values) ? values : splitVariants(values || ""))
+      .map(normalizeAnswer)
+      .filter(Boolean)
+      .sort()
+      .join("|");
+  return `${normalizedSide(word?.greek ?? word?.learn)}::${normalizedSide(word?.english ?? word?.from)}`;
+}
+
+function mergePrimitive(baseValue, localValue, remoteValue) {
+  if (JSON.stringify(localValue) === JSON.stringify(remoteValue)) return localValue;
+  if (JSON.stringify(localValue) === JSON.stringify(baseValue)) return remoteValue;
+  if (JSON.stringify(remoteValue) === JSON.stringify(baseValue)) return localValue;
+  return remoteValue;
+}
+
+function mergeText(baseValue = "", localValue = "", remoteValue = "") {
+  if (localValue === remoteValue) return localValue;
+  if (localValue === baseValue) return remoteValue;
+  if (remoteValue === baseValue) return localValue;
+  if (!localValue) return remoteValue;
+  if (!remoteValue) return localValue;
+  if (remoteValue.includes(localValue)) return remoteValue;
+  if (localValue.includes(remoteValue)) return localValue;
+  return `${remoteValue}\n${localValue}`;
+}
+
+function mergeVariants(baseValues = [], localValues = [], remoteValues = []) {
+  const merged = [];
+  [...remoteValues, ...localValues, ...baseValues].forEach((value) => {
+    const normalized = normalizeAnswer(String(value || ""));
+    if (!normalized || merged.some((item) => normalizeAnswer(item) === normalized)) return;
+    merged.push(value);
+  });
+  return merged;
+}
+
+function mergeScore(baseWord, localWord, remoteWord, field, setupSettings) {
+  const baseScore = clampScore(baseWord?.[field] ?? 0, setupSettings);
+  if (!localWord && !remoteWord) return baseScore;
+  if (!localWord) return clampScore(remoteWord?.[field] ?? 0, setupSettings);
+  if (!remoteWord) return clampScore(localWord?.[field] ?? 0, setupSettings);
+  const localScore = clampScore(localWord[field] ?? baseScore, setupSettings);
+  const remoteScore = clampScore(remoteWord[field] ?? baseScore, setupSettings);
+  if (!baseWord) return clampScore(remoteScore, setupSettings);
+  return clampScore(baseScore + (localScore - baseScore) + (remoteScore - baseScore), setupSettings);
+}
+
+function mergeMistakeState(localWord, remoteWord) {
+  const localUpdatedAt = Number(localWord?.mistakeUpdatedAt || 0);
+  const remoteUpdatedAt = Number(remoteWord?.mistakeUpdatedAt || 0);
+  if (localUpdatedAt > remoteUpdatedAt) {
+    return {
+      mistakeStage: Math.max(0, Math.min(3, Number(localWord?.mistakeStage || 0))),
+      mistakeUpdatedAt: localUpdatedAt,
+    };
+  }
+  return {
+    mistakeStage: Math.max(0, Math.min(3, Number(remoteWord?.mistakeStage || 0))),
+    mistakeUpdatedAt: remoteUpdatedAt,
+  };
+}
+
+function mapBy(items, keyFn) {
+  const map = new Map();
+  items.forEach((item) => {
+    const key = keyFn(item);
+    if (key && !map.has(key)) map.set(key, item);
+  });
+  return map;
+}
+
+function mergeSetupSettings(baseSetup, localSetup, remoteSetup) {
+  const baseSettings = normalizeSetupSettings(baseSetup?.settings || {});
+  const localSettings = normalizeSetupSettings(localSetup?.settings || baseSettings);
+  const remoteSettings = normalizeSetupSettings(remoteSetup?.settings || baseSettings);
+  return normalizeSetupSettings({
+    minScore: mergePrimitive(baseSettings.minScore, localSettings.minScore, remoteSettings.minScore),
+    maxScore: mergePrimitive(baseSettings.maxScore, localSettings.maxScore, remoteSettings.maxScore),
+    mistakeList1Limit: mergePrimitive(baseSettings.mistakeList1Limit, localSettings.mistakeList1Limit, remoteSettings.mistakeList1Limit),
+    mistakeList2Limit: mergePrimitive(baseSettings.mistakeList2Limit, localSettings.mistakeList2Limit, remoteSettings.mistakeList2Limit),
+    mistakeList3Limit: mergePrimitive(baseSettings.mistakeList3Limit, localSettings.mistakeList3Limit, remoteSettings.mistakeList3Limit),
+  });
+}
+
+function mergeWord(baseWord, localWord, remoteWord, setupSettings) {
+  const fallback = localWord || remoteWord || baseWord;
+  const mistake = mergeMistakeState(localWord || baseWord, remoteWord || baseWord);
+  return normalizeWordEntry({
+    greek: mergeVariants(baseWord?.greek, localWord?.greek || fallback?.greek, remoteWord?.greek || fallback?.greek),
+    english: mergeVariants(baseWord?.english, localWord?.english || fallback?.english, remoteWord?.english || fallback?.english),
+    elToEnScore: mergeScore(baseWord, localWord, remoteWord, "elToEnScore", setupSettings),
+    enToElScore: mergeScore(baseWord, localWord, remoteWord, "enToElScore", setupSettings),
+    mistakeStage: mistake.mistakeStage,
+    mistakeUpdatedAt: mistake.mistakeUpdatedAt,
+    notes: mergeText(baseWord?.notes || "", localWord?.notes || "", remoteWord?.notes || ""),
+  }, setupSettings);
+}
+
+function mergeSetup(baseSetup, localSetup, remoteSetup) {
+  const fallback = localSetup || remoteSetup || baseSetup;
+  const settings = mergeSetupSettings(baseSetup, localSetup, remoteSetup);
+  const baseWords = mapBy(baseSetup?.words || [], wordMergeKey);
+  const localWords = mapBy(localSetup?.words || [], wordMergeKey);
+  const remoteWords = mapBy(remoteSetup?.words || [], wordMergeKey);
+  const keys = new Set([...baseWords.keys(), ...localWords.keys(), ...remoteWords.keys()]);
+  const words = [...keys].map((key) =>
+    mergeWord(baseWords.get(key), localWords.get(key), remoteWords.get(key), settings),
+  );
+  return normalizeSetup({
+    id: fallback.id,
+    learnLanguage: fallback.learnLanguage,
+    learnLanguageCode: fallback.learnLanguageCode,
+    fromLanguage: fallback.fromLanguage,
+    fromLanguageCode: fallback.fromLanguageCode,
+    settings,
+    words,
+  });
+}
+
+function mergeAppStates(baseState, localState, remoteState) {
+  const baseSetups = mapBy((baseState?.setups || []).map(normalizeSetup), setupMergeKey);
+  const localSetups = mapBy((localState?.setups || []).map(normalizeSetup), setupMergeKey);
+  const remoteSetups = mapBy((remoteState?.setups || []).map(normalizeSetup), setupMergeKey);
+  const keys = new Set([...baseSetups.keys(), ...localSetups.keys(), ...remoteSetups.keys()]);
+  const setups = [...keys].map((key) =>
+    mergeSetup(baseSetups.get(key), localSetups.get(key), remoteSetups.get(key)),
+  );
+  return {
+    schemaVersion: 2,
+    activeSetupId: localState?.activeSetupId || remoteState?.activeSetupId || setups[0]?.id || "",
+    setups,
+    settings: {
+      speechModelId: mergePrimitive(baseState?.settings?.speechModelId, localState?.settings?.speechModelId, remoteState?.settings?.speechModelId),
+      speechMaxSeconds: mergePrimitive(baseState?.settings?.speechMaxSeconds, localState?.settings?.speechMaxSeconds, remoteState?.settings?.speechMaxSeconds),
+      speakPrompts: mergePrimitive(baseState?.settings?.speakPrompts, localState?.settings?.speakPrompts, remoteState?.settings?.speakPrompts),
+    },
+    accountMode: "google",
+  };
+}
+
+function shouldMergeSync(remoteUpdatedAt) {
+  const baseUpdatedAt = Number(localStorage.getItem(LAST_CLOUD_UPDATED_KEY) || 0);
+  return remoteUpdatedAt > baseUpdatedAt && getLocalUpdatedAtMillis() > baseUpdatedAt;
+}
+
+async function mergeCloudDataAndPush(data, message = "Merged local and cloud progress.") {
+  const remoteState = JSON.parse(String(data?.stateJson || "{}"));
+  const mergedState = mergeAppStates(lastSyncedState(), exportAppState(), remoteState);
+  state.sync.applyingCloud = true;
+  importAppState(mergedState);
+  state.sync.applyingCloud = false;
+  touchLocalState();
+  saveSettings({ syncCloud: false, touch: false });
+  saveSetups({ syncCloud: false, touch: false });
+  await pushCloudState({ silent: true, skipConflictCheck: true });
+  setCloudStatus("synced", message);
+}
+
 function maybeShowAccountModeDialog() {
   if (state.accountMode || elements.accountModeDialog.open) return;
   elements.accountModeMessage.textContent = "";
@@ -2307,6 +2484,7 @@ function applyCloudDocument(data) {
     setLocalUpdatedAtMillis(updatedAtMillis);
     localStorage.setItem(LAST_CLOUD_UPDATED_KEY, String(updatedAtMillis));
     state.sync.lastCloudUpdatedAtMillis = updatedAtMillis;
+    saveLastSyncedState(appState);
     saveSettings({ syncCloud: false, touch: false });
     saveSetups({ syncCloud: false, touch: false });
     render();
@@ -2340,7 +2518,7 @@ async function syncCloudAfterSignIn() {
       saveSettings({ syncCloud: false });
       saveSetups({ syncCloud: false });
       touchLocalState();
-      await pushCloudState({ silent: true });
+      await pushCloudState({ silent: true, skipConflictCheck: true });
       setCloudStatus("synced", "Migrated local progress into your Google account.");
       return;
     }
@@ -2352,7 +2530,9 @@ async function syncCloudAfterSignIn() {
 
     const remoteUpdatedAt = Number(snapshot.data()?.updatedAtMillis || 0);
     const localUpdatedAt = getLocalUpdatedAtMillis();
-    if (localUpdatedAt > remoteUpdatedAt) {
+    if (shouldMergeSync(remoteUpdatedAt)) {
+      await mergeCloudDataAndPush(snapshot.data(), "Cloud sync is ready. Merged offline and cloud progress.");
+    } else if (localUpdatedAt > remoteUpdatedAt) {
       await pushCloudState({ silent: true });
       setCloudStatus("synced", "Cloud sync is ready. Uploaded newer local data.");
     } else {
@@ -2374,7 +2554,15 @@ function subscribeToCloudState() {
     if (!snapshot.exists() || state.sync.applyingCloud) return;
     const data = snapshot.data();
     const remoteUpdatedAt = Number(data?.updatedAtMillis || 0);
-    if (!remoteUpdatedAt || remoteUpdatedAt <= getLocalUpdatedAtMillis()) return;
+    if (!remoteUpdatedAt) return;
+    if (shouldMergeSync(remoteUpdatedAt)) {
+      mergeCloudDataAndPush(data, "Merged newer cloud changes with local progress.").catch((error) => {
+        console.warn("Could not merge cloud data.", error);
+        setCloudStatus("error", firebaseErrorMessage(error, "Could not merge cloud changes."));
+      });
+      return;
+    }
+    if (remoteUpdatedAt <= getLocalUpdatedAtMillis()) return;
     applyCloudDocument(data);
     setCloudStatus("synced", "Loaded newer cloud changes.");
   }, (error) => {
@@ -2420,7 +2608,7 @@ async function pullCloudState(options = {}) {
 }
 
 async function pushCloudState(options = {}) {
-  const { silent = false } = options;
+  const { silent = false, skipConflictCheck = false } = options;
   const ref = cloudStateDocRef();
   if (!ref) {
     if (!silent) setCloudStatus("error", "Sign in before pushing to cloud.");
@@ -2429,13 +2617,17 @@ async function pushCloudState(options = {}) {
 
   try {
     if (!silent) setCloudStatus("syncing", "Pushing to cloud...");
-    if (!silent) {
+    if (!skipConflictCheck) {
       const snapshot = await withCloudTimeout(
         state.sync.modules.firestore.getDoc(ref),
         "Checking existing cloud state",
       );
       const remoteUpdatedAt = snapshot.exists() ? Number(snapshot.data()?.updatedAtMillis || 0) : 0;
-      if (remoteUpdatedAt > getLocalUpdatedAtMillis()) {
+      if (snapshot.exists() && shouldMergeSync(remoteUpdatedAt)) {
+        await mergeCloudDataAndPush(snapshot.data(), "Merged local progress with newer cloud data.");
+        return true;
+      }
+      if (!silent && remoteUpdatedAt > getLocalUpdatedAtMillis()) {
         const confirmed = window.confirm(
           "Cloud data is newer than this browser. Pushing will replace the cloud copy. Push anyway?",
         );
@@ -2452,6 +2644,7 @@ async function pushCloudState(options = {}) {
     );
     localStorage.setItem(LAST_CLOUD_UPDATED_KEY, String(payload.updatedAtMillis));
     state.sync.lastCloudUpdatedAtMillis = payload.updatedAtMillis;
+    saveLastSyncedState(exportAppState());
     setCloudStatus("synced", silent ? "Saved to cloud." : "Pushed this browser to cloud.");
     return true;
   } catch (error) {
