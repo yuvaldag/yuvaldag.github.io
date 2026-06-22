@@ -1048,6 +1048,7 @@ const ACCOUNT_MODE_KEY = "vocabulary-trainer.account-mode";
 const LOCAL_UPDATED_KEY = "vocabulary-trainer.local-updated-at";
 const LAST_CLOUD_UPDATED_KEY = "vocabulary-trainer.last-cloud-updated-at";
 const LAST_SYNCED_STATE_KEY = "vocabulary-trainer.last-synced-state";
+const LAST_SYNCED_USER_KEY = "vocabulary-trainer.last-synced-user";
 const CSV_MIME = "text/csv";
 const TRANSFORMERS_CDN =
   "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js";
@@ -2061,6 +2062,50 @@ function uniqueSetupId(baseId, existingIds) {
   return candidate;
 }
 
+function setupLanguageKey(setup) {
+  const normalized = normalizeSetup(setup);
+  return `${normalized.learnLanguageCode || normalized.learnLanguage.toLowerCase()}::${normalized.fromLanguageCode || normalized.fromLanguage.toLowerCase()}`;
+}
+
+function setupContentKey(setup) {
+  const normalized = normalizeSetup(setup);
+  const wordsKey = normalized.words.map(wordMergeKey).sort().join(";;");
+  return `${setupLanguageKey(normalized)}::${wordsKey}`;
+}
+
+function setupWordOverlapRatio(a, b) {
+  const aWords = new Set(normalizeSetup(a).words.map(wordMergeKey));
+  const bWords = new Set(normalizeSetup(b).words.map(wordMergeKey));
+  if (!aWords.size || !bWords.size) return 0;
+  let shared = 0;
+  aWords.forEach((key) => {
+    if (bWords.has(key)) shared += 1;
+  });
+  return shared / Math.min(aWords.size, bWords.size);
+}
+
+function findMigrationTarget(localSetup, remoteSetups) {
+  const localContentKey = setupContentKey(localSetup);
+  let bestIndex = -1;
+  let bestOverlap = 0;
+
+  remoteSetups.forEach((remoteSetup, index) => {
+    if (setupLanguageKey(remoteSetup) !== setupLanguageKey(localSetup)) return;
+    if (remoteSetup.id === localSetup.id || setupContentKey(remoteSetup) === localContentKey) {
+      bestIndex = index;
+      bestOverlap = 1;
+      return;
+    }
+    const overlap = setupWordOverlapRatio(localSetup, remoteSetup);
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap;
+      bestIndex = index;
+    }
+  });
+
+  return bestOverlap >= 0.8 ? bestIndex : -1;
+}
+
 function mergeLocalStateIntoCloud(remoteState, localState) {
   const remoteSetups = Array.isArray(remoteState?.setups)
     ? remoteState.setups.map(normalizeSetup)
@@ -2069,14 +2114,33 @@ function mergeLocalStateIntoCloud(remoteState, localState) {
     ? localState.setups.map(normalizeSetup)
     : [];
   const existingIds = new Set(remoteSetups.map((setup) => setup.id));
-  const mergedLocalSetups = localSetups.map((setup) => ({
-    ...setup,
-    id: uniqueSetupId(setup.id, existingIds),
-  }));
-  const setups = [...remoteSetups, ...mergedLocalSetups];
+  const setups = remoteSetups.map((setup) => ({ ...setup }));
+  const migratedIds = [];
+
+  localSetups.forEach((localSetup) => {
+    const targetIndex = findMigrationTarget(localSetup, setups);
+    if (targetIndex >= 0) {
+      const remoteSetup = setups[targetIndex];
+      setups[targetIndex] = {
+        ...mergeSetup(null, localSetup, remoteSetup),
+        id: remoteSetup.id,
+        learnLanguage: remoteSetup.learnLanguage,
+        learnLanguageCode: remoteSetup.learnLanguageCode,
+        fromLanguage: remoteSetup.fromLanguage,
+        fromLanguageCode: remoteSetup.fromLanguageCode,
+      };
+      migratedIds.push(remoteSetup.id);
+      return;
+    }
+
+    const id = uniqueSetupId(localSetup.id, existingIds);
+    setups.push({ ...localSetup, id });
+    migratedIds.push(id);
+  });
+
   return {
     schemaVersion: 2,
-    activeSetupId: mergedLocalSetups[0]?.id || remoteState?.activeSetupId || setups[0]?.id || "",
+    activeSetupId: migratedIds[0] || remoteState?.activeSetupId || setups[0]?.id || "",
     setups,
     settings: remoteState?.settings || localState?.settings || DEFAULT_SETTINGS,
     accountMode: "google",
@@ -2093,6 +2157,25 @@ function lastSyncedState() {
 
 function saveLastSyncedState(appState = exportAppState()) {
   localStorage.setItem(LAST_SYNCED_STATE_KEY, JSON.stringify(appState));
+}
+
+function lastSyncedUserId() {
+  return localStorage.getItem(LAST_SYNCED_USER_KEY) || "";
+}
+
+function hasCloudBaselineForCurrentUser() {
+  return Boolean(
+    state.sync.user?.uid &&
+      lastSyncedUserId() === state.sync.user.uid &&
+      Number(localStorage.getItem(LAST_CLOUD_UPDATED_KEY) || 0) > 0,
+  );
+}
+
+function saveCloudBaseline(updatedAtMillis, appState = exportAppState()) {
+  localStorage.setItem(LAST_CLOUD_UPDATED_KEY, String(updatedAtMillis));
+  if (state.sync.user?.uid) localStorage.setItem(LAST_SYNCED_USER_KEY, state.sync.user.uid);
+  state.sync.lastCloudUpdatedAtMillis = updatedAtMillis;
+  saveLastSyncedState(appState);
 }
 
 function setupMergeKey(setup) {
@@ -2144,7 +2227,12 @@ function mergeScore(baseWord, localWord, remoteWord, field, setupSettings) {
   if (!remoteWord) return clampScore(localWord?.[field] ?? 0, setupSettings);
   const localScore = clampScore(localWord[field] ?? baseScore, setupSettings);
   const remoteScore = clampScore(remoteWord[field] ?? baseScore, setupSettings);
-  if (!baseWord) return clampScore(remoteScore, setupSettings);
+  if (!baseWord) {
+    return clampScore(
+      Math.abs(localScore) > Math.abs(remoteScore) ? localScore : Math.max(localScore, remoteScore),
+      setupSettings,
+    );
+  }
   return clampScore(baseScore + (localScore - baseScore) + (remoteScore - baseScore), setupSettings);
 }
 
@@ -2243,7 +2331,12 @@ function mergeAppStates(baseState, localState, remoteState) {
 
 function shouldMergeSync(remoteUpdatedAt) {
   const baseUpdatedAt = Number(localStorage.getItem(LAST_CLOUD_UPDATED_KEY) || 0);
-  return !state.sync.mergingCloud && remoteUpdatedAt > baseUpdatedAt && getLocalUpdatedAtMillis() > baseUpdatedAt;
+  return (
+    !state.sync.mergingCloud &&
+    hasCloudBaselineForCurrentUser() &&
+    remoteUpdatedAt > baseUpdatedAt &&
+    getLocalUpdatedAtMillis() > baseUpdatedAt
+  );
 }
 
 async function mergeCloudDataAndPush(data, message = "Merged local and cloud progress.") {
@@ -2416,6 +2509,7 @@ async function initializeFirebaseFromSavedConfig() {
       state.sync.unsubscribeAuth = modules.auth.onAuthStateChanged(state.sync.auth, async (user) => {
         state.sync.user = user;
         if (user) saveAccountMode("google");
+        if (user && lastSyncedUserId() !== user.uid) state.sync.lastCloudUpdatedAtMillis = 0;
         if (user) maybeShowSpecialWelcome(user);
         renderCloudControls();
         if (user) {
@@ -2502,7 +2596,7 @@ async function signInToCloud(options = {}) {
   state.pendingLocalMigration = null;
   if (offerMigration && state.accountMode === "local" && hasMeaningfulLocalState()) {
     const migrate = window.confirm(
-      "Migrate this local progress into your Google account? Existing Google setups will stay and these local setups will be added.",
+      "Do you want to copy this local account into Google now? Choose Cancel to sign in normally and load the existing Google account.",
     );
     if (migrate) state.pendingLocalMigration = cloneAppState();
   }
@@ -2575,9 +2669,7 @@ function applyCloudDocument(data) {
     state.sync.applyingCloud = true;
     importAppState(appState);
     setLocalUpdatedAtMillis(updatedAtMillis);
-    localStorage.setItem(LAST_CLOUD_UPDATED_KEY, String(updatedAtMillis));
-    state.sync.lastCloudUpdatedAtMillis = updatedAtMillis;
-    saveLastSyncedState(appState);
+    saveCloudBaseline(updatedAtMillis, appState);
     saveSettings({ syncCloud: false, touch: false });
     saveSetups({ syncCloud: false, touch: false });
     render();
@@ -2622,6 +2714,12 @@ async function syncCloudAfterSignIn() {
     }
 
     const remoteUpdatedAt = Number(snapshot.data()?.updatedAtMillis || 0);
+    if (!hasCloudBaselineForCurrentUser()) {
+      applyCloudDocument(snapshot.data());
+      setCloudStatus("synced", "Cloud sync is ready. Loaded your Google account data.");
+      return;
+    }
+
     const localUpdatedAt = getLocalUpdatedAtMillis();
     if (shouldMergeSync(remoteUpdatedAt)) {
       await mergeCloudDataAndPush(snapshot.data(), "Cloud sync is ready. Merged offline and cloud progress.");
@@ -2721,6 +2819,19 @@ async function pushCloudState(options = {}) {
         "Checking existing cloud state",
       );
       const remoteUpdatedAt = snapshot.exists() ? Number(snapshot.data()?.updatedAtMillis || 0) : 0;
+      if (snapshot.exists() && !hasCloudBaselineForCurrentUser()) {
+        if (silent) {
+          applyCloudDocument(snapshot.data());
+          return true;
+        }
+        const confirmed = window.confirm(
+          "This browser has not loaded this Google account yet. Pushing will replace the cloud copy with this browser's local data. Push anyway?",
+        );
+        if (!confirmed) {
+          setCloudStatus("idle", "Push cancelled.");
+          return false;
+        }
+      }
       if (snapshot.exists() && shouldMergeSync(remoteUpdatedAt)) {
         await mergeCloudDataAndPush(snapshot.data(), "Merged local progress with newer cloud data.");
         return true;
@@ -2740,9 +2851,7 @@ async function pushCloudState(options = {}) {
       state.sync.modules.firestore.setDoc(ref, payload),
       "Writing cloud state",
     );
-    localStorage.setItem(LAST_CLOUD_UPDATED_KEY, String(payload.updatedAtMillis));
-    state.sync.lastCloudUpdatedAtMillis = payload.updatedAtMillis;
-    saveLastSyncedState(exportAppState());
+    saveCloudBaseline(payload.updatedAtMillis, exportAppState());
     setCloudStatus("synced", silent ? "Saved to cloud." : "Pushed this browser to cloud.");
     return true;
   } catch (error) {
@@ -4089,6 +4198,7 @@ initializeFirebaseFromSavedConfig()
     if (existingUser) {
       state.sync.user = existingUser;
       saveAccountMode("google");
+      if (lastSyncedUserId() !== existingUser.uid) state.sync.lastCloudUpdatedAtMillis = 0;
       maybeShowSpecialWelcome(existingUser);
     }
     if (!existingUser) maybeShowAccountModeDialog();
