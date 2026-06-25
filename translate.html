@@ -625,6 +625,42 @@ dialog::backdrop {
   color: var(--ink);
 }
 
+.category-settings {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8faf7;
+  padding: 12px;
+}
+
+.category-settings-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.category-settings-heading span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.category-filter-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 12px;
+}
+
+.category-filter-list label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
 .dialog-card {
   display: grid;
   gap: 16px;
@@ -816,14 +852,14 @@ dialog::backdrop {
         <div class="dialog-heading">
           <div>
             <h2>Add Words</h2>
-            <p>One entry per line. Add optional explanations after ::.</p>
+            <p>One entry per line. Add optional explanations after :: and categories after ##.</p>
           </div>
           <button id="closeDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
         </div>
         <textarea
           id="wordsTextarea"
           rows="10"
-          placeholder="καλημέρα / καλημερα: good morning :: Used as a morning greeting.&#10;ευχαριστώ: thank you / thanks :: Ευχαριστώ πολύ = thank you very much."
+          placeholder="καλημέρα / καλημερα: good morning :: Used as a morning greeting. ## greetings&#10;ευχαριστώ: thank you / thanks :: Ευχαριστώ πολύ = thank you very much. ## polite"
         ></textarea>
         <div id="parseMessage" class="parse-message"></div>
         <div class="dialog-actions">
@@ -887,6 +923,7 @@ dialog::backdrop {
                 <th>Greek → English</th>
                 <th>English → Greek</th>
                 <th>Recent wrong</th>
+                <th>Category</th>
                 <th>Explanations / examples</th>
                 <th></th>
               </tr>
@@ -944,6 +981,13 @@ dialog::backdrop {
             <span>Speak new words aloud</span>
             <input id="speakPromptsInput" type="checkbox" />
           </label>
+        </div>
+        <div class="category-settings">
+          <div class="category-settings-heading">
+            <strong>Study categories</strong>
+            <span>Select none or all to include every category.</span>
+          </div>
+          <div id="categoryFilterList" class="category-filter-list"></div>
         </div>
         <div id="settingsMessage" class="parse-message"></div>
         <div class="dialog-actions">
@@ -1083,7 +1127,10 @@ const DEFAULT_SETUP_SETTINGS = {
   mistakeList1Limit: 7,
   mistakeList2Limit: 7,
   mistakeList3Limit: 7,
+  includedCategories: [],
 };
+const CATEGORY_SEPARATOR = "##";
+const UNCATEGORIZED_CATEGORY_KEY = "__uncategorized__";
 const DEFAULT_SETUP = {
   id: "greek-english",
   learnLanguage: "Greek",
@@ -1286,6 +1333,7 @@ const elements = {
   speechMaxSecondsInput: document.querySelector("#speechMaxSecondsInput"),
   speakPromptsInput: document.querySelector("#speakPromptsInput"),
   preloadSpeechModelButton: document.querySelector("#preloadSpeechModelButton"),
+  categoryFilterList: document.querySelector("#categoryFilterList"),
   wordList: document.querySelector("#wordList"),
   emptyWords: document.querySelector("#emptyWords"),
   wordCount: document.querySelector("#wordCount"),
@@ -1333,6 +1381,66 @@ function joinVariants(values) {
   return values.join(" / ");
 }
 
+function cleanCategory(value) {
+  return String(value || "").trim();
+}
+
+function categoryKey(value) {
+  const category = cleanCategory(value);
+  return category ? category.toLowerCase() : UNCATEGORIZED_CATEGORY_KEY;
+}
+
+function categoryLabelFromKey(key, fallback = "") {
+  if (key === UNCATEGORIZED_CATEGORY_KEY) return "No category";
+  return fallback || key;
+}
+
+function normalizeIncludedCategories(value) {
+  if (!Array.isArray(value)) return [];
+  const keys = [];
+  value.forEach((item) => {
+    const key = categoryKey(item);
+    if (!keys.includes(key)) keys.push(key);
+  });
+  return keys;
+}
+
+function splitCategoryText(text) {
+  const index = text.lastIndexOf(CATEGORY_SEPARATOR);
+  if (index === -1) return { body: text, category: "" };
+  return {
+    body: text.slice(0, index),
+    category: cleanCategory(text.slice(index + CATEGORY_SEPARATOR.length)),
+  };
+}
+
+function categoryOptions(words = state.words) {
+  const options = new Map();
+  words.forEach((entry) => {
+    const category = cleanCategory(entry.category);
+    const key = categoryKey(category);
+    if (!options.has(key)) options.set(key, categoryLabelFromKey(key, category));
+  });
+  return [...options.entries()]
+    .map(([key, label]) => ({ key, label }))
+    .sort((a, b) => {
+      if (a.key === UNCATEGORIZED_CATEGORY_KEY) return 1;
+      if (b.key === UNCATEGORIZED_CATEGORY_KEY) return -1;
+      return a.label.localeCompare(b.label);
+    });
+}
+
+function wordCategoryAllowed(entry, settings = currentSetupSettings()) {
+  const included = normalizeIncludedCategories(settings.includedCategories);
+  if (!included.length) return true;
+  return included.includes(categoryKey(entry.category));
+}
+
+function studyWords() {
+  const settings = currentSetupSettings();
+  return state.words.filter((entry) => wordCategoryAllowed(entry, settings));
+}
+
 function parseWordLines(text) {
   const entries = [];
   const errors = [];
@@ -1341,14 +1449,15 @@ function parseWordLines(text) {
     const trimmed = line.trim();
     if (!trimmed) return;
 
-    const separatorIndex = trimmed.indexOf(":");
+    const { body: lineWithoutCategory, category } = splitCategoryText(trimmed);
+    const separatorIndex = lineWithoutCategory.indexOf(":");
     if (separatorIndex === -1) {
       errors.push(`Line ${index + 1} is missing ":"`);
       return;
     }
 
-    const greek = splitVariants(trimmed.slice(0, separatorIndex));
-    const translationAndNotes = trimmed.slice(separatorIndex + 1);
+    const greek = splitVariants(lineWithoutCategory.slice(0, separatorIndex));
+    const translationAndNotes = lineWithoutCategory.slice(separatorIndex + 1);
     const notesSeparatorIndex = translationAndNotes.indexOf("::");
     const englishText =
       notesSeparatorIndex === -1
@@ -1372,6 +1481,7 @@ function parseWordLines(text) {
       mistakeUpdatedAt: 0,
       recentWrong: false,
       notes,
+      category,
     });
   });
 
@@ -1435,6 +1545,7 @@ function toCsv(words) {
       `${fromKey}_to_${learnKey}_score`,
       "recent_wrong",
       "explanations_examples",
+      "category",
     ],
   ];
   words.forEach((entry) => {
@@ -1446,6 +1557,7 @@ function toCsv(words) {
       word.enToElScore,
       word.recentWrong ? "1" : "0",
       word.notes,
+      word.category,
     ]);
   });
   return `${rows.map((row) => row.map(csvEscape).join(",")).join("\n")}\n`;
@@ -1469,10 +1581,14 @@ function normalizeSetupSettings(settings = {}) {
     mistakeList3Limit: Number.isNaN(list3Limit)
       ? DEFAULT_SETUP_SETTINGS.mistakeList3Limit
       : Math.max(1, list3Limit),
+    includedCategories: normalizeIncludedCategories(settings?.includedCategories),
   };
 
   if (normalized.minScore >= normalized.maxScore) {
-    return { ...DEFAULT_SETUP_SETTINGS };
+    return {
+      ...DEFAULT_SETUP_SETTINGS,
+      includedCategories: normalized.includedCategories,
+    };
   }
 
   return normalized;
@@ -2270,6 +2386,7 @@ function mergeSetupSettings(baseSetup, localSetup, remoteSetup) {
     mistakeList1Limit: mergePrimitive(baseSettings.mistakeList1Limit, localSettings.mistakeList1Limit, remoteSettings.mistakeList1Limit),
     mistakeList2Limit: mergePrimitive(baseSettings.mistakeList2Limit, localSettings.mistakeList2Limit, remoteSettings.mistakeList2Limit),
     mistakeList3Limit: mergePrimitive(baseSettings.mistakeList3Limit, localSettings.mistakeList3Limit, remoteSettings.mistakeList3Limit),
+    includedCategories: mergePrimitive(baseSettings.includedCategories, localSettings.includedCategories, remoteSettings.includedCategories),
   });
 }
 
@@ -2284,6 +2401,7 @@ function mergeWord(baseWord, localWord, remoteWord, setupSettings) {
     mistakeStage: mistake.mistakeStage,
     mistakeUpdatedAt: mistake.mistakeUpdatedAt,
     notes: mergeText(baseWord?.notes || "", localWord?.notes || "", remoteWord?.notes || ""),
+    category: mergePrimitive(baseWord?.category || "", localWord?.category || "", remoteWord?.category || ""),
   }, setupSettings);
 }
 
@@ -2897,6 +3015,7 @@ function normalizeWordEntry(entry, settings = currentSetupSettings()) {
     mistakeUpdatedAt: Number.isFinite(rawMistakeUpdatedAt) ? rawMistakeUpdatedAt : 0,
     recentWrong: mistakeStage > 0,
     notes: String(entry.notes || ""),
+    category: cleanCategory(entry.category),
   };
 }
 
@@ -2917,7 +3036,8 @@ function wordsFromCsv(text, setupOverride = null) {
     header?.[0] === learnKey ||
     header?.includes("recent_wrong") ||
     header?.includes("explanations_examples") ||
-    header?.includes("notes");
+    header?.includes("notes") ||
+    header?.includes("category");
   const dataRows = hasHeader ? rows.slice(1) : rows;
   const scoreIndex = hasHeader ? header.indexOf("score") : 2;
   const elToEnIndex = hasHeader
@@ -2930,6 +3050,9 @@ function wordsFromCsv(text, setupOverride = null) {
   const notesIndex = hasHeader
     ? Math.max(header.indexOf("explanations_examples"), header.indexOf("notes"))
     : 5;
+  const categoryIndex = hasHeader
+    ? Math.max(header.indexOf("category"), header.indexOf("categories"))
+    : 6;
 
   const words = dataRows
     .map((row) => {
@@ -2943,6 +3066,7 @@ function wordsFromCsv(text, setupOverride = null) {
         mistakeUpdatedAt: 0,
         recentWrong: recentWrongIndex >= 0 ? parseBoolean(row[recentWrongIndex]) : false,
         notes: notesIndex >= 0 ? row[notesIndex] || "" : "",
+        category: categoryIndex >= 0 ? row[categoryIndex] || "" : "",
       };
     })
     .filter((entry) => entry.greek.length && entry.english.length);
@@ -3259,10 +3383,12 @@ function chooseDirection() {
 }
 
 function chooseWeightedWord(direction, excludedEntry = null) {
+  const pool = studyWords();
   const candidates =
-    state.words.length > 1
-      ? state.words.filter((entry) => entry !== excludedEntry)
-      : state.words;
+    pool.length > 1
+      ? pool.filter((entry) => entry !== excludedEntry)
+      : pool;
+  if (!candidates.length) return null;
   const weights = candidates.map((entry) => Math.exp(-0.5 * getScoreForDirection(entry, direction)));
   const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
   let target = Math.random() * totalWeight;
@@ -3276,7 +3402,7 @@ function chooseWeightedWord(direction, excludedEntry = null) {
 }
 
 function chooseRecentWrongWord(excludedEntry = null) {
-  const allRecentWrongWords = state.words.filter((entry) => entry.mistakeStage > 0);
+  const allRecentWrongWords = studyWords().filter((entry) => entry.mistakeStage > 0);
   const recentWrongWords = allRecentWrongWords.filter((entry) => entry !== excludedEntry);
 
   if (!recentWrongWords.length) return null;
@@ -3286,9 +3412,11 @@ function chooseRecentWrongWord(excludedEntry = null) {
 
 function chooseNextWord(direction) {
   const excludedEntry = state.currentCard?.entry || null;
+  const pool = studyWords();
+  if (!pool.length) return null;
 
   for (const stage of [1, 2, 3]) {
-    const candidates = state.words.filter((entry) => entry.mistakeStage === stage && entry !== excludedEntry);
+    const candidates = pool.filter((entry) => entry.mistakeStage === stage && entry !== excludedEntry);
     if (!candidates.length) continue;
     const probability = Math.min(1, candidates.length / mistakeCap(stage));
     if (Math.random() < probability) {
@@ -3301,7 +3429,8 @@ function chooseNextWord(direction) {
 
 function nextCard() {
   stopTextToSpeech();
-  if (!state.words.length) {
+  const pool = studyWords();
+  if (!pool.length) {
     state.currentCard = null;
     state.revealed = false;
     renderQuiz();
@@ -3310,6 +3439,12 @@ function nextCard() {
 
   const direction = chooseDirection();
   const entry = chooseNextWord(direction);
+  if (!entry) {
+    state.currentCard = null;
+    state.revealed = false;
+    renderQuiz();
+    return;
+  }
   const promptSide = direction === "el-en" ? entry.greek : entry.english;
   const answerSide = direction === "el-en" ? entry.english : entry.greek;
   const answerKey = direction === "el-en" ? "english" : "greek";
@@ -3429,6 +3564,26 @@ function renderSettingsDialog() {
     modelOption.selected = option.id === state.settings.speechModelId;
     elements.speechModelSelect.append(modelOption);
   });
+  elements.categoryFilterList.innerHTML = "";
+  const options = categoryOptions();
+  if (!options.length) {
+    const empty = document.createElement("span");
+    empty.textContent = "No categories yet.";
+    empty.style.color = "var(--muted)";
+    elements.categoryFilterList.append(empty);
+  } else {
+    const selected = normalizeIncludedCategories(setupSettings.includedCategories);
+    const selectedSet = new Set(selected);
+    options.forEach((option) => {
+      const label = document.createElement("label");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = option.key;
+      checkbox.checked = !selected.length || selectedSet.has(option.key);
+      label.append(checkbox, option.label);
+      elements.categoryFilterList.append(label);
+    });
+  }
   elements.settingsMessage.textContent = "";
 }
 
@@ -3442,6 +3597,14 @@ async function saveSettingsFromDialog() {
   const speechModelId = elements.speechModelSelect.value || DEFAULT_SETTINGS.speechModelId;
   const speakPrompts = elements.speakPromptsInput.checked;
   const previousSpeechModelId = state.settings.speechModelId;
+  const categoryCheckboxes = [...elements.categoryFilterList.querySelectorAll("input[type='checkbox']")];
+  const checkedCategories = categoryCheckboxes
+    .filter((input) => input.checked)
+    .map((input) => input.value);
+  const includedCategories =
+    categoryCheckboxes.length && checkedCategories.length < categoryCheckboxes.length
+      ? checkedCategories
+      : [];
 
   if (Number.isNaN(minScore) || Number.isNaN(maxScore) || minScore >= maxScore) {
     elements.settingsMessage.textContent = "Minimum score must be lower than maximum score.";
@@ -3473,6 +3636,7 @@ async function saveSettingsFromDialog() {
       mistakeList1Limit,
       mistakeList2Limit,
       mistakeList3Limit,
+      includedCategories,
     });
   }
   state.settings = {
@@ -3488,6 +3652,10 @@ async function saveSettingsFromDialog() {
   }
   saveSettings();
   applySettingsToWords();
+  if (state.currentCard && !wordCategoryAllowed(state.currentCard.entry)) {
+    state.currentCard = null;
+    state.revealed = false;
+  }
   await persistWords();
   elements.settingsDialog.close();
   render();
@@ -3505,6 +3673,7 @@ function renderEditTable(focusEntry = null) {
     const elToEnCell = document.createElement("td");
     const enToElCell = document.createElement("td");
     const recentWrongCell = document.createElement("td");
+    const categoryCell = document.createElement("td");
     const notesCell = document.createElement("td");
     const actionCell = document.createElement("td");
 
@@ -3513,6 +3682,7 @@ function renderEditTable(focusEntry = null) {
     elToEnCell.append(createScoreInput(entry.elToEnScore, `${setup.learnLanguage} to ${setup.fromLanguage} score`));
     enToElCell.append(createScoreInput(entry.enToElScore, `${setup.fromLanguage} to ${setup.learnLanguage} score`));
     recentWrongCell.append(createRecentWrongInput(entry.recentWrong));
+    categoryCell.append(createTextInput(entry.category || "", "Category"));
     notesCell.append(createNotesInput(entry.notes || ""));
 
     const deleteButton = document.createElement("button");
@@ -3529,7 +3699,7 @@ function renderEditTable(focusEntry = null) {
       row.className = "edit-target-row";
     }
 
-    row.append(greekCell, englishCell, elToEnCell, enToElCell, recentWrongCell, notesCell, actionCell);
+    row.append(greekCell, englishCell, elToEnCell, enToElCell, recentWrongCell, categoryCell, notesCell, actionCell);
     elements.editWordsTableBody.append(row);
   });
 }
@@ -3569,6 +3739,7 @@ async function saveEditedWords() {
       mistakeStage: inputs[4].checked ? 1 : 0,
       mistakeUpdatedAt: inputs[4].checked ? Date.now() : 0,
       recentWrong: inputs[4].checked,
+      category: cleanCategory(inputs[5].value),
       notes: notesInput?.value.trim() || "",
     });
   });
@@ -3662,6 +3833,7 @@ function renderWords() {
     const elToEnScore = document.createElement("span");
     const enToElScore = document.createElement("span");
     const recentWrong = document.createElement("span");
+    const category = document.createElement("span");
     const deleteButton = document.createElement("button");
 
     greek.textContent = joinVariants(entry.greek);
@@ -3675,6 +3847,9 @@ function renderWords() {
     recentWrong.className = "score recent-wrong";
     recentWrong.textContent = entry.mistakeStage > 0 ? `Mistake list ${entry.mistakeStage}` : "";
     recentWrong.hidden = entry.mistakeStage <= 0;
+    category.className = "score";
+    category.textContent = entry.category ? entry.category : "";
+    category.hidden = !entry.category;
     deleteButton.className = "delete-word";
     deleteButton.type = "button";
     deleteButton.setAttribute("aria-label", "Delete word");
@@ -3687,22 +3862,25 @@ function renderWords() {
       render();
     });
 
-    row.append(greek, arrow, english, elToEnScore, enToElScore, recentWrong, deleteButton);
+    row.append(greek, arrow, english, elToEnScore, enToElScore, recentWrong, category, deleteButton);
     elements.wordList.append(row);
   });
 }
 
 function renderQuiz() {
-  const hasWords = state.words.length > 0;
+  const activeWords = studyWords();
+  const hasWords = activeWords.length > 0;
   const hasSetup = Boolean(currentSetup());
-  const [mistake1, mistake2, mistake3] = mistakeCounts();
+  const [mistake1, mistake2, mistake3] = mistakeCounts(activeWords);
   const settings = currentSetupSettings();
   elements.answerInput.disabled = !hasWords || !hasSetup;
   elements.submitAnswerButton.disabled = !hasWords || !hasSetup;
   elements.quizMeta.textContent = hasWords
-    ? `${state.words.length} ${state.words.length === 1 ? "entry" : "entries"} ready · mistakes ${mistake1}/${settings.mistakeList1Limit}, ${mistake2}/${settings.mistakeList2Limit}, ${mistake3}/${settings.mistakeList3Limit}`
+    ? `${activeWords.length} active of ${state.words.length} saved · mistakes ${mistake1}/${settings.mistakeList1Limit}, ${mistake2}/${settings.mistakeList2Limit}, ${mistake3}/${settings.mistakeList3Limit}`
     : hasSetup
-      ? "Add at least one word to begin"
+      ? state.words.length
+        ? "No words match the selected categories"
+        : "Add at least one word to begin"
       : "Choose or create a language setup to begin";
 
   if (!state.currentCard) {
@@ -3710,7 +3888,9 @@ function renderQuiz() {
     elements.promptWord.textContent = hasWords
       ? "Press Enter to begin"
       : hasSetup
-        ? "No words yet"
+        ? state.words.length
+          ? "No selected categories"
+          : "No words yet"
         : "Start a setup";
     elements.feedback.className = "feedback";
     if (!hasSetup) {
@@ -3783,9 +3963,9 @@ function renderSetupControls() {
   document.title = elements.appTitle.textContent;
   elements.answerInput.placeholder = `Type the ${displaySetup.learnLanguage} or ${displaySetup.fromLanguage} translation`;
   elements.wordsTextarea.placeholder =
-    `${displaySetup.learnLanguage} word / alternative: ${displaySetup.fromLanguage} translation :: Optional explanation`;
+    `${displaySetup.learnLanguage} word / alternative: ${displaySetup.fromLanguage} translation :: Optional explanation ## category`;
   elements.pasteCsvTextarea.placeholder =
-    `${displaySetup.learnLanguage.toLowerCase()},${displaySetup.fromLanguage.toLowerCase()},${displaySetup.learnLanguage.toLowerCase()}_to_${displaySetup.fromLanguage.toLowerCase()}_score,${displaySetup.fromLanguage.toLowerCase()}_to_${displaySetup.learnLanguage.toLowerCase()}_score,recent_wrong,explanations_examples`;
+    `${displaySetup.learnLanguage.toLowerCase()},${displaySetup.fromLanguage.toLowerCase()},${displaySetup.learnLanguage.toLowerCase()}_to_${displaySetup.fromLanguage.toLowerCase()}_score,${displaySetup.fromLanguage.toLowerCase()}_to_${displaySetup.learnLanguage.toLowerCase()}_score,recent_wrong,explanations_examples,category`;
 
   elements.setupSelect.innerHTML = "";
   if (!state.setups.length) {
@@ -4107,7 +4287,7 @@ elements.importWordsButton.addEventListener("click", async () => {
 elements.answerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  if (!state.currentCard && state.words.length) {
+  if (!state.currentCard && studyWords().length) {
     nextCard();
     return;
   }
