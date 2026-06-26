@@ -3471,6 +3471,11 @@ function answerMatches(input, answers) {
   return answers.some((answer) => normalizeAnswer(answer) === normalizedInput);
 }
 
+function nextScoreAfterAnswer(currentScore, isCorrect) {
+  const score = Number(currentScore) || 0;
+  return clampScore(isCorrect ? score + 1 : score > 0 ? 0 : score - 1);
+}
+
 async function addSubmittedAnswerAsTranslation() {
   if (!state.currentCard?.submittedAnswer) return;
 
@@ -3764,7 +3769,7 @@ async function revealAnswer() {
   const entry = state.currentCard.entry;
   state.currentCard.submittedAnswer = elements.answerInput.value.trim();
   const scoreKey = state.currentCard.direction === "el-en" ? "elToEnScore" : "enToElScore";
-  entry[scoreKey] = clampScore((entry[scoreKey] || 0) + (isCorrect ? 1 : -1));
+  entry[scoreKey] = nextScoreAfterAnswer(entry[scoreKey], isCorrect);
 
   if (isCorrect) {
     entry.mistakeStage = entry.mistakeStage > 0 ? (entry.mistakeStage >= 3 ? 0 : entry.mistakeStage + 1) : 0;
@@ -3868,6 +3873,10 @@ function renderWords() {
 }
 
 function renderQuiz() {
+  if (state.currentCard && !wordCategoryAllowed(state.currentCard.entry)) {
+    state.currentCard = null;
+    state.revealed = false;
+  }
   const activeWords = studyWords();
   const hasWords = activeWords.length > 0;
   const hasSetup = Boolean(currentSetup());
