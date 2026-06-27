@@ -1477,7 +1477,7 @@ function parseWordLines(text) {
     entries.push({
       greek,
       english,
-      mistakeCategory: 0,
+      mistakeCategory: maxMistakeCategory(),
       lastMistakeAt: 0,
       notes,
       category,
@@ -3330,7 +3330,7 @@ async function importDefaultDatabase(database) {
     const setup = defaultDatabaseSetup(database);
     setup.words = wordsFromDefaultText(wordsText, setup).map((entry) => ({
       ...entry,
-      mistakeCategory: 0,
+      mistakeCategory: maxMistakeCategory(normalizeSetupSettings(setup.settings)),
       lastMistakeAt: 0,
     }));
     if (!setup.words.length) throw new Error("No words found.");
@@ -3413,12 +3413,19 @@ function chooseNextWord() {
     const size = settings.mistakeCategorySizes[category] || 1;
     const probability = Math.min(1, candidates.length / size);
     if (Math.random() < probability) {
-      return candidates[Math.floor(Math.random() * candidates.length)];
+      return {
+        entry: candidates[Math.floor(Math.random() * candidates.length)],
+        randomFallback: false,
+      };
     }
   }
 
-  const mastered = pool.filter((entry) => entry !== excludedEntry && (entry.mistakeCategory || 0) >= maxCategory);
-  return mastered[Math.floor(Math.random() * mastered.length)] || null;
+  const fallback = pool.length > 1 ? pool.filter((entry) => entry !== excludedEntry) : pool;
+  const candidates = fallback.length ? fallback : pool;
+  return {
+    entry: candidates[Math.floor(Math.random() * candidates.length)] || null,
+    randomFallback: true,
+  };
 }
 
 function nextCard() {
@@ -3432,7 +3439,8 @@ function nextCard() {
   }
 
   const direction = chooseDirection();
-  const entry = chooseNextWord();
+  const choice = chooseNextWord();
+  const entry = choice?.entry;
   if (!entry) {
     state.currentCard = null;
     state.revealed = false;
@@ -3452,6 +3460,7 @@ function nextCard() {
     answerKey,
     submittedAnswer: "",
     lastCorrect: false,
+    randomFallback: Boolean(choice.randomFallback),
     previousMistakeCategory: entry.mistakeCategory || 0,
     previousLastMistakeAt: entry.lastMistakeAt || 0,
   };
@@ -3500,7 +3509,9 @@ async function markCurrentAnswerCorrect() {
   if (!state.currentCard?.entry) return;
   const entry = state.currentCard.entry;
   const maxCategory = maxMistakeCategory();
-  entry.mistakeCategory = Math.min(maxCategory, (state.currentCard.previousMistakeCategory || 0) + 1);
+  entry.mistakeCategory = state.currentCard.randomFallback
+    ? state.currentCard.previousMistakeCategory || 0
+    : Math.min(maxCategory, (state.currentCard.previousMistakeCategory || 0) + 1);
   entry.lastMistakeAt = state.currentCard.previousLastMistakeAt || 0;
   state.currentCard.lastCorrect = true;
   elements.feedback.className = "feedback correct";
@@ -3773,7 +3784,9 @@ async function revealAnswer() {
   const maxCategory = maxMistakeCategory();
 
   if (isCorrect) {
-    entry.mistakeCategory = Math.min(maxCategory, (entry.mistakeCategory || 0) + 1);
+    if (!state.currentCard.randomFallback) {
+      entry.mistakeCategory = Math.min(maxCategory, (entry.mistakeCategory || 0) + 1);
+    }
   } else {
     entry.mistakeCategory = 0;
     entry.lastMistakeAt = Date.now();
@@ -3889,9 +3902,8 @@ function renderQuiz() {
       ? dueCategoryWords(activeWords, entry.mistakeCategory || 0, settings).includes(entry)
       : true,
   ).length;
-  const hasScheduledWord = dueCount > 0 || Boolean(state.currentCard);
-  elements.answerInput.disabled = !hasWords || !hasSetup || !hasScheduledWord;
-  elements.submitAnswerButton.disabled = !hasWords || !hasSetup || !hasScheduledWord;
+  elements.answerInput.disabled = !hasWords || !hasSetup;
+  elements.submitAnswerButton.disabled = !hasWords || !hasSetup;
   elements.quizMeta.textContent = hasWords
     ? `${activeWords.length} active of ${state.words.length} saved · ${dueCount} scheduled · mastered ${counts[maxMistakeCategory(settings)] || 0}`
     : hasSetup
@@ -3903,9 +3915,7 @@ function renderQuiz() {
   if (!state.currentCard) {
     elements.promptLabel.textContent = "Prompt";
     elements.promptWord.textContent = hasWords
-      ? hasScheduledWord
-        ? "Press Enter to begin"
-        : "No scheduled words due"
+      ? "Press Enter to begin"
       : hasSetup
         ? state.words.length
           ? "No selected categories"
@@ -3930,9 +3940,7 @@ function renderQuiz() {
       actions.append(startDefault, createBlank);
       elements.feedback.replaceChildren("Choose how to begin, then your progress will be saved to this account.", actions);
     } else {
-      elements.feedback.textContent = hasWords && !hasScheduledWord
-        ? "Come back after the configured mistake-category delays."
-        : "";
+      elements.feedback.textContent = "";
     }
     elements.notesPanel.textContent = "";
     elements.submitAnswerButton.textContent = "Enter";
