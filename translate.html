@@ -621,7 +621,8 @@ dialog::backdrop {
   font-size: 0.9rem;
 }
 
-.settings-grid input {
+.settings-grid input,
+.settings-grid textarea {
   color: var(--ink);
 }
 
@@ -910,7 +911,7 @@ dialog::backdrop {
         <div class="dialog-heading">
           <div>
             <h2>Edit Words</h2>
-            <p>Edit / separated alternatives and each direction score.</p>
+            <p>Edit / separated alternatives and mistake scheduling data.</p>
           </div>
           <button id="closeEditDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
         </div>
@@ -920,9 +921,8 @@ dialog::backdrop {
               <tr>
                 <th>Greek</th>
                 <th>English</th>
-                <th>Greek → English</th>
-                <th>English → Greek</th>
-                <th>Recent wrong</th>
+                <th>Mistake category</th>
+                <th>Last mistake</th>
                 <th>Category</th>
                 <th>Explanations / examples</th>
                 <th></th>
@@ -950,24 +950,20 @@ dialog::backdrop {
         </div>
         <div class="settings-grid">
           <label>
-            <span>Minimum score</span>
-            <input id="minScoreInput" type="number" step="1" />
+            <span>Mistake delays</span>
+            <textarea
+              id="mistakeDelaysInput"
+              rows="3"
+              placeholder="0:0:0, 1:0:0, 3:0:0"
+            ></textarea>
           </label>
           <label>
-            <span>Maximum score</span>
-            <input id="maxScoreInput" type="number" step="1" />
-          </label>
-          <label>
-            <span>Mistake list 1 cap</span>
-            <input id="recentWrongLimitInput" type="number" min="1" step="1" />
-          </label>
-          <label>
-            <span>Mistake list 2 cap</span>
-            <input id="mistakeList2LimitInput" type="number" min="1" step="1" />
-          </label>
-          <label>
-            <span>Mistake list 3 cap</span>
-            <input id="mistakeList3LimitInput" type="number" min="1" step="1" />
+            <span>Mistake sizes</span>
+            <textarea
+              id="mistakeSizesInput"
+              rows="3"
+              placeholder="4, 6, 10"
+            ></textarea>
           </label>
           <label>
             <span>Speech model</span>
@@ -1072,7 +1068,7 @@ dialog::backdrop {
         <textarea
           id="pasteCsvTextarea"
           rows="12"
-          placeholder="greek,english,greek_to_english_score,english_to_greek_score,recent_wrong,explanations_examples"
+          placeholder="greek,english,mistake_category,last_mistake_at,explanations_examples,category"
         ></textarea>
         <div id="pasteCsvMessage" class="parse-message"></div>
         <div class="dialog-actions">
@@ -1121,12 +1117,19 @@ const SPEECH_MODEL_OPTIONS = [
   },
 ];
 const DEFAULT_SPEECH_MODEL_ID = "onnx-community/whisper-base";
+const DEFAULT_MISTAKE_DELAYS_MINUTES = [
+  0, 0, 0,
+  24 * 60, 24 * 60, 24 * 60,
+  3 * 24 * 60, 3 * 24 * 60, 3 * 24 * 60,
+  7 * 24 * 60,
+  10 * 24 * 60,
+  20 * 24 * 60,
+  30 * 24 * 60, 30 * 24 * 60, 30 * 24 * 60,
+];
+const DEFAULT_MISTAKE_CATEGORY_SIZES = [4, 6, ...Array(13).fill(10)];
 const DEFAULT_SETUP_SETTINGS = {
-  minScore: -5,
-  maxScore: 5,
-  mistakeList1Limit: 7,
-  mistakeList2Limit: 7,
-  mistakeList3Limit: 7,
+  mistakeDelaysMinutes: [...DEFAULT_MISTAKE_DELAYS_MINUTES],
+  mistakeCategorySizes: [...DEFAULT_MISTAKE_CATEGORY_SIZES],
   includedCategories: [],
 };
 const CATEGORY_SEPARATOR = "##";
@@ -1325,11 +1328,8 @@ const elements = {
   editMessage: document.querySelector("#editMessage"),
   settingsMessage: document.querySelector("#settingsMessage"),
   editWordsTableBody: document.querySelector("#editWordsTableBody"),
-  minScoreInput: document.querySelector("#minScoreInput"),
-  maxScoreInput: document.querySelector("#maxScoreInput"),
-  recentWrongLimitInput: document.querySelector("#recentWrongLimitInput"),
-  mistakeList2LimitInput: document.querySelector("#mistakeList2LimitInput"),
-  mistakeList3LimitInput: document.querySelector("#mistakeList3LimitInput"),
+  mistakeDelaysInput: document.querySelector("#mistakeDelaysInput"),
+  mistakeSizesInput: document.querySelector("#mistakeSizesInput"),
   speechModelSelect: document.querySelector("#speechModelSelect"),
   speechMaxSecondsInput: document.querySelector("#speechMaxSecondsInput"),
   speakPromptsInput: document.querySelector("#speakPromptsInput"),
@@ -1477,11 +1477,8 @@ function parseWordLines(text) {
     entries.push({
       greek,
       english,
-      elToEnScore: 0,
-      enToElScore: 0,
-      mistakeStage: 0,
-      mistakeUpdatedAt: 0,
-      recentWrong: false,
+      mistakeCategory: 0,
+      lastMistakeAt: 0,
       notes,
       category,
     });
@@ -1543,9 +1540,8 @@ function toCsv(words) {
     [
       learnKey,
       fromKey,
-      `${learnKey}_to_${fromKey}_score`,
-      `${fromKey}_to_${learnKey}_score`,
-      "recent_wrong",
+      "mistake_category",
+      "last_mistake_at",
       "explanations_examples",
       "category",
     ],
@@ -1555,9 +1551,8 @@ function toCsv(words) {
     rows.push([
       joinVariants(word.greek),
       joinVariants(word.english),
-      word.elToEnScore,
-      word.enToElScore,
-      word.recentWrong ? "1" : "0",
+      word.mistakeCategory,
+      formatTimestamp(word.lastMistakeAt),
       word.notes,
       word.category,
     ]);
@@ -1565,45 +1560,81 @@ function toCsv(words) {
   return `${rows.map((row) => row.map(csvEscape).join(",")).join("\n")}\n`;
 }
 
+function parseDurationToMinutes(value) {
+  const text = String(value || "").trim();
+  if (!text) return NaN;
+  if (text.includes(":")) {
+    const parts = text.split(":").map((part) => Number.parseInt(part.trim(), 10));
+    if (parts.some((part) => Number.isNaN(part) || part < 0)) return NaN;
+    const [days = 0, hours = 0, minutes = 0] = parts;
+    return days * 24 * 60 + hours * 60 + minutes;
+  }
+  const days = Number.parseFloat(text);
+  if (Number.isNaN(days) || days < 0) return NaN;
+  return Math.round(days * 24 * 60);
+}
+
+function formatDuration(minutes) {
+  const total = Math.max(0, Number.parseInt(minutes, 10) || 0);
+  const days = Math.floor(total / (24 * 60));
+  const hours = Math.floor((total % (24 * 60)) / 60);
+  const mins = total % 60;
+  return `${days}:${hours}:${mins}`;
+}
+
+function parseDurationList(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map(parseDurationToMinutes);
+}
+
+function parseSizeList(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => Number.parseInt(item.trim(), 10))
+    .filter((item) => !Number.isNaN(item));
+}
+
+function formatTimestamp(value) {
+  const timestamp = Number(value || 0);
+  return timestamp > 0 ? new Date(timestamp).toISOString() : "";
+}
+
+function parseTimestamp(value) {
+  const text = String(value || "").trim();
+  if (!text) return 0;
+  const numeric = Number(text);
+  if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  const parsed = Date.parse(text);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function normalizeMistakeDelays(value) {
+  const source = Array.isArray(value) && value.length ? value : DEFAULT_MISTAKE_DELAYS_MINUTES;
+  const delays = source.map((item) => Math.max(0, Number.parseInt(item, 10) || 0));
+  return delays.length ? delays : [...DEFAULT_MISTAKE_DELAYS_MINUTES];
+}
+
+function normalizeMistakeSizes(value, length = DEFAULT_MISTAKE_CATEGORY_SIZES.length) {
+  const source = Array.isArray(value) && value.length ? value : DEFAULT_MISTAKE_CATEGORY_SIZES;
+  return Array.from({ length }, (_, index) => Math.max(1, Number.parseInt(source[index] ?? 10, 10) || 10));
+}
+
 function normalizeSetupSettings(settings = {}) {
-  const minScore = Number.parseInt(settings?.minScore, 10);
-  const maxScore = Number.parseInt(settings?.maxScore, 10);
-  const list1Limit = Number.parseInt(settings?.mistakeList1Limit ?? settings?.recentWrongLimit, 10);
-  const list2Limit = Number.parseInt(settings?.mistakeList2Limit ?? settings?.recentWrongLimit, 10);
-  const list3Limit = Number.parseInt(settings?.mistakeList3Limit ?? settings?.recentWrongLimit, 10);
+  const delays = normalizeMistakeDelays(settings?.mistakeDelaysMinutes);
+  const sizes = normalizeMistakeSizes(settings?.mistakeCategorySizes, delays.length);
   const normalized = {
-    minScore: Number.isNaN(minScore) ? DEFAULT_SETUP_SETTINGS.minScore : minScore,
-    maxScore: Number.isNaN(maxScore) ? DEFAULT_SETUP_SETTINGS.maxScore : maxScore,
-    mistakeList1Limit: Number.isNaN(list1Limit)
-      ? DEFAULT_SETUP_SETTINGS.mistakeList1Limit
-      : Math.max(1, list1Limit),
-    mistakeList2Limit: Number.isNaN(list2Limit)
-      ? DEFAULT_SETUP_SETTINGS.mistakeList2Limit
-      : Math.max(1, list2Limit),
-    mistakeList3Limit: Number.isNaN(list3Limit)
-      ? DEFAULT_SETUP_SETTINGS.mistakeList3Limit
-      : Math.max(1, list3Limit),
+    mistakeDelaysMinutes: delays,
+    mistakeCategorySizes: sizes,
     includedCategories: normalizeIncludedCategories(settings?.includedCategories),
   };
-
-  if (normalized.minScore >= normalized.maxScore) {
-    return {
-      ...DEFAULT_SETUP_SETTINGS,
-      includedCategories: normalized.includedCategories,
-    };
-  }
-
   return normalized;
 }
 
 function currentSetupSettings() {
   return normalizeSetupSettings(currentSetup()?.settings || DEFAULT_SETUP_SETTINGS);
-}
-
-function clampScore(score, settings = currentSetupSettings()) {
-  const number = Number.parseInt(score, 10);
-  if (Number.isNaN(number)) return 0;
-  return Math.max(settings.minScore, Math.min(settings.maxScore, number));
 }
 
 function parseBoolean(value) {
@@ -2338,34 +2369,38 @@ function mergeVariants(baseValues = [], localValues = [], remoteValues = []) {
   return merged;
 }
 
-function mergeScore(baseWord, localWord, remoteWord, field, setupSettings) {
-  const baseScore = clampScore(baseWord?.[field] ?? 0, setupSettings);
-  if (!localWord && !remoteWord) return baseScore;
-  if (!localWord) return clampScore(remoteWord?.[field] ?? 0, setupSettings);
-  if (!remoteWord) return clampScore(localWord?.[field] ?? 0, setupSettings);
-  const localScore = clampScore(localWord[field] ?? baseScore, setupSettings);
-  const remoteScore = clampScore(remoteWord[field] ?? baseScore, setupSettings);
-  if (!baseWord) {
-    return clampScore(
-      Math.abs(localScore) > Math.abs(remoteScore) ? localScore : Math.max(localScore, remoteScore),
-      setupSettings,
-    );
-  }
-  return clampScore(baseScore + (localScore - baseScore) + (remoteScore - baseScore), setupSettings);
-}
-
-function mergeMistakeState(localWord, remoteWord) {
-  const localUpdatedAt = Number(localWord?.mistakeUpdatedAt || 0);
-  const remoteUpdatedAt = Number(remoteWord?.mistakeUpdatedAt || 0);
-  if (localUpdatedAt > remoteUpdatedAt) {
+function mergeMistakeProgress(baseWord, localWord, remoteWord, setupSettings) {
+  const maxCategory = maxMistakeCategory(setupSettings);
+  const fallback = localWord || remoteWord || baseWord || {};
+  const baseCategory = Math.max(0, Math.min(maxCategory, Number(baseWord?.mistakeCategory ?? 0)));
+  const localCategory = Math.max(0, Math.min(maxCategory, Number(localWord?.mistakeCategory ?? fallback.mistakeCategory ?? 0)));
+  const remoteCategory = Math.max(0, Math.min(maxCategory, Number(remoteWord?.mistakeCategory ?? fallback.mistakeCategory ?? 0)));
+  const baseMistakeAt = parseTimestamp(baseWord?.lastMistakeAt);
+  const localMistakeAt = parseTimestamp(localWord?.lastMistakeAt ?? fallback.lastMistakeAt);
+  const remoteMistakeAt = parseTimestamp(remoteWord?.lastMistakeAt ?? fallback.lastMistakeAt);
+  if (localMistakeAt > remoteMistakeAt) {
     return {
-      mistakeStage: Math.max(0, Math.min(3, Number(localWord?.mistakeStage || 0))),
-      mistakeUpdatedAt: localUpdatedAt,
+      mistakeCategory: localCategory,
+      lastMistakeAt: localMistakeAt,
+    };
+  }
+  if (remoteMistakeAt > localMistakeAt) {
+    return {
+      mistakeCategory: remoteCategory,
+      lastMistakeAt: remoteMistakeAt,
+    };
+  }
+  if (baseWord && localMistakeAt === baseMistakeAt && remoteMistakeAt === baseMistakeAt) {
+    const localGain = Math.max(0, localCategory - baseCategory);
+    const remoteGain = Math.max(0, remoteCategory - baseCategory);
+    return {
+      mistakeCategory: Math.min(maxCategory, baseCategory + localGain + remoteGain),
+      lastMistakeAt: localMistakeAt,
     };
   }
   return {
-    mistakeStage: Math.max(0, Math.min(3, Number(remoteWord?.mistakeStage || 0))),
-    mistakeUpdatedAt: remoteUpdatedAt,
+    mistakeCategory: Math.max(localCategory, remoteCategory),
+    lastMistakeAt: localMistakeAt,
   };
 }
 
@@ -2383,25 +2418,20 @@ function mergeSetupSettings(baseSetup, localSetup, remoteSetup) {
   const localSettings = normalizeSetupSettings(localSetup?.settings || baseSettings);
   const remoteSettings = normalizeSetupSettings(remoteSetup?.settings || baseSettings);
   return normalizeSetupSettings({
-    minScore: mergePrimitive(baseSettings.minScore, localSettings.minScore, remoteSettings.minScore),
-    maxScore: mergePrimitive(baseSettings.maxScore, localSettings.maxScore, remoteSettings.maxScore),
-    mistakeList1Limit: mergePrimitive(baseSettings.mistakeList1Limit, localSettings.mistakeList1Limit, remoteSettings.mistakeList1Limit),
-    mistakeList2Limit: mergePrimitive(baseSettings.mistakeList2Limit, localSettings.mistakeList2Limit, remoteSettings.mistakeList2Limit),
-    mistakeList3Limit: mergePrimitive(baseSettings.mistakeList3Limit, localSettings.mistakeList3Limit, remoteSettings.mistakeList3Limit),
+    mistakeDelaysMinutes: mergePrimitive(baseSettings.mistakeDelaysMinutes, localSettings.mistakeDelaysMinutes, remoteSettings.mistakeDelaysMinutes),
+    mistakeCategorySizes: mergePrimitive(baseSettings.mistakeCategorySizes, localSettings.mistakeCategorySizes, remoteSettings.mistakeCategorySizes),
     includedCategories: mergePrimitive(baseSettings.includedCategories, localSettings.includedCategories, remoteSettings.includedCategories),
   });
 }
 
 function mergeWord(baseWord, localWord, remoteWord, setupSettings) {
   const fallback = localWord || remoteWord || baseWord;
-  const mistake = mergeMistakeState(localWord || baseWord, remoteWord || baseWord);
+  const mistake = mergeMistakeProgress(baseWord, localWord, remoteWord, setupSettings);
   return normalizeWordEntry({
     greek: mergeVariants(baseWord?.greek, localWord?.greek || fallback?.greek, remoteWord?.greek || fallback?.greek),
     english: mergeVariants(baseWord?.english, localWord?.english || fallback?.english, remoteWord?.english || fallback?.english),
-    elToEnScore: mergeScore(baseWord, localWord, remoteWord, "elToEnScore", setupSettings),
-    enToElScore: mergeScore(baseWord, localWord, remoteWord, "enToElScore", setupSettings),
-    mistakeStage: mistake.mistakeStage,
-    mistakeUpdatedAt: mistake.mistakeUpdatedAt,
+    mistakeCategory: mistake.mistakeCategory,
+    lastMistakeAt: mistake.lastMistakeAt,
     notes: mergeText(baseWord?.notes || "", localWord?.notes || "", remoteWord?.notes || ""),
     category: mergePrimitive(baseWord?.category || "", localWord?.category || "", remoteWord?.category || ""),
   }, setupSettings);
@@ -2908,7 +2938,7 @@ async function pullCloudState(options = {}) {
     const remoteUpdatedAt = Number(snapshot.data()?.updatedAtMillis || 0);
     if (!silent && getLocalUpdatedAtMillis() > remoteUpdatedAt) {
       const confirmed = window.confirm(
-        "Cloud data is older than this browser. Pulling will replace local words and scores. Pull anyway?",
+        "Cloud data is older than this browser. Pulling will replace local words and progress. Pull anyway?",
       );
       if (!confirmed) {
         setCloudStatus("idle", "Pull cancelled.");
@@ -2992,38 +3022,30 @@ function queueCloudSave() {
 
 function applySettingsToWords() {
   state.words = state.words.map(normalizeWordEntry);
-  enforceRecentWrongLimit();
 }
 
 function normalizeWordEntry(entry, settings = currentSetupSettings()) {
-  const legacyScore = clampScore(entry.score || 0, settings);
   const greekSource = entry.greek ?? entry.learn ?? "";
   const englishSource = entry.english ?? entry.from ?? "";
-  const rawStage = Number.parseInt(entry.mistakeStage, 10);
-  const mistakeStage = Number.isNaN(rawStage)
-    ? entry.recentWrong
-      ? 1
-      : 0
-    : Math.max(0, Math.min(3, rawStage));
-  const rawMistakeUpdatedAt = Number(entry.mistakeUpdatedAt || 0);
+  const maxCategory = settings.mistakeDelaysMinutes.length;
+  const rawCategory = Number.parseInt(
+    entry.mistakeCategory ?? entry.mistakeStage ?? (entry.recentWrong ? 1 : 0),
+    10,
+  );
+  const mistakeCategory = Number.isNaN(rawCategory)
+    ? 0
+    : Math.max(0, Math.min(maxCategory, rawCategory));
+  const lastMistakeAt = parseTimestamp(entry.lastMistakeAt ?? entry.mistakeUpdatedAt);
   return {
     greek: Array.isArray(greekSource) ? greekSource.filter(Boolean) : splitVariants(greekSource || ""),
     english: Array.isArray(englishSource)
       ? englishSource.filter(Boolean)
       : splitVariants(englishSource || ""),
-    elToEnScore: clampScore(entry.elToEnScore ?? entry.learnToFromScore ?? legacyScore, settings),
-    enToElScore: clampScore(entry.enToElScore ?? entry.fromToLearnScore ?? legacyScore, settings),
-    mistakeStage,
-    mistakeUpdatedAt: Number.isFinite(rawMistakeUpdatedAt) ? rawMistakeUpdatedAt : 0,
-    recentWrong: mistakeStage > 0,
+    mistakeCategory,
+    lastMistakeAt,
     notes: String(entry.notes || ""),
     category: cleanCategory(entry.category),
   };
-}
-
-function getScoreForDirection(entry, direction) {
-  const word = normalizeWordEntry(entry);
-  return direction === "el-en" ? word.elToEnScore : word.enToElScore;
 }
 
 function wordsFromCsv(text, setupOverride = null) {
@@ -3036,37 +3058,37 @@ function wordsFromCsv(text, setupOverride = null) {
   const hasHeader =
     header?.[0] === "greek" ||
     header?.[0] === learnKey ||
+    header?.includes("mistake_category") ||
+    header?.includes("last_mistake_at") ||
     header?.includes("recent_wrong") ||
     header?.includes("explanations_examples") ||
     header?.includes("notes") ||
     header?.includes("category");
   const dataRows = hasHeader ? rows.slice(1) : rows;
-  const scoreIndex = hasHeader ? header.indexOf("score") : 2;
-  const elToEnIndex = hasHeader
-    ? Math.max(header.indexOf("greek_to_english_score"), header.indexOf(`${learnKey}_to_${fromKey}_score`))
+  const mistakeCategoryIndex = hasHeader
+    ? Math.max(header.indexOf("mistake_category"), header.indexOf("mistakeCategory".toLowerCase()))
     : 2;
-  const enToElIndex = hasHeader
-    ? Math.max(header.indexOf("english_to_greek_score"), header.indexOf(`${fromKey}_to_${learnKey}_score`))
-    : 3;
+  const lastMistakeAtIndex = hasHeader ? header.indexOf("last_mistake_at") : 3;
   const recentWrongIndex = hasHeader ? header.indexOf("recent_wrong") : 4;
   const notesIndex = hasHeader
     ? Math.max(header.indexOf("explanations_examples"), header.indexOf("notes"))
-    : 5;
+    : 4;
   const categoryIndex = hasHeader
     ? Math.max(header.indexOf("category"), header.indexOf("categories"))
-    : 6;
+    : 5;
 
   const words = dataRows
     .map((row) => {
-      const legacyScore = clampScore(scoreIndex >= 0 ? row[scoreIndex] : 0, settings);
+      const legacyRecentWrong = recentWrongIndex >= 0 && parseBoolean(row[recentWrongIndex]);
       return {
         greek: splitVariants(row[0] || ""),
         english: splitVariants(row[1] || ""),
-        elToEnScore: clampScore(elToEnIndex >= 0 ? row[elToEnIndex] : legacyScore, settings),
-        enToElScore: clampScore(enToElIndex >= 0 ? row[enToElIndex] : legacyScore, settings),
-        mistakeStage: recentWrongIndex >= 0 && parseBoolean(row[recentWrongIndex]) ? 1 : 0,
-        mistakeUpdatedAt: 0,
-        recentWrong: recentWrongIndex >= 0 ? parseBoolean(row[recentWrongIndex]) : false,
+        mistakeCategory: mistakeCategoryIndex >= 0
+          ? Number.parseInt(row[mistakeCategoryIndex] || "0", 10)
+          : legacyRecentWrong
+            ? 1
+            : 0,
+        lastMistakeAt: lastMistakeAtIndex >= 0 ? parseTimestamp(row[lastMistakeAtIndex]) : 0,
         notes: notesIndex >= 0 ? row[notesIndex] || "" : "",
         category: categoryIndex >= 0 ? row[categoryIndex] || "" : "",
       };
@@ -3308,9 +3330,8 @@ async function importDefaultDatabase(database) {
     const setup = defaultDatabaseSetup(database);
     setup.words = wordsFromDefaultText(wordsText, setup).map((entry) => ({
       ...entry,
-      elToEnScore: 0,
-      enToElScore: 0,
-      recentWrong: false,
+      mistakeCategory: 0,
+      lastMistakeAt: 0,
     }));
     if (!setup.words.length) throw new Error("No words found.");
 
@@ -3332,31 +3353,15 @@ async function importDefaultDatabase(database) {
   }
 }
 
-function mistakeCap(stage, settings = currentSetupSettings()) {
-  if (stage === 1) return settings.mistakeList1Limit;
-  if (stage === 2) return settings.mistakeList2Limit;
-  return settings.mistakeList3Limit;
+function maxMistakeCategory(settings = currentSetupSettings()) {
+  return settings.mistakeDelaysMinutes.length;
 }
 
-function mistakeCounts(words = state.words) {
-  return [1, 2, 3].map((stage) => words.filter((entry) => entry.mistakeStage === stage).length);
-}
-
-function enforceRecentWrongLimit(words = state.words, preserveEntry = null) {
-  [1, 2, 3].forEach((stage) => {
-    const cap = mistakeCap(stage);
-    const entries = words
-      .filter((entry) => entry.mistakeStage === stage && entry !== preserveEntry)
-      .sort((a, b) => (a.mistakeUpdatedAt || 0) - (b.mistakeUpdatedAt || 0));
-    let overflow = words.filter((entry) => entry.mistakeStage === stage).length - cap;
-    for (const entry of entries) {
-      if (overflow <= 0) return;
-      entry.mistakeStage = 0;
-      entry.recentWrong = false;
-      entry.mistakeUpdatedAt = Date.now();
-      overflow -= 1;
-    }
-  });
+function mistakeCategoryCounts(words = state.words, settings = currentSetupSettings()) {
+  const maxCategory = maxMistakeCategory(settings);
+  return Array.from({ length: maxCategory + 1 }, (_, category) =>
+    words.filter((entry) => Math.min(maxCategory, entry.mistakeCategory || 0) === category).length,
+  );
 }
 
 async function mergeWords(entries) {
@@ -3384,49 +3389,36 @@ function chooseDirection() {
   return Math.random() > 0.5 ? "el-en" : "en-el";
 }
 
-function chooseWeightedWord(direction, excludedEntry = null) {
-  const pool = studyWords();
-  const candidates =
-    pool.length > 1
-      ? pool.filter((entry) => entry !== excludedEntry)
-      : pool;
-  if (!candidates.length) return null;
-  const weights = candidates.map((entry) => Math.exp(-0.5 * getScoreForDirection(entry, direction)));
-  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-  let target = Math.random() * totalWeight;
-
-  for (let index = 0; index < candidates.length; index += 1) {
-    target -= weights[index];
-    if (target <= 0) return candidates[index];
-  }
-
-  return candidates[candidates.length - 1];
+function dueCategoryWords(pool, category, settings, excludedEntry = null) {
+  const now = Date.now();
+  const delayMs = (settings.mistakeDelaysMinutes[category] || 0) * 60 * 1000;
+  const size = settings.mistakeCategorySizes[category] || 1;
+  return pool
+    .filter((entry) => entry !== excludedEntry && (entry.mistakeCategory || 0) === category)
+    .filter((entry) => !entry.lastMistakeAt || now - entry.lastMistakeAt >= delayMs)
+    .sort((a, b) => (a.lastMistakeAt || Number.POSITIVE_INFINITY) - (b.lastMistakeAt || Number.POSITIVE_INFINITY))
+    .slice(0, size);
 }
 
-function chooseRecentWrongWord(excludedEntry = null) {
-  const allRecentWrongWords = studyWords().filter((entry) => entry.mistakeStage > 0);
-  const recentWrongWords = allRecentWrongWords.filter((entry) => entry !== excludedEntry);
-
-  if (!recentWrongWords.length) return null;
-
-  return recentWrongWords[Math.floor(Math.random() * recentWrongWords.length)];
-}
-
-function chooseNextWord(direction) {
+function chooseNextWord() {
   const excludedEntry = state.currentCard?.entry || null;
   const pool = studyWords();
+  const settings = currentSetupSettings();
+  const maxCategory = maxMistakeCategory(settings);
   if (!pool.length) return null;
 
-  for (const stage of [1, 2, 3]) {
-    const candidates = pool.filter((entry) => entry.mistakeStage === stage && entry !== excludedEntry);
+  for (let category = 0; category < maxCategory; category += 1) {
+    const candidates = dueCategoryWords(pool, category, settings, excludedEntry);
     if (!candidates.length) continue;
-    const probability = Math.min(1, candidates.length / mistakeCap(stage));
+    const size = settings.mistakeCategorySizes[category] || 1;
+    const probability = Math.min(1, candidates.length / size);
     if (Math.random() < probability) {
       return candidates[Math.floor(Math.random() * candidates.length)];
     }
   }
 
-  return chooseWeightedWord(direction, excludedEntry);
+  const mastered = pool.filter((entry) => entry !== excludedEntry && (entry.mistakeCategory || 0) >= maxCategory);
+  return mastered[Math.floor(Math.random() * mastered.length)] || null;
 }
 
 function nextCard() {
@@ -3440,7 +3432,7 @@ function nextCard() {
   }
 
   const direction = chooseDirection();
-  const entry = chooseNextWord(direction);
+  const entry = chooseNextWord();
   if (!entry) {
     state.currentCard = null;
     state.revealed = false;
@@ -3459,6 +3451,9 @@ function nextCard() {
     answers: answerSide,
     answerKey,
     submittedAnswer: "",
+    lastCorrect: false,
+    previousMistakeCategory: entry.mistakeCategory || 0,
+    previousLastMistakeAt: entry.lastMistakeAt || 0,
   };
   state.revealed = false;
   elements.answerInput.value = "";
@@ -3471,11 +3466,6 @@ function nextCard() {
 function answerMatches(input, answers) {
   const normalizedInput = normalizeAnswer(input);
   return answers.some((answer) => normalizeAnswer(answer) === normalizedInput);
-}
-
-function nextScoreAfterAnswer(currentScore, isCorrect) {
-  const score = Number(currentScore) || 0;
-  return clampScore(isCorrect ? score + 1 : score > 0 ? 0 : score - 1);
 }
 
 async function addSubmittedAnswerAsTranslation() {
@@ -3506,6 +3496,27 @@ async function addSubmittedAnswerAsTranslation() {
   elements.notesPanel.textContent = state.currentCard.entry.notes || "";
 }
 
+async function markCurrentAnswerCorrect() {
+  if (!state.currentCard?.entry) return;
+  const entry = state.currentCard.entry;
+  const maxCategory = maxMistakeCategory();
+  entry.mistakeCategory = Math.min(maxCategory, (state.currentCard.previousMistakeCategory || 0) + 1);
+  entry.lastMistakeAt = state.currentCard.previousLastMistakeAt || 0;
+  state.currentCard.lastCorrect = true;
+  elements.feedback.className = "feedback correct";
+  const answersText = document.createElement("strong");
+  answersText.textContent = joinVariants(state.currentCard.answers);
+  elements.feedback.replaceChildren(
+    "Marked correct. Accepted: ",
+    answersText,
+    `. Mistake category is now ${entry.mistakeCategory}. `,
+    createEditCurrentWordButton(),
+    " Press Enter for the next word.",
+  );
+  renderWords();
+  await persistWords();
+}
+
 function createEditCurrentWordButton() {
   const editButton = document.createElement("button");
   editButton.className = "inline-action";
@@ -3534,33 +3545,29 @@ function createNotesInput(value) {
   return textarea;
 }
 
-function createScoreInput(value, label) {
-  const settings = currentSetupSettings();
+function createMistakeCategoryInput(value) {
   const input = document.createElement("input");
   input.type = "number";
-  input.min = String(settings.minScore);
-  input.max = String(settings.maxScore);
+  input.min = "0";
+  input.max = String(maxMistakeCategory());
   input.step = "1";
-  input.value = clampScore(value);
-  input.setAttribute("aria-label", label);
+  input.value = Math.max(0, Math.min(maxMistakeCategory(), Number.parseInt(value, 10) || 0));
+  input.setAttribute("aria-label", "Mistake category");
   return input;
 }
 
-function createRecentWrongInput(value) {
+function createLastMistakeInput(value) {
   const input = document.createElement("input");
-  input.type = "checkbox";
-  input.checked = Boolean(value);
-  input.setAttribute("aria-label", "In recent wrong list");
+  input.type = "datetime-local";
+  input.value = value ? new Date(value).toISOString().slice(0, 16) : "";
+  input.setAttribute("aria-label", "Last mistake timestamp");
   return input;
 }
 
 function renderSettingsDialog() {
   const setupSettings = currentSetupSettings();
-  elements.minScoreInput.value = setupSettings.minScore;
-  elements.maxScoreInput.value = setupSettings.maxScore;
-  elements.recentWrongLimitInput.value = setupSettings.mistakeList1Limit;
-  elements.mistakeList2LimitInput.value = setupSettings.mistakeList2Limit;
-  elements.mistakeList3LimitInput.value = setupSettings.mistakeList3Limit;
+  elements.mistakeDelaysInput.value = setupSettings.mistakeDelaysMinutes.map(formatDuration).join(", ");
+  elements.mistakeSizesInput.value = setupSettings.mistakeCategorySizes.join(", ");
   elements.speechMaxSecondsInput.value = state.settings.speechMaxSeconds;
   elements.speakPromptsInput.checked = state.settings.speakPrompts;
   elements.speechModelSelect.innerHTML = "";
@@ -3599,11 +3606,8 @@ function renderSettingsDialog() {
 
 async function saveSettingsFromDialog(options = {}) {
   const { closeDialog = true, showMessage = true } = options;
-  const minScore = Number.parseInt(elements.minScoreInput.value, 10);
-  const maxScore = Number.parseInt(elements.maxScoreInput.value, 10);
-  const mistakeList1Limit = Number.parseInt(elements.recentWrongLimitInput.value, 10);
-  const mistakeList2Limit = Number.parseInt(elements.mistakeList2LimitInput.value, 10);
-  const mistakeList3Limit = Number.parseInt(elements.mistakeList3LimitInput.value, 10);
+  const mistakeDelaysMinutes = parseDurationList(elements.mistakeDelaysInput.value);
+  const mistakeCategorySizes = parseSizeList(elements.mistakeSizesInput.value);
   const speechMaxSeconds = Number.parseFloat(elements.speechMaxSecondsInput.value);
   const speechModelId = elements.speechModelSelect.value || DEFAULT_SETTINGS.speechModelId;
   const speakPrompts = elements.speakPromptsInput.checked;
@@ -3619,20 +3623,14 @@ async function saveSettingsFromDialog(options = {}) {
         ? checkedCategories
         : [];
 
-  if (Number.isNaN(minScore) || Number.isNaN(maxScore) || minScore >= maxScore) {
-    elements.settingsMessage.textContent = "Minimum score must be lower than maximum score.";
-    return false;
-  }
-
   if (
-    Number.isNaN(mistakeList1Limit) ||
-    Number.isNaN(mistakeList2Limit) ||
-    Number.isNaN(mistakeList3Limit) ||
-    mistakeList1Limit < 1 ||
-    mistakeList2Limit < 1 ||
-    mistakeList3Limit < 1
+    !mistakeDelaysMinutes.length ||
+    mistakeDelaysMinutes.some((value) => Number.isNaN(value)) ||
+    mistakeCategorySizes.length !== mistakeDelaysMinutes.length ||
+    mistakeCategorySizes.some((value) => value < 1)
   ) {
-    elements.settingsMessage.textContent = "Mistake list caps must be at least 1.";
+    elements.settingsMessage.textContent =
+      "Mistake delays and sizes must have the same number of valid entries.";
     return false;
   }
 
@@ -3644,11 +3642,8 @@ async function saveSettingsFromDialog(options = {}) {
   const setup = currentSetup();
   if (setup) {
     setup.settings = normalizeSetupSettings({
-      minScore,
-      maxScore,
-      mistakeList1Limit,
-      mistakeList2Limit,
-      mistakeList3Limit,
+      mistakeDelaysMinutes,
+      mistakeCategorySizes,
       includedCategories,
     });
   }
@@ -3685,18 +3680,16 @@ function renderEditTable(focusEntry = null) {
     const row = document.createElement("tr");
     const greekCell = document.createElement("td");
     const englishCell = document.createElement("td");
-    const elToEnCell = document.createElement("td");
-    const enToElCell = document.createElement("td");
-    const recentWrongCell = document.createElement("td");
+    const mistakeCategoryCell = document.createElement("td");
+    const lastMistakeCell = document.createElement("td");
     const categoryCell = document.createElement("td");
     const notesCell = document.createElement("td");
     const actionCell = document.createElement("td");
 
     greekCell.append(createTextInput(joinVariants(entry.greek), `${setup.learnLanguage} translations`));
     englishCell.append(createTextInput(joinVariants(entry.english), `${setup.fromLanguage} translations`));
-    elToEnCell.append(createScoreInput(entry.elToEnScore, `${setup.learnLanguage} to ${setup.fromLanguage} score`));
-    enToElCell.append(createScoreInput(entry.enToElScore, `${setup.fromLanguage} to ${setup.learnLanguage} score`));
-    recentWrongCell.append(createRecentWrongInput(entry.recentWrong));
+    mistakeCategoryCell.append(createMistakeCategoryInput(entry.mistakeCategory));
+    lastMistakeCell.append(createLastMistakeInput(entry.lastMistakeAt));
     categoryCell.append(createTextInput(entry.category || "", "Category"));
     notesCell.append(createNotesInput(entry.notes || ""));
 
@@ -3714,7 +3707,7 @@ function renderEditTable(focusEntry = null) {
       row.className = "edit-target-row";
     }
 
-    row.append(greekCell, englishCell, elToEnCell, enToElCell, recentWrongCell, categoryCell, notesCell, actionCell);
+    row.append(greekCell, englishCell, mistakeCategoryCell, lastMistakeCell, categoryCell, notesCell, actionCell);
     elements.editWordsTableBody.append(row);
   });
 }
@@ -3749,12 +3742,9 @@ async function saveEditedWords() {
     nextWords.push({
       greek,
       english,
-      elToEnScore: clampScore(inputs[2].value),
-      enToElScore: clampScore(inputs[3].value),
-      mistakeStage: inputs[4].checked ? 1 : 0,
-      mistakeUpdatedAt: inputs[4].checked ? Date.now() : 0,
-      recentWrong: inputs[4].checked,
-      category: cleanCategory(inputs[5].value),
+      mistakeCategory: Math.max(0, Math.min(maxMistakeCategory(), Number.parseInt(inputs[2].value, 10) || 0)),
+      lastMistakeAt: parseTimestamp(inputs[3].value),
+      category: cleanCategory(inputs[4].value),
       notes: notesInput?.value.trim() || "",
     });
   });
@@ -3765,7 +3755,6 @@ async function saveEditedWords() {
   }
 
   state.words = nextWords;
-  enforceRecentWrongLimit();
   state.currentCard = null;
   await persistWords();
   elements.editWordsDialog.close();
@@ -3778,30 +3767,30 @@ async function revealAnswer() {
   const isCorrect = answerMatches(elements.answerInput.value, state.currentCard.answers);
   const entry = state.currentCard.entry;
   state.currentCard.submittedAnswer = elements.answerInput.value.trim();
-  const scoreKey = state.currentCard.direction === "el-en" ? "elToEnScore" : "enToElScore";
-  entry[scoreKey] = nextScoreAfterAnswer(entry[scoreKey], isCorrect);
+  state.currentCard.previousMistakeCategory = entry.mistakeCategory || 0;
+  state.currentCard.previousLastMistakeAt = entry.lastMistakeAt || 0;
+  state.currentCard.lastCorrect = isCorrect;
+  const maxCategory = maxMistakeCategory();
 
   if (isCorrect) {
-    entry.mistakeStage = entry.mistakeStage > 0 ? (entry.mistakeStage >= 3 ? 0 : entry.mistakeStage + 1) : 0;
+    entry.mistakeCategory = Math.min(maxCategory, (entry.mistakeCategory || 0) + 1);
   } else {
-    entry.mistakeStage = 1;
+    entry.mistakeCategory = 0;
+    entry.lastMistakeAt = Date.now();
   }
-  entry.recentWrong = entry.mistakeStage > 0;
-  entry.mistakeUpdatedAt = Date.now();
-  enforceRecentWrongLimit(state.words, entry);
 
   elements.feedback.className = `feedback ${isCorrect ? "correct" : "incorrect"}`;
-  const scoreText = document.createElement("strong");
-  scoreText.textContent = String(entry[scoreKey]);
   const answersText = document.createElement("strong");
   answersText.textContent = joinVariants(state.currentCard.answers);
+  const categoryText = document.createElement("strong");
+  categoryText.textContent = String(entry.mistakeCategory);
 
   if (isCorrect) {
     elements.feedback.replaceChildren(
       "Correct. Accepted: ",
       answersText,
-      ". Score is now ",
-      scoreText,
+      ". Mistake category is now ",
+      categoryText,
       ". ",
       createEditCurrentWordButton(),
       " Press Enter for the next word.",
@@ -3812,12 +3801,18 @@ async function revealAnswer() {
     addButton.type = "button";
     addButton.textContent = "Add my answer";
     addButton.addEventListener("click", addSubmittedAnswerAsTranslation);
+    const wasCorrectButton = document.createElement("button");
+    wasCorrectButton.className = "inline-action";
+    wasCorrectButton.type = "button";
+    wasCorrectButton.textContent = "I was correct";
+    wasCorrectButton.addEventListener("click", markCurrentAnswerCorrect);
     elements.feedback.replaceChildren(
       "Not quite. Accepted: ",
       answersText,
-      ". Score is now ",
-      scoreText,
+      ". Mistake category is now ",
+      categoryText,
       ". ",
+      wasCorrectButton,
       addButton,
       createEditCurrentWordButton(),
       " Press Enter for the next word.",
@@ -3845,9 +3840,8 @@ function renderWords() {
     const greek = document.createElement("span");
     const arrow = document.createElement("span");
     const english = document.createElement("span");
-    const elToEnScore = document.createElement("span");
-    const enToElScore = document.createElement("span");
-    const recentWrong = document.createElement("span");
+    const mistakeCategory = document.createElement("span");
+    const lastMistake = document.createElement("span");
     const category = document.createElement("span");
     const deleteButton = document.createElement("button");
 
@@ -3855,13 +3849,11 @@ function renderWords() {
     arrow.className = "arrow";
     arrow.textContent = "→";
     english.textContent = joinVariants(entry.english);
-    elToEnScore.className = "score";
-    elToEnScore.textContent = `EL→EN ${clampScore(entry.elToEnScore)}`;
-    enToElScore.className = "score";
-    enToElScore.textContent = `EN→EL ${clampScore(entry.enToElScore)}`;
-    recentWrong.className = "score recent-wrong";
-    recentWrong.textContent = entry.mistakeStage > 0 ? `Mistake list ${entry.mistakeStage}` : "";
-    recentWrong.hidden = entry.mistakeStage <= 0;
+    mistakeCategory.className = "score";
+    mistakeCategory.textContent = `Mistake ${entry.mistakeCategory || 0}`;
+    lastMistake.className = "score";
+    lastMistake.textContent = entry.lastMistakeAt ? `Last ${formatTimestamp(entry.lastMistakeAt)}` : "";
+    lastMistake.hidden = !entry.lastMistakeAt;
     category.className = "score";
     category.textContent = entry.category ? entry.category : "";
     category.hidden = !entry.category;
@@ -3877,7 +3869,7 @@ function renderWords() {
       render();
     });
 
-    row.append(greek, arrow, english, elToEnScore, enToElScore, recentWrong, category, deleteButton);
+    row.append(greek, arrow, english, mistakeCategory, lastMistake, category, deleteButton);
     elements.wordList.append(row);
   });
 }
@@ -3890,12 +3882,18 @@ function renderQuiz() {
   const activeWords = studyWords();
   const hasWords = activeWords.length > 0;
   const hasSetup = Boolean(currentSetup());
-  const [mistake1, mistake2, mistake3] = mistakeCounts(activeWords);
   const settings = currentSetupSettings();
-  elements.answerInput.disabled = !hasWords || !hasSetup;
-  elements.submitAnswerButton.disabled = !hasWords || !hasSetup;
+  const counts = mistakeCategoryCounts(activeWords, settings);
+  const dueCount = activeWords.filter((entry) =>
+    entry.mistakeCategory < maxMistakeCategory(settings)
+      ? dueCategoryWords(activeWords, entry.mistakeCategory || 0, settings).includes(entry)
+      : true,
+  ).length;
+  const hasScheduledWord = dueCount > 0 || Boolean(state.currentCard);
+  elements.answerInput.disabled = !hasWords || !hasSetup || !hasScheduledWord;
+  elements.submitAnswerButton.disabled = !hasWords || !hasSetup || !hasScheduledWord;
   elements.quizMeta.textContent = hasWords
-    ? `${activeWords.length} active of ${state.words.length} saved · mistakes ${mistake1}/${settings.mistakeList1Limit}, ${mistake2}/${settings.mistakeList2Limit}, ${mistake3}/${settings.mistakeList3Limit}`
+    ? `${activeWords.length} active of ${state.words.length} saved · ${dueCount} scheduled · mastered ${counts[maxMistakeCategory(settings)] || 0}`
     : hasSetup
       ? state.words.length
         ? "No words match the selected categories"
@@ -3905,7 +3903,9 @@ function renderQuiz() {
   if (!state.currentCard) {
     elements.promptLabel.textContent = "Prompt";
     elements.promptWord.textContent = hasWords
-      ? "Press Enter to begin"
+      ? hasScheduledWord
+        ? "Press Enter to begin"
+        : "No scheduled words due"
       : hasSetup
         ? state.words.length
           ? "No selected categories"
@@ -3930,7 +3930,9 @@ function renderQuiz() {
       actions.append(startDefault, createBlank);
       elements.feedback.replaceChildren("Choose how to begin, then your progress will be saved to this account.", actions);
     } else {
-      elements.feedback.textContent = "";
+      elements.feedback.textContent = hasWords && !hasScheduledWord
+        ? "Come back after the configured mistake-category delays."
+        : "";
     }
     elements.notesPanel.textContent = "";
     elements.submitAnswerButton.textContent = "Enter";
@@ -3984,7 +3986,7 @@ function renderSetupControls() {
   elements.wordsTextarea.placeholder =
     `${displaySetup.learnLanguage} word / alternative: ${displaySetup.fromLanguage} translation :: Optional explanation ## category`;
   elements.pasteCsvTextarea.placeholder =
-    `${displaySetup.learnLanguage.toLowerCase()},${displaySetup.fromLanguage.toLowerCase()},${displaySetup.learnLanguage.toLowerCase()}_to_${displaySetup.fromLanguage.toLowerCase()}_score,${displaySetup.fromLanguage.toLowerCase()}_to_${displaySetup.learnLanguage.toLowerCase()}_score,recent_wrong,explanations_examples,category`;
+    `${displaySetup.learnLanguage.toLowerCase()},${displaySetup.fromLanguage.toLowerCase()},mistake_category,last_mistake_at,explanations_examples,category`;
 
   elements.setupSelect.innerHTML = "";
   if (!state.setups.length) {
@@ -4258,11 +4260,8 @@ elements.saveSettingsButton.addEventListener("click", () =>
 );
 
 [
-  elements.minScoreInput,
-  elements.maxScoreInput,
-  elements.recentWrongLimitInput,
-  elements.mistakeList2LimitInput,
-  elements.mistakeList3LimitInput,
+  elements.mistakeDelaysInput,
+  elements.mistakeSizesInput,
   elements.speechModelSelect,
   elements.speechMaxSecondsInput,
   elements.speakPromptsInput,
