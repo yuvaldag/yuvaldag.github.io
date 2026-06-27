@@ -1131,6 +1131,7 @@ const DEFAULT_SETUP_SETTINGS = {
 };
 const CATEGORY_SEPARATOR = "##";
 const UNCATEGORIZED_CATEGORY_KEY = "__uncategorized__";
+const NO_CATEGORIES_SELECTED_KEY = "__no_categories_selected__";
 const DEFAULT_SETUP = {
   id: "greek-english",
   learnLanguage: "Greek",
@@ -1433,6 +1434,7 @@ function categoryOptions(words = state.words) {
 function wordCategoryAllowed(entry, settings = currentSetupSettings()) {
   const included = normalizeIncludedCategories(settings.includedCategories);
   if (!included.length) return true;
+  if (included.includes(NO_CATEGORIES_SELECTED_KEY)) return false;
   return included.includes(categoryKey(entry.category));
 }
 
@@ -3607,9 +3609,11 @@ async function saveSettingsFromDialog() {
     .filter((input) => input.checked)
     .map((input) => input.value);
   const includedCategories =
-    categoryCheckboxes.length && checkedCategories.length < categoryCheckboxes.length
-      ? checkedCategories
-      : [];
+    categoryCheckboxes.length && checkedCategories.length === 0
+      ? [NO_CATEGORIES_SELECTED_KEY]
+      : categoryCheckboxes.length && checkedCategories.length < categoryCheckboxes.length
+        ? checkedCategories
+        : [];
 
   if (Number.isNaN(minScore) || Number.isNaN(maxScore) || minScore >= maxScore) {
     elements.settingsMessage.textContent = "Minimum score must be lower than maximum score.";
