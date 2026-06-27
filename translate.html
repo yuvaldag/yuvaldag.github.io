@@ -944,7 +944,7 @@ dialog::backdrop {
         <div class="dialog-heading">
           <div>
             <h2>Settings</h2>
-            <p>Adjust score bounds and the recent-wrong list size.</p>
+            <p>Settings save automatically.</p>
           </div>
           <button id="closeSettingsDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
         </div>
@@ -985,15 +985,15 @@ dialog::backdrop {
         <div class="category-settings">
           <div class="category-settings-heading">
             <strong>Study categories</strong>
-            <span>Select none or all to include every category.</span>
+            <span>Select all to include every category.</span>
           </div>
           <div id="categoryFilterList" class="category-filter-list"></div>
         </div>
         <div id="settingsMessage" class="parse-message"></div>
         <div class="dialog-actions">
-          <button id="cancelSettingsButton" type="button">Cancel</button>
+          <button id="cancelSettingsButton" type="button">Close</button>
           <button id="preloadSpeechModelButton" type="button">Preload speech model</button>
-          <button id="saveSettingsButton" class="primary" type="button">Save settings</button>
+          <button id="saveSettingsButton" class="primary" type="button">Done</button>
         </div>
       </form>
     </dialog>
@@ -3587,6 +3587,9 @@ function renderSettingsDialog() {
       checkbox.type = "checkbox";
       checkbox.value = option.key;
       checkbox.checked = !selected.length || selectedSet.has(option.key);
+      checkbox.addEventListener("change", () =>
+        saveSettingsFromDialog({ closeDialog: false, showMessage: false }),
+      );
       label.append(checkbox, option.label);
       elements.categoryFilterList.append(label);
     });
@@ -3594,7 +3597,8 @@ function renderSettingsDialog() {
   elements.settingsMessage.textContent = "";
 }
 
-async function saveSettingsFromDialog() {
+async function saveSettingsFromDialog(options = {}) {
+  const { closeDialog = true, showMessage = true } = options;
   const minScore = Number.parseInt(elements.minScoreInput.value, 10);
   const maxScore = Number.parseInt(elements.maxScoreInput.value, 10);
   const mistakeList1Limit = Number.parseInt(elements.recentWrongLimitInput.value, 10);
@@ -3617,7 +3621,7 @@ async function saveSettingsFromDialog() {
 
   if (Number.isNaN(minScore) || Number.isNaN(maxScore) || minScore >= maxScore) {
     elements.settingsMessage.textContent = "Minimum score must be lower than maximum score.";
-    return;
+    return false;
   }
 
   if (
@@ -3629,12 +3633,12 @@ async function saveSettingsFromDialog() {
     mistakeList3Limit < 1
   ) {
     elements.settingsMessage.textContent = "Mistake list caps must be at least 1.";
-    return;
+    return false;
   }
 
   if (Number.isNaN(speechMaxSeconds) || speechMaxSeconds < 1 || speechMaxSeconds > 10) {
     elements.settingsMessage.textContent = "Max recording seconds must be between 1 and 10.";
-    return;
+    return false;
   }
 
   const setup = currentSetup();
@@ -3666,8 +3670,10 @@ async function saveSettingsFromDialog() {
     state.revealed = false;
   }
   await persistWords();
-  elements.settingsDialog.close();
+  elements.settingsMessage.textContent = showMessage ? "Saved." : "";
+  if (closeDialog) elements.settingsDialog.close();
   render();
+  return true;
 }
 
 function renderEditTable(focusEntry = null) {
@@ -4197,6 +4203,7 @@ elements.closeEditDialogButton.addEventListener("click", () => {
 });
 
 elements.closeSettingsDialogButton.addEventListener("click", () => {
+  saveSettingsFromDialog({ closeDialog: false, showMessage: false });
   elements.settingsDialog.close();
 });
 
@@ -4242,10 +4249,28 @@ elements.newSetupDialog.querySelector("form").addEventListener("submit", (event)
 });
 
 elements.cancelSettingsButton.addEventListener("click", () => {
+  saveSettingsFromDialog({ closeDialog: false, showMessage: false });
   elements.settingsDialog.close();
 });
 
-elements.saveSettingsButton.addEventListener("click", saveSettingsFromDialog);
+elements.saveSettingsButton.addEventListener("click", () =>
+  saveSettingsFromDialog({ closeDialog: true, showMessage: false }),
+);
+
+[
+  elements.minScoreInput,
+  elements.maxScoreInput,
+  elements.recentWrongLimitInput,
+  elements.mistakeList2LimitInput,
+  elements.mistakeList3LimitInput,
+  elements.speechModelSelect,
+  elements.speechMaxSecondsInput,
+  elements.speakPromptsInput,
+].forEach((input) => {
+  input.addEventListener("change", () =>
+    saveSettingsFromDialog({ closeDialog: false, showMessage: false }),
+  );
+});
 
 elements.saveFirebaseConfigButton.addEventListener("click", saveFirebaseConfigFromDialog);
 
