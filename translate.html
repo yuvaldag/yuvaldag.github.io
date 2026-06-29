@@ -292,7 +292,7 @@ h2 {
 
 .word-row {
   display: grid;
-  grid-template-columns: 1fr auto 1fr auto auto auto auto;
+  grid-template-columns: 1fr auto 1fr auto auto auto auto auto;
   gap: 10px;
   align-items: center;
   border: 1px solid var(--line);
@@ -752,7 +752,7 @@ dialog::backdrop {
 
   .delete-word {
     grid-column: 2;
-    grid-row: 1 / span 4;
+    grid-row: 1 / span 5;
   }
 
   .settings-grid {
@@ -922,7 +922,7 @@ dialog::backdrop {
                 <th>Greek</th>
                 <th>English</th>
                 <th>Mistake category</th>
-                <th>Last mistake</th>
+                <th>Last answered</th>
                 <th>Category</th>
                 <th>Explanations / examples</th>
                 <th></th>
@@ -1068,7 +1068,7 @@ dialog::backdrop {
         <textarea
           id="pasteCsvTextarea"
           rows="12"
-          placeholder="greek,english,mistake_category,last_mistake_at,explanations_examples,category"
+          placeholder="greek,english,mistake_category,last_answered_at,explanations_examples,category"
         ></textarea>
         <div id="pasteCsvMessage" class="parse-message"></div>
         <div class="dialog-actions">
@@ -1089,6 +1089,8 @@ const LOCAL_UPDATED_KEY = "vocabulary-trainer.local-updated-at";
 const LAST_CLOUD_UPDATED_KEY = "vocabulary-trainer.last-cloud-updated-at";
 const LAST_SYNCED_STATE_KEY = "vocabulary-trainer.last-synced-state";
 const LAST_SYNCED_USER_KEY = "vocabulary-trainer.last-synced-user";
+const SCORE_RESET_VERSION_KEY = "vocabulary-trainer.score-reset-version";
+const CURRENT_SCORE_RESET_VERSION = 1;
 const CSV_MIME = "text/csv";
 const TRANSFORMERS_CDN =
   "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js";
@@ -1477,8 +1479,8 @@ function parseWordLines(text) {
     entries.push({
       greek,
       english,
-      mistakeCategory: maxMistakeCategory(),
-      lastMistakeAt: 0,
+      mistakeCategory: -1,
+      lastAnsweredAt: 0,
       notes,
       category,
     });
@@ -1541,7 +1543,7 @@ function toCsv(words) {
       learnKey,
       fromKey,
       "mistake_category",
-      "last_mistake_at",
+      "last_answered_at",
       "explanations_examples",
       "category",
     ],
@@ -1552,7 +1554,7 @@ function toCsv(words) {
       joinVariants(word.greek),
       joinVariants(word.english),
       word.mistakeCategory,
-      formatTimestamp(word.lastMistakeAt),
+      formatTimestamp(word.lastAnsweredAt),
       word.notes,
       word.category,
     ]);
@@ -1678,6 +1680,19 @@ function normalizeSetup(setup) {
       ? setup.words.map((entry) => normalizeWordEntry(entry, settings))
       : [],
   };
+}
+
+function resetSetupScoresToUnclassified(setups) {
+  let changed = false;
+  (setups || []).forEach((setup) => {
+    (setup.words || []).forEach((word) => {
+      if (word.mistakeCategory !== -1) {
+        word.mistakeCategory = -1;
+        changed = true;
+      }
+    });
+  });
+  return changed;
 }
 
 function currentSetup() {
@@ -2003,6 +2018,7 @@ function exportAppState() {
   syncActiveSetupWords();
   return {
     schemaVersion: 2,
+    scoreResetVersion: CURRENT_SCORE_RESET_VERSION,
     activeSetupId: state.activeSetupId,
     setups: serializableSetups(),
     settings: state.settings,
@@ -2018,6 +2034,9 @@ function importAppState(appState) {
         .map((setup) => normalizeSetup({ ...setup, settings: setup?.settings || legacySetupSettings }))
         .filter((setup) => setup.words)
     : [];
+  const migratedScores = Number(appState?.scoreResetVersion || 0) < CURRENT_SCORE_RESET_VERSION
+    ? resetSetupScoresToUnclassified(setups)
+    : false;
   state.setups = setups;
   state.activeSetupId = setups.some((setup) => setup.id === appState?.activeSetupId)
     ? appState.activeSetupId
@@ -2029,6 +2048,7 @@ function importAppState(appState) {
   state.fileHandle = state.fileHandles.get(state.activeSetupId) || null;
   state.currentCard = null;
   state.revealed = false;
+  return migratedScores;
 }
 
 function getLocalUpdatedAtMillis() {
@@ -2262,6 +2282,12 @@ function mergeLocalStateIntoCloud(remoteState, localState) {
   const localSetups = Array.isArray(localState?.setups)
     ? localState.setups.map(normalizeSetup)
     : [];
+  if (Number(remoteState?.scoreResetVersion || 0) < CURRENT_SCORE_RESET_VERSION) {
+    resetSetupScoresToUnclassified(remoteSetups);
+  }
+  if (Number(localState?.scoreResetVersion || 0) < CURRENT_SCORE_RESET_VERSION) {
+    resetSetupScoresToUnclassified(localSetups);
+  }
   const existingIds = new Set(remoteSetups.map((setup) => setup.id));
   const setups = remoteSetups.map((setup) => ({ ...setup }));
   const migratedIds = [];
@@ -2289,6 +2315,7 @@ function mergeLocalStateIntoCloud(remoteState, localState) {
 
   return {
     schemaVersion: 2,
+    scoreResetVersion: CURRENT_SCORE_RESET_VERSION,
     activeSetupId: migratedIds[0] || remoteState?.activeSetupId || setups[0]?.id || "",
     setups,
     settings: remoteState?.settings || localState?.settings || DEFAULT_SETTINGS,
@@ -2372,35 +2399,35 @@ function mergeVariants(baseValues = [], localValues = [], remoteValues = []) {
 function mergeMistakeProgress(baseWord, localWord, remoteWord, setupSettings) {
   const maxCategory = maxMistakeCategory(setupSettings);
   const fallback = localWord || remoteWord || baseWord || {};
-  const baseCategory = Math.max(0, Math.min(maxCategory, Number(baseWord?.mistakeCategory ?? 0)));
-  const localCategory = Math.max(0, Math.min(maxCategory, Number(localWord?.mistakeCategory ?? fallback.mistakeCategory ?? 0)));
-  const remoteCategory = Math.max(0, Math.min(maxCategory, Number(remoteWord?.mistakeCategory ?? fallback.mistakeCategory ?? 0)));
-  const baseMistakeAt = parseTimestamp(baseWord?.lastMistakeAt);
-  const localMistakeAt = parseTimestamp(localWord?.lastMistakeAt ?? fallback.lastMistakeAt);
-  const remoteMistakeAt = parseTimestamp(remoteWord?.lastMistakeAt ?? fallback.lastMistakeAt);
-  if (localMistakeAt > remoteMistakeAt) {
+  const baseCategory = clampMistakeCategory(baseWord?.mistakeCategory, setupSettings);
+  const localCategory = clampMistakeCategory(localWord?.mistakeCategory ?? fallback.mistakeCategory, setupSettings);
+  const remoteCategory = clampMistakeCategory(remoteWord?.mistakeCategory ?? fallback.mistakeCategory, setupSettings);
+  const baseAnsweredAt = parseTimestamp(baseWord?.lastAnsweredAt ?? baseWord?.lastMistakeAt);
+  const localAnsweredAt = parseTimestamp(localWord?.lastAnsweredAt ?? localWord?.lastMistakeAt ?? fallback.lastAnsweredAt ?? fallback.lastMistakeAt);
+  const remoteAnsweredAt = parseTimestamp(remoteWord?.lastAnsweredAt ?? remoteWord?.lastMistakeAt ?? fallback.lastAnsweredAt ?? fallback.lastMistakeAt);
+  if (localAnsweredAt > remoteAnsweredAt) {
     return {
       mistakeCategory: localCategory,
-      lastMistakeAt: localMistakeAt,
+      lastAnsweredAt: localAnsweredAt,
     };
   }
-  if (remoteMistakeAt > localMistakeAt) {
+  if (remoteAnsweredAt > localAnsweredAt) {
     return {
       mistakeCategory: remoteCategory,
-      lastMistakeAt: remoteMistakeAt,
+      lastAnsweredAt: remoteAnsweredAt,
     };
   }
-  if (baseWord && localMistakeAt === baseMistakeAt && remoteMistakeAt === baseMistakeAt) {
+  if (baseWord && localAnsweredAt === baseAnsweredAt && remoteAnsweredAt === baseAnsweredAt) {
     const localGain = Math.max(0, localCategory - baseCategory);
     const remoteGain = Math.max(0, remoteCategory - baseCategory);
     return {
       mistakeCategory: Math.min(maxCategory, baseCategory + localGain + remoteGain),
-      lastMistakeAt: localMistakeAt,
+      lastAnsweredAt: localAnsweredAt,
     };
   }
   return {
     mistakeCategory: Math.max(localCategory, remoteCategory),
-    lastMistakeAt: localMistakeAt,
+    lastAnsweredAt: localAnsweredAt,
   };
 }
 
@@ -2431,7 +2458,7 @@ function mergeWord(baseWord, localWord, remoteWord, setupSettings) {
     greek: mergeVariants(baseWord?.greek, localWord?.greek || fallback?.greek, remoteWord?.greek || fallback?.greek),
     english: mergeVariants(baseWord?.english, localWord?.english || fallback?.english, remoteWord?.english || fallback?.english),
     mistakeCategory: mistake.mistakeCategory,
-    lastMistakeAt: mistake.lastMistakeAt,
+    lastAnsweredAt: mistake.lastAnsweredAt,
     notes: mergeText(baseWord?.notes || "", localWord?.notes || "", remoteWord?.notes || ""),
     category: mergePrimitive(baseWord?.category || "", localWord?.category || "", remoteWord?.category || ""),
   }, setupSettings);
@@ -2462,12 +2489,22 @@ function mergeAppStates(baseState, localState, remoteState) {
   const baseSetups = mapBy((baseState?.setups || []).map(normalizeSetup), setupMergeKey);
   const localSetups = mapBy((localState?.setups || []).map(normalizeSetup), setupMergeKey);
   const remoteSetups = mapBy((remoteState?.setups || []).map(normalizeSetup), setupMergeKey);
+  if (Number(baseState?.scoreResetVersion || 0) < CURRENT_SCORE_RESET_VERSION) {
+    resetSetupScoresToUnclassified([...baseSetups.values()]);
+  }
+  if (Number(localState?.scoreResetVersion || 0) < CURRENT_SCORE_RESET_VERSION) {
+    resetSetupScoresToUnclassified([...localSetups.values()]);
+  }
+  if (Number(remoteState?.scoreResetVersion || 0) < CURRENT_SCORE_RESET_VERSION) {
+    resetSetupScoresToUnclassified([...remoteSetups.values()]);
+  }
   const keys = new Set([...baseSetups.keys(), ...localSetups.keys(), ...remoteSetups.keys()]);
   const setups = [...keys].map((key) =>
     mergeSetup(baseSetups.get(key), localSetups.get(key), remoteSetups.get(key)),
   );
   return {
     schemaVersion: 2,
+    scoreResetVersion: CURRENT_SCORE_RESET_VERSION,
     activeSetupId: localState?.activeSetupId || remoteState?.activeSetupId || setups[0]?.id || "",
     setups,
     settings: {
@@ -2812,14 +2849,15 @@ function buildCloudPayload() {
 }
 
 function applyCloudDocument(data) {
+  let migratedScores = false;
   try {
     const appState = JSON.parse(String(data?.stateJson || "{}"));
     const updatedAtMillis = Number(data?.updatedAtMillis || 0);
 
     state.sync.applyingCloud = true;
-    importAppState(appState);
+    migratedScores = importAppState(appState);
     setLocalUpdatedAtMillis(updatedAtMillis);
-    saveCloudBaseline(updatedAtMillis, appState);
+    saveCloudBaseline(updatedAtMillis, exportAppState());
     saveSettings({ syncCloud: false, touch: false });
     saveSetups({ syncCloud: false, touch: false });
     render();
@@ -2828,6 +2866,10 @@ function applyCloudDocument(data) {
     setCloudStatus("error", "Cloud data could not be loaded. Try Push to replace it with this browser's data.");
   } finally {
     state.sync.applyingCloud = false;
+    if (migratedScores && state.sync.user && state.sync.db) {
+      touchLocalState();
+      pushCloudState({ silent: true, skipConflictCheck: true }).catch(() => {});
+    }
   }
 }
 
@@ -3027,22 +3069,25 @@ function applySettingsToWords() {
 function normalizeWordEntry(entry, settings = currentSetupSettings()) {
   const greekSource = entry.greek ?? entry.learn ?? "";
   const englishSource = entry.english ?? entry.from ?? "";
-  const maxCategory = settings.mistakeDelaysMinutes.length;
+  const categorySource =
+    entry.mistakeCategory ??
+    entry.mistakeStage ??
+    (entry.recentWrong ? 1 : -1);
   const rawCategory = Number.parseInt(
-    entry.mistakeCategory ?? entry.mistakeStage ?? (entry.recentWrong ? 1 : 0),
+    categorySource,
     10,
   );
   const mistakeCategory = Number.isNaN(rawCategory)
-    ? 0
-    : Math.max(0, Math.min(maxCategory, rawCategory));
-  const lastMistakeAt = parseTimestamp(entry.lastMistakeAt ?? entry.mistakeUpdatedAt);
+    ? -1
+    : clampMistakeCategory(rawCategory, settings);
+  const lastAnsweredAt = parseTimestamp(entry.lastAnsweredAt ?? entry.lastMistakeAt ?? entry.mistakeUpdatedAt);
   return {
     greek: Array.isArray(greekSource) ? greekSource.filter(Boolean) : splitVariants(greekSource || ""),
     english: Array.isArray(englishSource)
       ? englishSource.filter(Boolean)
       : splitVariants(englishSource || ""),
     mistakeCategory,
-    lastMistakeAt,
+    lastAnsweredAt,
     notes: String(entry.notes || ""),
     category: cleanCategory(entry.category),
   };
@@ -3059,7 +3104,8 @@ function wordsFromCsv(text, setupOverride = null) {
     header?.[0] === "greek" ||
     header?.[0] === learnKey ||
     header?.includes("mistake_category") ||
-    header?.includes("last_mistake_at") ||
+    (header?.includes("last_answered_at") || header?.includes("lastansweredat") ||
+      header?.includes("last_mistake_at") || header?.includes("lastmistakeat")) ||
     header?.includes("recent_wrong") ||
     header?.includes("explanations_examples") ||
     header?.includes("notes") ||
@@ -3068,7 +3114,14 @@ function wordsFromCsv(text, setupOverride = null) {
   const mistakeCategoryIndex = hasHeader
     ? Math.max(header.indexOf("mistake_category"), header.indexOf("mistakeCategory".toLowerCase()))
     : 2;
-  const lastMistakeAtIndex = hasHeader ? header.indexOf("last_mistake_at") : 3;
+  const lastAnsweredAtIndex = hasHeader
+    ? Math.max(
+        header.indexOf("last_answered_at"),
+        header.indexOf("lastansweredat"),
+        header.indexOf("last_mistake_at"),
+        header.indexOf("lastmistakeat"),
+      )
+    : 3;
   const recentWrongIndex = hasHeader ? header.indexOf("recent_wrong") : 4;
   const notesIndex = hasHeader
     ? Math.max(header.indexOf("explanations_examples"), header.indexOf("notes"))
@@ -3084,11 +3137,11 @@ function wordsFromCsv(text, setupOverride = null) {
         greek: splitVariants(row[0] || ""),
         english: splitVariants(row[1] || ""),
         mistakeCategory: mistakeCategoryIndex >= 0
-          ? Number.parseInt(row[mistakeCategoryIndex] || "0", 10)
+          ? Number.parseInt(row[mistakeCategoryIndex] || "-1", 10)
           : legacyRecentWrong
             ? 1
-            : 0,
-        lastMistakeAt: lastMistakeAtIndex >= 0 ? parseTimestamp(row[lastMistakeAtIndex]) : 0,
+            : -1,
+        lastAnsweredAt: lastAnsweredAtIndex >= 0 ? parseTimestamp(row[lastAnsweredAtIndex]) : 0,
         notes: notesIndex >= 0 ? row[notesIndex] || "" : "",
         category: categoryIndex >= 0 ? row[categoryIndex] || "" : "",
       };
@@ -3173,6 +3226,13 @@ function loadSetups() {
   const setup = currentSetup();
   state.words = setup ? setup.words.map(normalizeWordEntry) : [];
   state.fileHandle = state.fileHandles.get(state.activeSetupId) || null;
+
+  if (Number(localStorage.getItem(SCORE_RESET_VERSION_KEY) || 0) < CURRENT_SCORE_RESET_VERSION) {
+    const migratedScores = resetSetupScoresToUnclassified(state.setups);
+    localStorage.setItem(SCORE_RESET_VERSION_KEY, String(CURRENT_SCORE_RESET_VERSION));
+    state.words = setup ? setup.words.map(normalizeWordEntry) : [];
+    if (migratedScores) saveSetups({ syncCloud: false });
+  }
 
   if (!state.accountMode && setups.length) {
     saveAccountMode("local");
@@ -3330,8 +3390,8 @@ async function importDefaultDatabase(database) {
     const setup = defaultDatabaseSetup(database);
     setup.words = wordsFromDefaultText(wordsText, setup).map((entry) => ({
       ...entry,
-      mistakeCategory: maxMistakeCategory(normalizeSetupSettings(setup.settings)),
-      lastMistakeAt: 0,
+      mistakeCategory: -1,
+      lastAnsweredAt: 0,
     }));
     if (!setup.words.length) throw new Error("No words found.");
 
@@ -3357,11 +3417,47 @@ function maxMistakeCategory(settings = currentSetupSettings()) {
   return settings.mistakeDelaysMinutes.length;
 }
 
-function mistakeCategoryCounts(words = state.words, settings = currentSetupSettings()) {
+function clampMistakeCategory(value, settings = currentSetupSettings(), fallback = -1) {
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed)) return fallback;
+  return Math.max(-1, Math.min(maxMistakeCategory(settings), parsed));
+}
+
+function mistakeCategorySummary(words = studyWords(), settings = currentSetupSettings()) {
   const maxCategory = maxMistakeCategory(settings);
-  return Array.from({ length: maxCategory + 1 }, (_, category) =>
-    words.filter((entry) => Math.min(maxCategory, entry.mistakeCategory || 0) === category).length,
-  );
+  return Array.from({ length: maxCategory + 2 }, (_, index) => index - 1).map((category) => {
+    const total = words.filter((entry) => clampMistakeCategory(entry.mistakeCategory, settings) === category).length;
+    const scheduled = category >= 0 && category < maxCategory
+      ? dueCategoryWords(words, category, settings).length
+      : total;
+    return {
+      category,
+      total,
+      scheduled,
+      size: category >= 0 && category < maxCategory ? settings.mistakeCategorySizes[category] || 1 : total,
+    };
+  });
+}
+
+function mistakeCategorySummaryText(words = studyWords(), settings = currentSetupSettings()) {
+  return mistakeCategorySummary(words, settings)
+    .filter((item) => item.total || item.scheduled)
+    .map((item) => item.category === -1
+      ? `C-1: ${item.total} unclassified fallback`
+      : item.category < maxMistakeCategory(settings)
+      ? `C${item.category}: ${item.total} words, ${item.scheduled} scheduled`
+      : `C${item.category}: ${item.total} mastered`)
+    .join(" · ");
+}
+
+function wordScheduleStatus(entry, words = studyWords(), settings = currentSetupSettings()) {
+  const category = clampMistakeCategory(entry.mistakeCategory, settings);
+  if (!wordCategoryAllowed(entry)) return "Excluded by filter";
+  if (category === -1) return "Unclassified fallback";
+  if (category >= maxMistakeCategory(settings)) return "Random pool";
+  return dueCategoryWords(words, category, settings).includes(entry)
+    ? "Scheduled"
+    : "Waiting";
 }
 
 async function mergeWords(entries) {
@@ -3394,9 +3490,9 @@ function dueCategoryWords(pool, category, settings, excludedEntry = null) {
   const delayMs = (settings.mistakeDelaysMinutes[category] || 0) * 60 * 1000;
   const size = settings.mistakeCategorySizes[category] || 1;
   return pool
-    .filter((entry) => entry !== excludedEntry && (entry.mistakeCategory || 0) === category)
-    .filter((entry) => !entry.lastMistakeAt || now - entry.lastMistakeAt >= delayMs)
-    .sort((a, b) => (a.lastMistakeAt || Number.POSITIVE_INFINITY) - (b.lastMistakeAt || Number.POSITIVE_INFINITY))
+    .filter((entry) => entry !== excludedEntry && clampMistakeCategory(entry.mistakeCategory, settings) === category)
+    .filter((entry) => !entry.lastAnsweredAt || now - entry.lastAnsweredAt >= delayMs)
+    .sort((a, b) => (a.lastAnsweredAt || Number.POSITIVE_INFINITY) - (b.lastAnsweredAt || Number.POSITIVE_INFINITY))
     .slice(0, size);
 }
 
@@ -3418,6 +3514,16 @@ function chooseNextWord() {
         randomFallback: false,
       };
     }
+  }
+
+  const unclassified = pool.filter((entry) =>
+    entry !== excludedEntry && clampMistakeCategory(entry.mistakeCategory, settings) === -1,
+  );
+  if (unclassified.length) {
+    return {
+      entry: unclassified[Math.floor(Math.random() * unclassified.length)],
+      randomFallback: true,
+    };
   }
 
   const fallback = pool.length > 1 ? pool.filter((entry) => entry !== excludedEntry) : pool;
@@ -3461,8 +3567,8 @@ function nextCard() {
     submittedAnswer: "",
     lastCorrect: false,
     randomFallback: Boolean(choice.randomFallback),
-    previousMistakeCategory: entry.mistakeCategory || 0,
-    previousLastMistakeAt: entry.lastMistakeAt || 0,
+    previousMistakeCategory: clampMistakeCategory(entry.mistakeCategory),
+    previousLastAnsweredAt: entry.lastAnsweredAt || 0,
   };
   state.revealed = false;
   elements.answerInput.value = "";
@@ -3509,10 +3615,12 @@ async function markCurrentAnswerCorrect() {
   if (!state.currentCard?.entry) return;
   const entry = state.currentCard.entry;
   const maxCategory = maxMistakeCategory();
-  entry.mistakeCategory = state.currentCard.randomFallback
-    ? state.currentCard.previousMistakeCategory || 0
-    : Math.min(maxCategory, (state.currentCard.previousMistakeCategory || 0) + 1);
-  entry.lastMistakeAt = state.currentCard.previousLastMistakeAt || 0;
+  entry.mistakeCategory = state.currentCard.previousMistakeCategory === -1
+    ? 1
+    : state.currentCard.randomFallback
+    ? state.currentCard.previousMistakeCategory
+    : Math.min(maxCategory, state.currentCard.previousMistakeCategory + 1);
+  if (!entry.lastAnsweredAt) entry.lastAnsweredAt = Date.now();
   state.currentCard.lastCorrect = true;
   elements.feedback.className = "feedback correct";
   const answersText = document.createElement("strong");
@@ -3558,20 +3666,22 @@ function createNotesInput(value) {
 
 function createMistakeCategoryInput(value) {
   const input = document.createElement("input");
+  const category = clampMistakeCategory(value);
   input.type = "number";
-  input.min = "0";
+  input.min = category === -1 ? "-1" : "0";
   input.max = String(maxMistakeCategory());
   input.step = "1";
-  input.value = Math.max(0, Math.min(maxMistakeCategory(), Number.parseInt(value, 10) || 0));
+  input.value = category;
+  input.dataset.wasUnclassified = category === -1 ? "true" : "false";
   input.setAttribute("aria-label", "Mistake category");
   return input;
 }
 
-function createLastMistakeInput(value) {
+function createLastAnsweredInput(value) {
   const input = document.createElement("input");
   input.type = "datetime-local";
   input.value = value ? new Date(value).toISOString().slice(0, 16) : "";
-  input.setAttribute("aria-label", "Last mistake timestamp");
+  input.setAttribute("aria-label", "Last answered timestamp");
   return input;
 }
 
@@ -3692,7 +3802,7 @@ function renderEditTable(focusEntry = null) {
     const greekCell = document.createElement("td");
     const englishCell = document.createElement("td");
     const mistakeCategoryCell = document.createElement("td");
-    const lastMistakeCell = document.createElement("td");
+    const lastAnsweredCell = document.createElement("td");
     const categoryCell = document.createElement("td");
     const notesCell = document.createElement("td");
     const actionCell = document.createElement("td");
@@ -3700,7 +3810,7 @@ function renderEditTable(focusEntry = null) {
     greekCell.append(createTextInput(joinVariants(entry.greek), `${setup.learnLanguage} translations`));
     englishCell.append(createTextInput(joinVariants(entry.english), `${setup.fromLanguage} translations`));
     mistakeCategoryCell.append(createMistakeCategoryInput(entry.mistakeCategory));
-    lastMistakeCell.append(createLastMistakeInput(entry.lastMistakeAt));
+    lastAnsweredCell.append(createLastAnsweredInput(entry.lastAnsweredAt));
     categoryCell.append(createTextInput(entry.category || "", "Category"));
     notesCell.append(createNotesInput(entry.notes || ""));
 
@@ -3718,7 +3828,7 @@ function renderEditTable(focusEntry = null) {
       row.className = "edit-target-row";
     }
 
-    row.append(greekCell, englishCell, mistakeCategoryCell, lastMistakeCell, categoryCell, notesCell, actionCell);
+    row.append(greekCell, englishCell, mistakeCategoryCell, lastAnsweredCell, categoryCell, notesCell, actionCell);
     elements.editWordsTableBody.append(row);
   });
 }
@@ -3750,11 +3860,12 @@ async function saveEditedWords() {
       return;
     }
 
+    const editedCategory = clampMistakeCategory(inputs[2].value);
     nextWords.push({
       greek,
       english,
-      mistakeCategory: Math.max(0, Math.min(maxMistakeCategory(), Number.parseInt(inputs[2].value, 10) || 0)),
-      lastMistakeAt: parseTimestamp(inputs[3].value),
+      mistakeCategory: inputs[2].dataset.wasUnclassified === "true" ? editedCategory : Math.max(0, editedCategory),
+      lastAnsweredAt: parseTimestamp(inputs[3].value),
       category: cleanCategory(inputs[4].value),
       notes: notesInput?.value.trim() || "",
     });
@@ -3777,20 +3888,23 @@ async function revealAnswer() {
 
   const isCorrect = answerMatches(elements.answerInput.value, state.currentCard.answers);
   const entry = state.currentCard.entry;
+  const answeredAt = Date.now();
   state.currentCard.submittedAnswer = elements.answerInput.value.trim();
-  state.currentCard.previousMistakeCategory = entry.mistakeCategory || 0;
-  state.currentCard.previousLastMistakeAt = entry.lastMistakeAt || 0;
+  state.currentCard.previousMistakeCategory = clampMistakeCategory(entry.mistakeCategory);
+  state.currentCard.previousLastAnsweredAt = entry.lastAnsweredAt || 0;
   state.currentCard.lastCorrect = isCorrect;
   const maxCategory = maxMistakeCategory();
 
   if (isCorrect) {
-    if (!state.currentCard.randomFallback) {
-      entry.mistakeCategory = Math.min(maxCategory, (entry.mistakeCategory || 0) + 1);
+    if (state.currentCard.previousMistakeCategory === -1) {
+      entry.mistakeCategory = Math.min(maxCategory, 1);
+    } else if (!state.currentCard.randomFallback) {
+      entry.mistakeCategory = Math.min(maxCategory, clampMistakeCategory(entry.mistakeCategory, currentSetupSettings(), 0) + 1);
     }
   } else {
     entry.mistakeCategory = 0;
-    entry.lastMistakeAt = Date.now();
   }
+  entry.lastAnsweredAt = answeredAt;
 
   elements.feedback.className = `feedback ${isCorrect ? "correct" : "incorrect"}`;
   const answersText = document.createElement("strong");
@@ -3854,7 +3968,8 @@ function renderWords() {
     const arrow = document.createElement("span");
     const english = document.createElement("span");
     const mistakeCategory = document.createElement("span");
-    const lastMistake = document.createElement("span");
+    const scheduleStatus = document.createElement("span");
+    const lastAnswered = document.createElement("span");
     const category = document.createElement("span");
     const deleteButton = document.createElement("button");
 
@@ -3863,10 +3978,11 @@ function renderWords() {
     arrow.textContent = "→";
     english.textContent = joinVariants(entry.english);
     mistakeCategory.className = "score";
-    mistakeCategory.textContent = `Mistake ${entry.mistakeCategory || 0}`;
-    lastMistake.className = "score";
-    lastMistake.textContent = entry.lastMistakeAt ? `Last ${formatTimestamp(entry.lastMistakeAt)}` : "";
-    lastMistake.hidden = !entry.lastMistakeAt;
+    mistakeCategory.textContent = `C${clampMistakeCategory(entry.mistakeCategory)}`;
+    scheduleStatus.className = "score";
+    scheduleStatus.textContent = wordScheduleStatus(entry);
+    lastAnswered.className = "score";
+    lastAnswered.textContent = entry.lastAnsweredAt ? `Answered ${formatTimestamp(entry.lastAnsweredAt)}` : "Never answered";
     category.className = "score";
     category.textContent = entry.category ? entry.category : "";
     category.hidden = !entry.category;
@@ -3882,7 +3998,7 @@ function renderWords() {
       render();
     });
 
-    row.append(greek, arrow, english, mistakeCategory, lastMistake, category, deleteButton);
+    row.append(greek, arrow, english, mistakeCategory, scheduleStatus, lastAnswered, category, deleteButton);
     elements.wordList.append(row);
   });
 }
@@ -3896,16 +4012,11 @@ function renderQuiz() {
   const hasWords = activeWords.length > 0;
   const hasSetup = Boolean(currentSetup());
   const settings = currentSetupSettings();
-  const counts = mistakeCategoryCounts(activeWords, settings);
-  const dueCount = activeWords.filter((entry) =>
-    entry.mistakeCategory < maxMistakeCategory(settings)
-      ? dueCategoryWords(activeWords, entry.mistakeCategory || 0, settings).includes(entry)
-      : true,
-  ).length;
+  const categorySummary = mistakeCategorySummaryText(activeWords, settings);
   elements.answerInput.disabled = !hasWords || !hasSetup;
   elements.submitAnswerButton.disabled = !hasWords || !hasSetup;
   elements.quizMeta.textContent = hasWords
-    ? `${activeWords.length} active of ${state.words.length} saved · ${dueCount} scheduled · mastered ${counts[maxMistakeCategory(settings)] || 0}`
+    ? `${activeWords.length} active of ${state.words.length} saved${categorySummary ? ` · ${categorySummary}` : ""}`
     : hasSetup
       ? state.words.length
         ? "No words match the selected categories"
@@ -3994,7 +4105,7 @@ function renderSetupControls() {
   elements.wordsTextarea.placeholder =
     `${displaySetup.learnLanguage} word / alternative: ${displaySetup.fromLanguage} translation :: Optional explanation ## category`;
   elements.pasteCsvTextarea.placeholder =
-    `${displaySetup.learnLanguage.toLowerCase()},${displaySetup.fromLanguage.toLowerCase()},mistake_category,last_mistake_at,explanations_examples,category`;
+    `${displaySetup.learnLanguage.toLowerCase()},${displaySetup.fromLanguage.toLowerCase()},mistake_category,last_answered_at,explanations_examples,category`;
 
   elements.setupSelect.innerHTML = "";
   if (!state.setups.length) {
