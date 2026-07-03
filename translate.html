@@ -1005,19 +1005,8 @@ dialog::backdrop {
         </div>
         <div id="cloudAccount" class="cloud-account">Not signed in.</div>
         <div id="cloudDetails" class="cloud-details"></div>
-        <label>
-          <span class="eyebrow">Firebase web config</span>
-          <textarea
-            id="firebaseConfigTextarea"
-            class="config-textarea"
-            rows="6"
-            spellcheck="false"
-            placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","appId":"..."}'
-          ></textarea>
-        </label>
         <div id="cloudMessage" class="parse-message"></div>
         <div class="dialog-actions">
-          <button id="saveFirebaseConfigButton" type="button">Save config</button>
           <button id="pullCloudButton" type="button">Pull from cloud</button>
           <button id="pushCloudButton" type="button">Push to cloud</button>
           <button id="signOutButton" type="button">Sign out</button>
@@ -1083,7 +1072,6 @@ const STORAGE_KEY = "greek-vocabulary-trainer.words";
 const SETUPS_KEY = "vocabulary-trainer.setups";
 const LAST_SETUP_KEY = "vocabulary-trainer.last-setup-id";
 const SETTINGS_KEY = "greek-vocabulary-trainer.settings";
-const FIREBASE_CONFIG_KEY = "vocabulary-trainer.firebase-config";
 const ACCOUNT_MODE_KEY = "vocabulary-trainer.account-mode";
 const LOCAL_UPDATED_KEY = "vocabulary-trainer.local-updated-at";
 const LAST_CLOUD_UPDATED_KEY = "vocabulary-trainer.last-cloud-updated-at";
@@ -1095,7 +1083,8 @@ const CSV_MIME = "text/csv";
 const TRANSFORMERS_CDN =
   "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js";
 const FIREBASE_MODULE_VERSION = "12.15.0";
-const CLOUD_TIMEOUT_MS = 15000;
+const CLOUD_TIMEOUT_MS = 45000;
+const CLOUD_RETRY_DELAY_MS = 1500;
 const DEFAULT_FIREBASE_CONFIG = {
   apiKey: "AIzaSyDCHhuwbnIOfCf49i44kvHJYwyJoVvVGBw",
   authDomain: "translate-5e2b4.firebaseapp.com",
@@ -1255,6 +1244,7 @@ const state = {
     unsubscribeState: null,
     saveTimer: null,
     initPromise: null,
+    signInSyncPromise: null,
     initialized: false,
     initializing: false,
     applyingCloud: false,
@@ -1300,9 +1290,7 @@ const elements = {
   defaultDatabaseMessage: document.querySelector("#defaultDatabaseMessage"),
   cloudAccount: document.querySelector("#cloudAccount"),
   cloudDetails: document.querySelector("#cloudDetails"),
-  firebaseConfigTextarea: document.querySelector("#firebaseConfigTextarea"),
   cloudMessage: document.querySelector("#cloudMessage"),
-  saveFirebaseConfigButton: document.querySelector("#saveFirebaseConfigButton"),
   signInButton: document.querySelector("#signInButton"),
   signOutButton: document.querySelector("#signOutButton"),
   pullCloudButton: document.querySelector("#pullCloudButton"),
@@ -1373,8 +1361,9 @@ function normalizeAnswer(value) {
 }
 
 function splitVariants(value) {
-  const separator = value.includes("/") ? "/" : ",";
-  return value
+  const text = String(value || "");
+  const separator = text.includes("/") ? "/" : ",";
+  return text
     .split(separator)
     .map((item) => item.trim())
     .filter(Boolean);
@@ -1669,6 +1658,12 @@ function normalizeSetup(setup) {
   const learnLanguage = cleanLanguageName(setup?.learnLanguage, DEFAULT_SETUP.learnLanguage);
   const fromLanguage = cleanLanguageName(setup?.fromLanguage, DEFAULT_SETUP.fromLanguage);
   const settings = normalizeSetupSettings(setup?.settings || state.settings || DEFAULT_SETUP_SETTINGS);
+  const words = Array.isArray(setup?.words)
+    ? setup.words
+        .filter((entry) => entry && typeof entry === "object")
+        .map((entry) => normalizeWordEntry(entry, settings))
+        .filter((entry) => entry.greek.length && entry.english.length)
+    : [];
   return {
     id: String(setup?.id || createSetupId(setup?.learnLanguage, setup?.fromLanguage)),
     learnLanguage,
@@ -1676,9 +1671,7 @@ function normalizeSetup(setup) {
     fromLanguage,
     fromLanguageCode: cleanLanguageCode(setup?.fromLanguageCode, fromLanguage),
     settings,
-    words: Array.isArray(setup?.words)
-      ? setup.words.map((entry) => normalizeWordEntry(entry, settings))
-      : [],
+    words,
   };
 }
 
@@ -2026,14 +2019,29 @@ function exportAppState() {
   };
 }
 
-function importAppState(appState) {
-  const nextSettings = normalizeSettings(appState?.settings || DEFAULT_SETTINGS);
+function setupsFromAppState(appState) {
   const legacySetupSettings = normalizeSetupSettings(appState?.settings || DEFAULT_SETUP_SETTINGS);
   const setups = Array.isArray(appState?.setups)
     ? appState.setups
         .map((setup) => normalizeSetup({ ...setup, settings: setup?.settings || legacySetupSettings }))
         .filter((setup) => setup.words)
     : [];
+
+  if (setups.length || !Array.isArray(appState?.words)) return setups;
+
+  const legacyWords = appState.words
+    .filter((entry) => entry && typeof entry === "object")
+    .map((entry) => normalizeWordEntry(entry, legacySetupSettings));
+  const validLegacyWords = legacyWords.filter((entry) => entry.greek.length && entry.english.length);
+  enforceRecentWrongLimit(validLegacyWords, legacySetupSettings);
+  return validLegacyWords.length
+    ? [{ ...DEFAULT_SETUP, settings: legacySetupSettings, words: validLegacyWords }].map(normalizeSetup)
+    : [];
+}
+
+function importAppState(appState) {
+  const nextSettings = normalizeSettings(appState?.settings || DEFAULT_SETTINGS);
+  const setups = setupsFromAppState(appState);
   const migratedScores = Number(appState?.scoreResetVersion || 0) < CURRENT_SCORE_RESET_VERSION
     ? resetSetupScoresToUnclassified(setups)
     : false;
@@ -2124,14 +2132,25 @@ function speechModelLabel(modelId = state.settings.speechModelId) {
   return SPEECH_MODEL_OPTIONS.find((option) => option.id === modelId)?.label || modelId;
 }
 
-function loadFirebaseConfig() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(FIREBASE_CONFIG_KEY) || "null");
-    state.sync.config = normalizeFirebaseConfig(saved) || normalizeFirebaseConfig(DEFAULT_FIREBASE_CONFIG);
-  } catch {
+function ensureFirebaseConfig() {
+  if (!state.sync.config) {
     state.sync.config = normalizeFirebaseConfig(DEFAULT_FIREBASE_CONFIG);
   }
-  state.sync.lastCloudUpdatedAtMillis = Number(localStorage.getItem(LAST_CLOUD_UPDATED_KEY) || 0);
+  return Boolean(state.sync.config);
+}
+
+function loadFirebaseConfig() {
+  ensureFirebaseConfig();
+  try {
+    localStorage.removeItem("vocabulary-trainer.firebase-config");
+  } catch (error) {
+    console.warn("Could not clear old Firebase config override.", error);
+  }
+  try {
+    state.sync.lastCloudUpdatedAtMillis = Number(localStorage.getItem(LAST_CLOUD_UPDATED_KEY) || 0);
+  } catch {
+    state.sync.lastCloudUpdatedAtMillis = 0;
+  }
 }
 
 function normalizeFirebaseConfig(config) {
@@ -2150,29 +2169,29 @@ function normalizeFirebaseConfig(config) {
   return normalized;
 }
 
-function formatFirebaseConfig(config = state.sync.config) {
-  return config ? JSON.stringify(config, null, 2) : "";
-}
-
 function setCloudMessage(message) {
   state.sync.lastMessage = message;
   elements.cloudMessage.textContent = message;
 }
 
-function cloudTimeoutError(label) {
-  const error = new Error(`${label} did not respond within ${Math.round(CLOUD_TIMEOUT_MS / 1000)} seconds.`);
+function cloudTimeoutError(label, timeoutMs = CLOUD_TIMEOUT_MS) {
+  const error = new Error(`${label} did not respond within ${Math.round(timeoutMs / 1000)} seconds.`);
   error.code = "timeout";
   return error;
 }
 
-function withCloudTimeout(promise, label) {
+function withCloudTimeout(promise, label, timeoutMs = CLOUD_TIMEOUT_MS) {
   let timeoutId = null;
   const timeout = new Promise((_, reject) => {
-    timeoutId = window.setTimeout(() => reject(cloudTimeoutError(label)), CLOUD_TIMEOUT_MS);
+    timeoutId = window.setTimeout(() => reject(cloudTimeoutError(label, timeoutMs)), timeoutMs);
   });
   return Promise.race([promise, timeout]).finally(() => {
     window.clearTimeout(timeoutId);
   });
+}
+
+function waitForCloudRetry(ms = CLOUD_RETRY_DELAY_MS) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function firebaseErrorMessage(error, fallback) {
@@ -2209,6 +2228,24 @@ function formatSyncTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function firestoreTimestampToMillis(timestamp) {
+  if (!timestamp) return 0;
+  if (typeof timestamp.toMillis === "function") return timestamp.toMillis();
+  if (typeof timestamp.seconds === "number") {
+    return Math.round(
+      timestamp.seconds * 1000 + Number(timestamp.nanoseconds || 0) / 1000000,
+    );
+  }
+  const number = Number(timestamp || 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function cloudDocumentUpdatedAtMillis(data, fallback = 0) {
+  const explicitMillis = Number(data?.updatedAtMillis || 0);
+  if (explicitMillis > 0) return explicitMillis;
+  return firestoreTimestampToMillis(data?.updatedAt) || fallback;
 }
 
 function hasMeaningfulLocalState() {
@@ -2352,6 +2389,30 @@ function saveCloudBaseline(updatedAtMillis, appState = exportAppState()) {
   if (state.sync.user?.uid) localStorage.setItem(LAST_SYNCED_USER_KEY, state.sync.user.uid);
   state.sync.lastCloudUpdatedAtMillis = updatedAtMillis;
   saveLastSyncedState(appState);
+}
+
+function normalizedAppStateForSync(appState = {}) {
+  const settings = normalizeSettings(appState?.settings || DEFAULT_SETTINGS);
+  const setups = setupsFromAppState(appState);
+  return {
+    schemaVersion: 2,
+    scoreResetVersion: CURRENT_SCORE_RESET_VERSION,
+    activeSetupId: setups.some((setup) => setup.id === appState?.activeSetupId)
+      ? appState.activeSetupId
+      : setups[0]?.id || "",
+    setups,
+    settings,
+    accountMode: "google",
+  };
+}
+
+function appStatesMatchForSync(a, b) {
+  return JSON.stringify(normalizedAppStateForSync(a)) === JSON.stringify(normalizedAppStateForSync(b));
+}
+
+function appStateHasMeaningfulSetups(appState) {
+  const normalized = normalizedAppStateForSync(appState);
+  return normalized.setups.some((setup) => setup.words.length > 0) || normalized.setups.length > 1;
 }
 
 function setupMergeKey(setup) {
@@ -2530,7 +2591,7 @@ async function mergeCloudDataAndPush(data, message = "Merged local and cloud pro
   if (state.sync.mergingCloud) return false;
   state.sync.mergingCloud = true;
   try {
-    const remoteState = JSON.parse(String(data?.stateJson || "{}"));
+    const remoteState = appStateFromCloudDocument(data);
     const mergedState = mergeAppStates(lastSyncedState(), exportAppState(), remoteState);
     state.sync.applyingCloud = true;
     importAppState(mergedState);
@@ -2538,9 +2599,9 @@ async function mergeCloudDataAndPush(data, message = "Merged local and cloud pro
     saveSettings({ syncCloud: false, touch: false });
     saveSetups({ syncCloud: false, touch: false });
     state.sync.applyingCloud = false;
-    await pushCloudState({ silent: true, skipConflictCheck: true });
-    setCloudStatus("synced", message);
-    return true;
+    const pushed = await pushCloudState({ silent: true, skipConflictCheck: true });
+    if (pushed) setCloudStatus("synced", message);
+    return pushed;
   } finally {
     state.sync.applyingCloud = false;
     state.sync.mergingCloud = false;
@@ -2599,7 +2660,7 @@ function userLabel(user = state.sync.user) {
 }
 
 function renderCloudControls() {
-  const hasConfig = Boolean(state.sync.config);
+  const hasConfig = ensureFirebaseConfig();
   const isSignedIn = Boolean(state.sync.user);
   const busy = state.sync.status === "syncing" || state.sync.initializing;
   const localUpdatedAt = getLocalUpdatedAtMillis();
@@ -2611,12 +2672,11 @@ function renderCloudControls() {
     error: "Cloud needs attention",
   }[state.sync.status] || "Cloud ready";
 
-  elements.firebaseConfigTextarea.value = formatFirebaseConfig();
   elements.cloudAccount.innerHTML = isSignedIn
     ? `Signed in as <strong>${escapeHtml(userLabel())}</strong>.`
     : hasConfig
       ? `Account mode: ${state.accountMode || "not chosen"}. Firebase is configured. Sign in to sync.`
-      : `Account mode: ${state.accountMode || "not chosen"}. Paste your Firebase web config first.`;
+      : `Account mode: ${state.accountMode || "not chosen"}. Cloud sign-in is not configured.`;
   elements.cloudDetails.textContent = [
     `Status: ${statusLabel}`,
     `Last message: ${state.sync.lastMessage || "none"}`,
@@ -2673,7 +2733,30 @@ async function loadFirebaseModules() {
   return state.sync.modules;
 }
 
+async function finishSignedInCloudSession(user) {
+  if (!user) {
+    state.sync.user = null;
+    state.sync.unsubscribeState?.();
+    state.sync.unsubscribeState = null;
+    setCloudStatus("idle", "Firebase is ready. Sign in to sync.");
+    return;
+  }
+
+  state.sync.user = user;
+  saveAccountMode("google");
+  if (lastSyncedUserId() !== user.uid) state.sync.lastCloudUpdatedAtMillis = 0;
+  maybeShowSpecialWelcome(user);
+  renderCloudControls();
+  if (typeof user.getIdToken === "function") {
+    setCloudStatus("syncing", "Preparing Google account...");
+    await withCloudTimeout(user.getIdToken(), "Preparing Google account", 15000);
+  }
+  await syncCloudAfterSignIn();
+  subscribeToCloudState();
+}
+
 async function initializeFirebaseFromSavedConfig() {
+  ensureFirebaseConfig();
   if (!state.sync.config || state.sync.initialized) {
     renderCloudControls();
     return;
@@ -2694,28 +2777,21 @@ async function initializeFirebaseFromSavedConfig() {
       state.sync.db = modules.firestore.getFirestore(state.sync.app);
       state.sync.unsubscribeAuth?.();
       state.sync.unsubscribeAuth = modules.auth.onAuthStateChanged(state.sync.auth, async (user) => {
-        state.sync.user = user;
-        if (user) saveAccountMode("google");
-        if (user && lastSyncedUserId() !== user.uid) state.sync.lastCloudUpdatedAtMillis = 0;
-        if (user) maybeShowSpecialWelcome(user);
-        renderCloudControls();
-        if (user) {
-          await syncCloudAfterSignIn();
-          subscribeToCloudState();
-        } else {
-          state.sync.unsubscribeState?.();
-          state.sync.unsubscribeState = null;
-          setCloudStatus("idle", "Firebase is ready. Sign in to sync.");
-        }
+        await finishSignedInCloudSession(user);
       });
-    modules.auth.getRedirectResult(state.sync.auth).catch((error) => {
-      console.warn("Could not finish redirected Google sign-in.", error);
-      setCloudStatus("error", firebaseErrorMessage(error, "Could not finish Google sign-in."));
-    });
-    state.sync.initialized = true;
-    if (!state.sync.user && state.sync.status === "syncing") {
-      state.sync.status = "idle";
-    }
+      modules.auth.getRedirectResult(state.sync.auth)
+        .then(async (result) => {
+          const redirectUser = result?.user || state.sync.auth.currentUser;
+          if (redirectUser) await finishSignedInCloudSession(redirectUser);
+        })
+        .catch((error) => {
+          console.warn("Could not finish redirected Google sign-in.", error);
+          setCloudStatus("error", firebaseErrorMessage(error, "Could not finish Google sign-in."));
+        });
+      state.sync.initialized = true;
+      if (!state.sync.user && state.sync.status === "syncing") {
+        state.sync.status = "idle";
+      }
     } catch (error) {
       console.warn("Could not initialize Firebase.", error);
       setCloudStatus("error", firebaseErrorMessage(error, "Could not initialize Firebase."));
@@ -2747,25 +2823,6 @@ async function configureAuthPersistence(authModule) {
   }
 }
 
-async function saveFirebaseConfigFromDialog() {
-  try {
-    const parsed = JSON.parse(elements.firebaseConfigTextarea.value.trim());
-    const config = normalizeFirebaseConfig(parsed);
-    if (!config) {
-      setCloudMessage("Config needs apiKey, authDomain, projectId, and appId.");
-      return;
-    }
-
-    state.sync.config = config;
-    localStorage.setItem(FIREBASE_CONFIG_KEY, JSON.stringify(config));
-    setCloudMessage("Firebase config saved.");
-    await initializeFirebaseFromSavedConfig();
-  } catch (error) {
-    console.warn("Could not parse Firebase config.", error);
-    setCloudMessage("Paste the Firebase config as JSON.");
-  }
-}
-
 async function signInToCloud(options = {}) {
   const { offerMigration = true } = options;
   try {
@@ -2774,7 +2831,7 @@ async function signInToCloud(options = {}) {
     return;
   }
   if (!state.sync.auth) {
-    setCloudStatus("error", "Save Firebase config before signing in.");
+    setCloudStatus("error", "Cloud sign-in is not configured.");
     return;
   }
 
@@ -2797,8 +2854,7 @@ async function signInToCloud(options = {}) {
     );
     state.sync.user = result.user || state.sync.auth.currentUser;
     if (state.sync.user) {
-      await syncCloudAfterSignIn();
-      subscribeToCloudState();
+      await finishSignedInCloudSession(state.sync.user);
     } else {
       setCloudStatus("error", "Google sign-in finished, but no Firebase user was returned.");
     }
@@ -2836,6 +2892,36 @@ function cloudStateDocRef() {
   );
 }
 
+async function readCloudDocumentFromServer(ref, label) {
+  const firestore = state.sync.modules.firestore;
+  const getServerDoc = firestore.getDocFromServer || firestore.getDoc;
+  let lastError = null;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const snapshot = await withCloudTimeout(
+        getServerDoc(ref),
+        attempt ? `${label} retry` : label,
+      );
+      if (snapshot.metadata?.fromCache) {
+        const error = new Error(`${label} returned cached data before the server confirmed sync.`);
+        error.code = "unavailable";
+        throw error;
+      }
+      return snapshot;
+    } catch (error) {
+      lastError = error;
+      if (error?.code !== "timeout" && error?.code !== "unavailable") throw error;
+      if (attempt === 0) {
+        setCloudMessage(`${label} is taking longer than usual. Retrying...`);
+        await waitForCloudRetry();
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 function buildCloudPayload() {
   const updatedAtMillis = Math.max(getLocalUpdatedAtMillis(), Date.now());
   setLocalUpdatedAtMillis(updatedAtMillis);
@@ -2848,11 +2934,37 @@ function buildCloudPayload() {
   };
 }
 
+function appStateFromCloudDocument(data) {
+  const rawStateJson = data?.stateJson;
+  if (rawStateJson && typeof rawStateJson === "object") return rawStateJson;
+  if (typeof rawStateJson === "string" && rawStateJson.trim()) return JSON.parse(rawStateJson);
+  if (data?.state && typeof data.state === "object") return data.state;
+  if (Array.isArray(data?.setups) || Array.isArray(data?.words)) return data;
+  return {};
+}
+
+function appStateFromCloudPayload(payload) {
+  return appStateFromCloudDocument(payload);
+}
+
+async function confirmCloudWrite(ref, payload) {
+  const snapshot = await readCloudDocumentFromServer(ref, "Confirming cloud save");
+  const data = snapshot.exists() ? snapshot.data() : null;
+  const confirmedUpdatedAt = cloudDocumentUpdatedAtMillis(data);
+  if (!data || confirmedUpdatedAt !== payload.updatedAtMillis || String(data.stateJson || "") !== payload.stateJson) {
+    const error = new Error("Cloud save was not confirmed by the server.");
+    error.code = "unavailable";
+    throw error;
+  }
+}
+
 function applyCloudDocument(data) {
   let migratedScores = false;
+  let repairedLegacyTimestamp = false;
   try {
-    const appState = JSON.parse(String(data?.stateJson || "{}"));
-    const updatedAtMillis = Number(data?.updatedAtMillis || 0);
+    const appState = appStateFromCloudDocument(data);
+    const updatedAtMillis = cloudDocumentUpdatedAtMillis(data, Date.now());
+    repairedLegacyTimestamp = Number(data?.updatedAtMillis || 0) <= 0;
 
     state.sync.applyingCloud = true;
     migratedScores = importAppState(appState);
@@ -2861,71 +2973,95 @@ function applyCloudDocument(data) {
     saveSettings({ syncCloud: false, touch: false });
     saveSetups({ syncCloud: false, touch: false });
     render();
+    return true;
   } catch (error) {
     console.warn("Could not apply cloud data.", error);
-    setCloudStatus("error", "Cloud data could not be loaded. Try Push to replace it with this browser's data.");
+    setCloudStatus(
+      "error",
+      firebaseErrorMessage(error, "Cloud data could not be loaded. Do not push yet; the cloud copy was left unchanged."),
+    );
+    return false;
   } finally {
     state.sync.applyingCloud = false;
-    if (migratedScores && state.sync.user && state.sync.db) {
-      touchLocalState();
+    if ((migratedScores || repairedLegacyTimestamp) && state.sync.user && state.sync.db) {
+      if (migratedScores) touchLocalState();
       pushCloudState({ silent: true, skipConflictCheck: true }).catch(() => {});
     }
   }
 }
 
 async function syncCloudAfterSignIn() {
-  const ref = cloudStateDocRef();
-  if (!ref) return;
+  if (state.sync.signInSyncPromise) return state.sync.signInSyncPromise;
 
-  try {
-    setCloudStatus("syncing", "Checking cloud state...");
-    const snapshot = await withCloudTimeout(
-      state.sync.modules.firestore.getDoc(ref),
-      "Reading cloud state",
-    );
-    if (state.pendingLocalMigration) {
-      const localState = state.pendingLocalMigration;
-      state.pendingLocalMigration = null;
-      const remoteState = snapshot.exists()
-        ? JSON.parse(String(snapshot.data()?.stateJson || "{}"))
-        : { setups: [], settings: state.settings };
-      const mergedState = mergeLocalStateIntoCloud(remoteState, localState);
-      importAppState(mergedState);
-      saveAccountMode("google");
-      saveSettings({ syncCloud: false });
-      saveSetups({ syncCloud: false });
-      touchLocalState();
-      await pushCloudState({ silent: true, skipConflictCheck: true });
-      setCloudStatus("synced", "Migrated local progress into your Google account.");
-      return;
-    }
-    if (!snapshot.exists()) {
-      await pushCloudState({ silent: true });
-      setCloudStatus("synced", "Cloud sync is ready. Uploaded this device's data.");
-      return;
-    }
+  state.sync.signInSyncPromise = (async () => {
+    const ref = cloudStateDocRef();
+    if (!ref) return;
 
-    const remoteUpdatedAt = Number(snapshot.data()?.updatedAtMillis || 0);
-    if (!hasCloudBaselineForCurrentUser()) {
-      applyCloudDocument(snapshot.data());
-      setCloudStatus("synced", "Cloud sync is ready. Loaded your Google account data.");
-      return;
-    }
+    try {
+      setCloudStatus("syncing", "Checking cloud state...");
+      const snapshot = await readCloudDocumentFromServer(ref, "Reading cloud state");
+      if (state.pendingLocalMigration) {
+        const localState = state.pendingLocalMigration;
+        state.pendingLocalMigration = null;
+        const remoteState = snapshot.exists()
+          ? appStateFromCloudDocument(snapshot.data())
+          : { setups: [], settings: state.settings };
+        const mergedState = mergeLocalStateIntoCloud(remoteState, localState);
+        importAppState(mergedState);
+        saveAccountMode("google");
+        saveSettings({ syncCloud: false });
+        saveSetups({ syncCloud: false });
+        touchLocalState();
+        const pushed = await pushCloudState({ silent: true, skipConflictCheck: true });
+        if (pushed) setCloudStatus("synced", "Migrated local progress into your Google account.");
+        return;
+      }
+      if (!snapshot.exists()) {
+        const pushed = await pushCloudState({ silent: true });
+        if (pushed) setCloudStatus("synced", "Cloud sync is ready. Uploaded this device's data.");
+        return;
+      }
 
-    const localUpdatedAt = getLocalUpdatedAtMillis();
-    if (shouldMergeSync(remoteUpdatedAt)) {
-      await mergeCloudDataAndPush(snapshot.data(), "Cloud sync is ready. Merged offline and cloud progress.");
-    } else if (localUpdatedAt > remoteUpdatedAt) {
-      await pushCloudState({ silent: true });
-      setCloudStatus("synced", "Cloud sync is ready. Uploaded newer local data.");
-    } else {
-      applyCloudDocument(snapshot.data());
-      setCloudStatus("synced", "Cloud sync is ready. Loaded your saved data.");
+      const remoteUpdatedAt = cloudDocumentUpdatedAtMillis(snapshot.data());
+      const remoteState = appStateFromCloudDocument(snapshot.data());
+      if (!hasCloudBaselineForCurrentUser()) {
+        if (applyCloudDocument(snapshot.data())) {
+          setCloudStatus("synced", "Cloud sync is ready. Loaded your Google account data.");
+        }
+        return;
+      }
+
+      const localUpdatedAt = getLocalUpdatedAtMillis();
+      const localState = exportAppState();
+      const baselineState = lastSyncedState();
+      const localChanged = !appStatesMatchForSync(localState, baselineState);
+      const remoteChanged = !appStatesMatchForSync(remoteState, baselineState);
+      const shouldPreferCloud =
+        appStateHasMeaningfulSetups(remoteState) && !appStateHasMeaningfulSetups(localState);
+
+      if (shouldPreferCloud || (!localChanged && remoteChanged)) {
+        if (applyCloudDocument(snapshot.data())) {
+          setCloudStatus("synced", "Cloud sync is ready. Loaded your Google account data.");
+        }
+      } else if (localChanged && remoteChanged) {
+        await mergeCloudDataAndPush(snapshot.data(), "Cloud sync is ready. Merged offline and cloud progress.");
+      } else if (localChanged && localUpdatedAt > remoteUpdatedAt) {
+        const pushed = await pushCloudState({ silent: true });
+        if (pushed) setCloudStatus("synced", "Cloud sync is ready. Uploaded newer local data.");
+      } else {
+        if (applyCloudDocument(snapshot.data())) {
+          setCloudStatus("synced", "Cloud sync is ready. Loaded your saved data.");
+        }
+      }
+    } catch (error) {
+      console.warn("Could not sync after sign-in.", error);
+      setCloudStatus("error", firebaseErrorMessage(error, "Signed in, but cloud sync failed."));
+    } finally {
+      state.sync.signInSyncPromise = null;
     }
-  } catch (error) {
-    console.warn("Could not sync after sign-in.", error);
-    setCloudStatus("error", firebaseErrorMessage(error, "Signed in, but cloud sync failed."));
-  }
+  })();
+
+  return state.sync.signInSyncPromise;
 }
 
 function subscribeToCloudState() {
@@ -2936,12 +3072,13 @@ function subscribeToCloudState() {
   state.sync.unsubscribeState = state.sync.modules.firestore.onSnapshot(ref, (snapshot) => {
     if (
       !snapshot.exists()
+      || snapshot.metadata?.fromCache
       || snapshot.metadata?.hasPendingWrites
       || state.sync.applyingCloud
       || state.sync.mergingCloud
     ) return;
     const data = snapshot.data();
-    const remoteUpdatedAt = Number(data?.updatedAtMillis || 0);
+    const remoteUpdatedAt = cloudDocumentUpdatedAtMillis(data);
     if (!remoteUpdatedAt) return;
     if (shouldMergeSync(remoteUpdatedAt)) {
       mergeCloudDataAndPush(data, "Merged newer cloud changes with local progress.").catch((error) => {
@@ -2951,8 +3088,9 @@ function subscribeToCloudState() {
       return;
     }
     if (remoteUpdatedAt <= getLocalUpdatedAtMillis()) return;
-    applyCloudDocument(data);
-    setCloudStatus("synced", "Loaded newer cloud changes.");
+    if (applyCloudDocument(data)) {
+      setCloudStatus("synced", "Loaded newer cloud changes.");
+    }
   }, (error) => {
     console.warn("Cloud listener failed.", error);
     setCloudStatus("error", firebaseErrorMessage(error, "Cloud listener failed."));
@@ -2969,15 +3107,12 @@ async function pullCloudState(options = {}) {
 
   try {
     if (!silent) setCloudStatus("syncing", "Pulling from cloud...");
-    const snapshot = await withCloudTimeout(
-      state.sync.modules.firestore.getDoc(ref),
-      "Pulling cloud state",
-    );
+    const snapshot = await readCloudDocumentFromServer(ref, "Pulling cloud state");
     if (!snapshot.exists()) {
       if (!silent) setCloudStatus("idle", "No cloud data exists yet.");
       return;
     }
-    const remoteUpdatedAt = Number(snapshot.data()?.updatedAtMillis || 0);
+    const remoteUpdatedAt = cloudDocumentUpdatedAtMillis(snapshot.data());
     if (!silent && getLocalUpdatedAtMillis() > remoteUpdatedAt) {
       const confirmed = window.confirm(
         "Cloud data is older than this browser. Pulling will replace local words and progress. Pull anyway?",
@@ -2987,8 +3122,9 @@ async function pullCloudState(options = {}) {
         return;
       }
     }
-    applyCloudDocument(snapshot.data());
-    if (!silent) setCloudStatus("synced", "Pulled cloud data into this browser.");
+    const applied = applyCloudDocument(snapshot.data());
+    if (!silent && applied) setCloudStatus("synced", "Pulled cloud data into this browser.");
+    return applied;
   } catch (error) {
     console.warn("Could not pull cloud data.", error);
     if (!silent) setCloudStatus("error", firebaseErrorMessage(error, "Could not pull from cloud."));
@@ -3006,15 +3142,11 @@ async function pushCloudState(options = {}) {
   try {
     if (!silent) setCloudStatus("syncing", "Pushing to cloud...");
     if (!skipConflictCheck) {
-      const snapshot = await withCloudTimeout(
-        state.sync.modules.firestore.getDoc(ref),
-        "Checking existing cloud state",
-      );
-      const remoteUpdatedAt = snapshot.exists() ? Number(snapshot.data()?.updatedAtMillis || 0) : 0;
+      const snapshot = await readCloudDocumentFromServer(ref, "Checking existing cloud state");
+      const remoteUpdatedAt = snapshot.exists() ? cloudDocumentUpdatedAtMillis(snapshot.data()) : 0;
       if (snapshot.exists() && !hasCloudBaselineForCurrentUser()) {
         if (silent) {
-          applyCloudDocument(snapshot.data());
-          return true;
+          return applyCloudDocument(snapshot.data());
         }
         const confirmed = window.confirm(
           "This browser has not loaded this Google account yet. Pushing will replace the cloud copy with this browser's local data. Push anyway?",
@@ -3043,7 +3175,8 @@ async function pushCloudState(options = {}) {
       state.sync.modules.firestore.setDoc(ref, payload),
       "Writing cloud state",
     );
-    saveCloudBaseline(payload.updatedAtMillis, exportAppState());
+    await confirmCloudWrite(ref, payload);
+    saveCloudBaseline(payload.updatedAtMillis, appStateFromCloudPayload(payload));
     setCloudStatus("synced", silent ? "Saved to cloud." : "Pushed this browser to cloud.");
     return true;
   } catch (error) {
@@ -3067,6 +3200,8 @@ function applySettingsToWords() {
 }
 
 function normalizeWordEntry(entry, settings = currentSetupSettings()) {
+  entry = entry && typeof entry === "object" ? entry : {};
+  settings = normalizeSetupSettings(settings || DEFAULT_SETUP_SETTINGS);
   const greekSource = entry.greek ?? entry.learn ?? "";
   const englishSource = entry.english ?? entry.from ?? "";
   const categorySource =
@@ -3082,9 +3217,11 @@ function normalizeWordEntry(entry, settings = currentSetupSettings()) {
     : clampMistakeCategory(rawCategory, settings);
   const lastAnsweredAt = parseTimestamp(entry.lastAnsweredAt ?? entry.lastMistakeAt ?? entry.mistakeUpdatedAt);
   return {
-    greek: Array.isArray(greekSource) ? greekSource.filter(Boolean) : splitVariants(greekSource || ""),
+    greek: Array.isArray(greekSource)
+      ? greekSource.map((value) => String(value || "").trim()).filter(Boolean)
+      : splitVariants(greekSource || ""),
     english: Array.isArray(englishSource)
-      ? englishSource.filter(Boolean)
+      ? englishSource.map((value) => String(value || "").trim()).filter(Boolean)
       : splitVariants(englishSource || ""),
     mistakeCategory,
     lastAnsweredAt,
@@ -3414,16 +3551,25 @@ async function importDefaultDatabase(database) {
 }
 
 function maxMistakeCategory(settings = currentSetupSettings()) {
-  return settings.mistakeDelaysMinutes.length;
+  return normalizeSetupSettings(settings || DEFAULT_SETUP_SETTINGS).mistakeDelaysMinutes.length;
 }
 
 function clampMistakeCategory(value, settings = currentSetupSettings(), fallback = -1) {
+  settings = normalizeSetupSettings(settings || DEFAULT_SETUP_SETTINGS);
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed)) return fallback;
   return Math.max(-1, Math.min(maxMistakeCategory(settings), parsed));
 }
 
+function enforceRecentWrongLimit(words, settings = currentSetupSettings()) {
+  (words || []).forEach((entry) => {
+    entry.mistakeCategory = clampMistakeCategory(entry.mistakeCategory, settings);
+  });
+}
+
 function mistakeCategorySummary(words = studyWords(), settings = currentSetupSettings()) {
+  words = Array.isArray(words) ? words : [];
+  settings = normalizeSetupSettings(settings || DEFAULT_SETUP_SETTINGS);
   const maxCategory = maxMistakeCategory(settings);
   return Array.from({ length: maxCategory + 2 }, (_, index) => index - 1).map((category) => {
     const total = words.filter((entry) => clampMistakeCategory(entry.mistakeCategory, settings) === category).length;
@@ -3440,6 +3586,7 @@ function mistakeCategorySummary(words = studyWords(), settings = currentSetupSet
 }
 
 function mistakeCategorySummaryText(words = studyWords(), settings = currentSetupSettings()) {
+  settings = normalizeSetupSettings(settings || DEFAULT_SETUP_SETTINGS);
   return mistakeCategorySummary(words, settings)
     .filter((item) => item.total || item.scheduled)
     .map((item) => item.category === -1
@@ -3451,6 +3598,8 @@ function mistakeCategorySummaryText(words = studyWords(), settings = currentSetu
 }
 
 function wordScheduleStatus(entry, words = studyWords(), settings = currentSetupSettings()) {
+  entry = entry && typeof entry === "object" ? entry : {};
+  settings = normalizeSetupSettings(settings || DEFAULT_SETUP_SETTINGS);
   const category = clampMistakeCategory(entry.mistakeCategory, settings);
   if (!wordCategoryAllowed(entry)) return "Excluded by filter";
   if (category === -1) return "Unclassified fallback";
@@ -3486,6 +3635,8 @@ function chooseDirection() {
 }
 
 function dueCategoryWords(pool, category, settings, excludedEntry = null) {
+  pool = Array.isArray(pool) ? pool : [];
+  settings = normalizeSetupSettings(settings || DEFAULT_SETUP_SETTINGS);
   const now = Date.now();
   const delayMs = (settings.mistakeDelaysMinutes[category] || 0) * 60 * 1000;
   const size = settings.mistakeCategorySizes[category] || 1;
@@ -4297,9 +4448,20 @@ elements.settingsButton.addEventListener("click", () => {
 });
 
 elements.cloudButton.addEventListener("click", () => {
-  setCloudMessage("");
+  if (state.sync.status !== "error") setCloudMessage("");
   renderCloudControls();
   elements.cloudDialog.showModal();
+  if (
+    state.sync.user
+    && state.sync.db
+    && state.sync.status !== "syncing"
+    && (!state.sync.lastCloudUpdatedAtMillis || state.sync.status === "error")
+  ) {
+    syncCloudAfterSignIn().catch((error) => {
+      console.warn("Could not retry cloud sync.", error);
+      setCloudStatus("error", firebaseErrorMessage(error, "Signed in, but cloud sync failed."));
+    });
+  }
 });
 
 elements.defaultDatabaseButton.addEventListener("click", () => {
@@ -4389,8 +4551,6 @@ elements.saveSettingsButton.addEventListener("click", () =>
     saveSettingsFromDialog({ closeDialog: false, showMessage: false }),
   );
 });
-
-elements.saveFirebaseConfigButton.addEventListener("click", saveFirebaseConfigFromDialog);
 
 elements.signInButton.addEventListener("click", signInToCloud);
 
@@ -4532,10 +4692,10 @@ initializeFirebaseFromSavedConfig()
   .finally(() => {
     const existingUser = state.sync.user || state.sync.auth?.currentUser || null;
     if (existingUser) {
-      state.sync.user = existingUser;
-      saveAccountMode("google");
-      if (lastSyncedUserId() !== existingUser.uid) state.sync.lastCloudUpdatedAtMillis = 0;
-      maybeShowSpecialWelcome(existingUser);
+      finishSignedInCloudSession(existingUser).catch((error) => {
+        console.warn("Could not finish saved Google sign-in.", error);
+        setCloudStatus("error", firebaseErrorMessage(error, "Signed in, but cloud sync failed."));
+      });
     }
     if (!existingUser) maybeShowAccountModeDialog();
     render();
