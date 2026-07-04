@@ -621,6 +621,13 @@ dialog::backdrop {
   font-size: 0.9rem;
 }
 
+.field-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .settings-grid input,
 .settings-grid textarea {
   color: var(--ink);
@@ -956,6 +963,7 @@ dialog::backdrop {
               rows="3"
               placeholder="0:0:0, 1:0:0, 3:0:0"
             ></textarea>
+            <p class="field-help">Wait time for each score category before a word is due again. Use minutes or days:hours:minutes, one value per category.</p>
           </label>
           <label>
             <span>Mistake sizes</span>
@@ -964,22 +972,27 @@ dialog::backdrop {
               rows="3"
               placeholder="4, 6, 10"
             ></textarea>
+            <p class="field-help">Target due-word pool size for each category. Smaller numbers make that category show up sooner.</p>
           </label>
           <label>
             <span>Correct -1 score</span>
             <input id="unclassifiedCorrectCategoryInput" type="number" min="0" step="1" />
+            <p class="field-help">Score assigned when a word at -1 is answered correctly or accepted as correct. Default is 3.</p>
           </label>
           <label>
             <span>Speech model</span>
             <select id="speechModelSelect"></select>
+            <p class="field-help">Browser speech-to-text model used for spoken answers.</p>
           </label>
           <label>
             <span>Max recording seconds</span>
             <input id="speechMaxSecondsInput" type="number" min="1" max="10" step="0.5" />
+            <p class="field-help">Longest speech recording before the app stops listening and transcribes.</p>
           </label>
           <label>
             <span>Speak new words aloud</span>
             <input id="speakPromptsInput" type="checkbox" />
+            <p class="field-help">Automatically read each new prompt aloud when a card appears.</p>
           </label>
         </div>
         <div class="category-settings">
