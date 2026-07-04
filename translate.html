@@ -1057,7 +1057,7 @@ dialog::backdrop {
         <textarea
           id="pasteCsvTextarea"
           rows="12"
-          placeholder="greek,english,mistake_category,last_answered_at,explanations_examples,category"
+          placeholder="greek,english,mistake_category,last_answered_at,explanations_examples,category,id"
         ></textarea>
         <div id="pasteCsvMessage" class="parse-message"></div>
         <div class="dialog-actions">
@@ -1369,6 +1369,59 @@ function splitVariants(value) {
     .filter(Boolean);
 }
 
+function cleanWordId(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 96);
+}
+
+function stableHash(value) {
+  let hash = 2166136261;
+  for (const char of String(value || "")) {
+    hash ^= char.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function normalizedWordSideKey(values) {
+  return (Array.isArray(values) ? values : splitVariants(values || ""))
+    .map((value) => normalizeAnswer(String(value || "")))
+    .filter(Boolean)
+    .sort()
+    .join("|");
+}
+
+function wordContentKey(word) {
+  return [
+    normalizedWordSideKey(word?.greek ?? word?.learn),
+    normalizedWordSideKey(word?.english ?? word?.from),
+  ].join("::");
+}
+
+function legacyWordId(word) {
+  const contentKey = wordContentKey(word);
+  return contentKey === "::" ? "" : `w-${stableHash(contentKey)}`;
+}
+
+function uniqueWordIds(words) {
+  const seen = new Set();
+  return (words || []).map((word) => {
+    const baseId = cleanWordId(word?.id || word?.wordId) || legacyWordId(word) || `w-${Date.now().toString(36)}`;
+    let id = baseId;
+    let suffix = 2;
+    while (seen.has(id)) {
+      id = `${baseId}-${suffix}`;
+      suffix += 1;
+    }
+    seen.add(id);
+    return { ...word, id };
+  });
+}
+
 function joinVariants(values) {
   return values.join(" / ");
 }
@@ -1535,6 +1588,7 @@ function toCsv(words) {
       "last_answered_at",
       "explanations_examples",
       "category",
+      "id",
     ],
   ];
   words.forEach((entry) => {
@@ -1546,6 +1600,7 @@ function toCsv(words) {
       formatTimestamp(word.lastAnsweredAt),
       word.notes,
       word.category,
+      word.id,
     ]);
   });
   return `${rows.map((row) => row.map(csvEscape).join(",")).join("\n")}\n`;
@@ -1658,12 +1713,12 @@ function normalizeSetup(setup) {
   const learnLanguage = cleanLanguageName(setup?.learnLanguage, DEFAULT_SETUP.learnLanguage);
   const fromLanguage = cleanLanguageName(setup?.fromLanguage, DEFAULT_SETUP.fromLanguage);
   const settings = normalizeSetupSettings(setup?.settings || state.settings || DEFAULT_SETUP_SETTINGS);
-  const words = Array.isArray(setup?.words)
+  const words = uniqueWordIds(Array.isArray(setup?.words)
     ? setup.words
         .filter((entry) => entry && typeof entry === "object")
         .map((entry) => normalizeWordEntry(entry, settings))
         .filter((entry) => entry.greek.length && entry.english.length)
-    : [];
+    : []);
   return {
     id: String(setup?.id || createSetupId(setup?.learnLanguage, setup?.fromLanguage)),
     learnLanguage,
@@ -2420,13 +2475,8 @@ function setupMergeKey(setup) {
 }
 
 function wordMergeKey(word) {
-  const normalizedSide = (values) =>
-    (Array.isArray(values) ? values : splitVariants(values || ""))
-      .map(normalizeAnswer)
-      .filter(Boolean)
-      .sort()
-      .join("|");
-  return `${normalizedSide(word?.greek ?? word?.learn)}::${normalizedSide(word?.english ?? word?.from)}`;
+  const id = cleanWordId(word?.id || word?.wordId);
+  return id ? `id:${id}` : `text:${wordContentKey(word)}`;
 }
 
 function mergePrimitive(baseValue, localValue, remoteValue) {
@@ -2516,6 +2566,7 @@ function mergeWord(baseWord, localWord, remoteWord, setupSettings) {
   const fallback = localWord || remoteWord || baseWord;
   const mistake = mergeMistakeProgress(baseWord, localWord, remoteWord, setupSettings);
   return normalizeWordEntry({
+    id: localWord?.id || remoteWord?.id || baseWord?.id || fallback?.id,
     greek: mergeVariants(baseWord?.greek, localWord?.greek || fallback?.greek, remoteWord?.greek || fallback?.greek),
     english: mergeVariants(baseWord?.english, localWord?.english || fallback?.english, remoteWord?.english || fallback?.english),
     mistakeCategory: mistake.mistakeCategory,
@@ -2943,6 +2994,19 @@ function appStateFromCloudDocument(data) {
   return {};
 }
 
+function appStateNeedsWordIds(appState) {
+  const wordLists = [];
+  if (Array.isArray(appState?.setups)) {
+    appState.setups.forEach((setup) => {
+      if (Array.isArray(setup?.words)) wordLists.push(setup.words);
+    });
+  }
+  if (Array.isArray(appState?.words)) wordLists.push(appState.words);
+  return wordLists.some((words) =>
+    words.some((word) => word && typeof word === "object" && !cleanWordId(word.id || word.wordId)),
+  );
+}
+
 function appStateFromCloudPayload(payload) {
   return appStateFromCloudDocument(payload);
 }
@@ -2961,10 +3025,12 @@ async function confirmCloudWrite(ref, payload) {
 function applyCloudDocument(data) {
   let migratedScores = false;
   let repairedLegacyTimestamp = false;
+  let repairedWordIds = false;
   try {
     const appState = appStateFromCloudDocument(data);
     const updatedAtMillis = cloudDocumentUpdatedAtMillis(data, Date.now());
     repairedLegacyTimestamp = Number(data?.updatedAtMillis || 0) <= 0;
+    repairedWordIds = appStateNeedsWordIds(appState);
 
     state.sync.applyingCloud = true;
     migratedScores = importAppState(appState);
@@ -2983,7 +3049,7 @@ function applyCloudDocument(data) {
     return false;
   } finally {
     state.sync.applyingCloud = false;
-    if ((migratedScores || repairedLegacyTimestamp) && state.sync.user && state.sync.db) {
+    if ((migratedScores || repairedLegacyTimestamp || repairedWordIds) && state.sync.user && state.sync.db) {
       if (migratedScores) touchLocalState();
       pushCloudState({ silent: true, skipConflictCheck: true }).catch(() => {});
     }
@@ -3217,6 +3283,7 @@ function normalizeWordEntry(entry, settings = currentSetupSettings()) {
     : clampMistakeCategory(rawCategory, settings);
   const lastAnsweredAt = parseTimestamp(entry.lastAnsweredAt ?? entry.lastMistakeAt ?? entry.mistakeUpdatedAt);
   return {
+    id: cleanWordId(entry.id || entry.wordId) || legacyWordId({ greek: greekSource, english: englishSource }),
     greek: Array.isArray(greekSource)
       ? greekSource.map((value) => String(value || "").trim()).filter(Boolean)
       : splitVariants(greekSource || ""),
@@ -3246,7 +3313,9 @@ function wordsFromCsv(text, setupOverride = null) {
     header?.includes("recent_wrong") ||
     header?.includes("explanations_examples") ||
     header?.includes("notes") ||
-    header?.includes("category");
+    header?.includes("category") ||
+    header?.includes("id") ||
+    header?.includes("word_id");
   const dataRows = hasHeader ? rows.slice(1) : rows;
   const mistakeCategoryIndex = hasHeader
     ? Math.max(header.indexOf("mistake_category"), header.indexOf("mistakeCategory".toLowerCase()))
@@ -3266,11 +3335,15 @@ function wordsFromCsv(text, setupOverride = null) {
   const categoryIndex = hasHeader
     ? Math.max(header.indexOf("category"), header.indexOf("categories"))
     : 5;
+  const idIndex = hasHeader
+    ? Math.max(header.indexOf("id"), header.indexOf("word_id"), header.indexOf("wordid"))
+    : -1;
 
   const words = dataRows
     .map((row) => {
       const legacyRecentWrong = recentWrongIndex >= 0 && parseBoolean(row[recentWrongIndex]);
       return {
+        id: idIndex >= 0 ? row[idIndex] || "" : "",
         greek: splitVariants(row[0] || ""),
         english: splitVariants(row[1] || ""),
         mistakeCategory: mistakeCategoryIndex >= 0
@@ -3611,12 +3684,13 @@ function wordScheduleStatus(entry, words = studyWords(), settings = currentSetup
 
 async function mergeWords(entries) {
   const existingKeys = new Set(
-    state.words.map((entry) => `${entry.greek.join("|")}::${entry.english.join("|")}`),
+    state.words.map(wordContentKey),
   );
 
   let added = 0;
-  entries.forEach((entry) => {
-    const key = `${entry.greek.join("|")}::${entry.english.join("|")}`;
+  const settings = currentSetupSettings();
+  entries.map((entry) => normalizeWordEntry(entry, settings)).forEach((entry) => {
+    const key = wordContentKey(entry);
     if (!existingKeys.has(key)) {
       state.words.push(entry);
       existingKeys.add(key);
@@ -3734,6 +3808,20 @@ function answerMatches(input, answers) {
   return answers.some((answer) => normalizeAnswer(answer) === normalizedInput);
 }
 
+function applyCurrentAnswerCorrectProgress() {
+  if (!state.currentCard?.entry) return null;
+  const entry = state.currentCard.entry;
+  const maxCategory = maxMistakeCategory();
+  entry.mistakeCategory = state.currentCard.previousMistakeCategory === -1
+    ? 1
+    : state.currentCard.randomFallback
+    ? state.currentCard.previousMistakeCategory
+    : Math.min(maxCategory, state.currentCard.previousMistakeCategory + 1);
+  if (!entry.lastAnsweredAt) entry.lastAnsweredAt = Date.now();
+  state.currentCard.lastCorrect = true;
+  return entry;
+}
+
 async function addSubmittedAnswerAsTranslation() {
   if (!state.currentCard?.submittedAnswer) return;
 
@@ -3745,17 +3833,23 @@ async function addSubmittedAnswerAsTranslation() {
 
   if (!alreadyExists) {
     translations.push(answer);
-    await persistWords();
-    renderWords();
   }
+
+  const entry = applyCurrentAnswerCorrectProgress();
+  renderWords();
+  await persistWords();
 
   const addedAnswer = document.createElement("strong");
   addedAnswer.textContent = answer;
+  const categoryText = document.createElement("strong");
+  categoryText.textContent = String(entry?.mistakeCategory ?? "");
   elements.feedback.className = "feedback correct";
   elements.feedback.replaceChildren(
-    "Added ",
+    "Accepted ",
     addedAnswer,
-    " as an accepted answer. ",
+    " as an answer and marked correct. Mistake category is now ",
+    categoryText,
+    ". ",
     createEditCurrentWordButton(),
     " Press Enter for the next word.",
   );
@@ -3763,16 +3857,8 @@ async function addSubmittedAnswerAsTranslation() {
 }
 
 async function markCurrentAnswerCorrect() {
-  if (!state.currentCard?.entry) return;
-  const entry = state.currentCard.entry;
-  const maxCategory = maxMistakeCategory();
-  entry.mistakeCategory = state.currentCard.previousMistakeCategory === -1
-    ? 1
-    : state.currentCard.randomFallback
-    ? state.currentCard.previousMistakeCategory
-    : Math.min(maxCategory, state.currentCard.previousMistakeCategory + 1);
-  if (!entry.lastAnsweredAt) entry.lastAnsweredAt = Date.now();
-  state.currentCard.lastCorrect = true;
+  const entry = applyCurrentAnswerCorrectProgress();
+  if (!entry) return;
   elements.feedback.className = "feedback correct";
   const answersText = document.createElement("strong");
   answersText.textContent = joinVariants(state.currentCard.answers);
@@ -3950,6 +4036,7 @@ function renderEditTable(focusEntry = null) {
 
   state.words.forEach((entry) => {
     const row = document.createElement("tr");
+    row.dataset.wordId = cleanWordId(entry.id || entry.wordId);
     const greekCell = document.createElement("td");
     const englishCell = document.createElement("td");
     const mistakeCategoryCell = document.createElement("td");
@@ -4013,6 +4100,7 @@ async function saveEditedWords() {
 
     const editedCategory = clampMistakeCategory(inputs[2].value);
     nextWords.push({
+      id: row.dataset.wordId || "",
       greek,
       english,
       mistakeCategory: inputs[2].dataset.wasUnclassified === "true" ? editedCategory : Math.max(0, editedCategory),
@@ -4077,7 +4165,7 @@ async function revealAnswer() {
     const addButton = document.createElement("button");
     addButton.className = "inline-action";
     addButton.type = "button";
-    addButton.textContent = "Add my answer";
+    addButton.textContent = "Accept my answer";
     addButton.addEventListener("click", addSubmittedAnswerAsTranslation);
     const wasCorrectButton = document.createElement("button");
     wasCorrectButton.className = "inline-action";
@@ -4256,7 +4344,7 @@ function renderSetupControls() {
   elements.wordsTextarea.placeholder =
     `${displaySetup.learnLanguage} word / alternative: ${displaySetup.fromLanguage} translation :: Optional explanation ## category`;
   elements.pasteCsvTextarea.placeholder =
-    `${displaySetup.learnLanguage.toLowerCase()},${displaySetup.fromLanguage.toLowerCase()},mistake_category,last_answered_at,explanations_examples,category`;
+    `${displaySetup.learnLanguage.toLowerCase()},${displaySetup.fromLanguage.toLowerCase()},mistake_category,last_answered_at,explanations_examples,category,id`;
 
   elements.setupSelect.innerHTML = "";
   if (!state.setups.length) {
