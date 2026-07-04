@@ -966,6 +966,10 @@ dialog::backdrop {
             ></textarea>
           </label>
           <label>
+            <span>Correct -1 score</span>
+            <input id="unclassifiedCorrectCategoryInput" type="number" min="0" step="1" />
+          </label>
+          <label>
             <span>Speech model</span>
             <select id="speechModelSelect"></select>
           </label>
@@ -1118,9 +1122,11 @@ const DEFAULT_MISTAKE_DELAYS_MINUTES = [
   30 * 24 * 60, 30 * 24 * 60, 30 * 24 * 60,
 ];
 const DEFAULT_MISTAKE_CATEGORY_SIZES = [4, 6, ...Array(13).fill(10)];
+const DEFAULT_UNCLASSIFIED_CORRECT_CATEGORY = 3;
 const DEFAULT_SETUP_SETTINGS = {
   mistakeDelaysMinutes: [...DEFAULT_MISTAKE_DELAYS_MINUTES],
   mistakeCategorySizes: [...DEFAULT_MISTAKE_CATEGORY_SIZES],
+  unclassifiedCorrectCategory: DEFAULT_UNCLASSIFIED_CORRECT_CATEGORY,
   includedCategories: [],
 };
 const CATEGORY_SEPARATOR = "##";
@@ -1320,6 +1326,7 @@ const elements = {
   editWordsTableBody: document.querySelector("#editWordsTableBody"),
   mistakeDelaysInput: document.querySelector("#mistakeDelaysInput"),
   mistakeSizesInput: document.querySelector("#mistakeSizesInput"),
+  unclassifiedCorrectCategoryInput: document.querySelector("#unclassifiedCorrectCategoryInput"),
   speechModelSelect: document.querySelector("#speechModelSelect"),
   speechMaxSecondsInput: document.querySelector("#speechMaxSecondsInput"),
   speakPromptsInput: document.querySelector("#speakPromptsInput"),
@@ -1671,9 +1678,16 @@ function normalizeMistakeSizes(value, length = DEFAULT_MISTAKE_CATEGORY_SIZES.le
 function normalizeSetupSettings(settings = {}) {
   const delays = normalizeMistakeDelays(settings?.mistakeDelaysMinutes);
   const sizes = normalizeMistakeSizes(settings?.mistakeCategorySizes, delays.length);
+  const rawUnclassifiedCorrectCategory =
+    settings?.unclassifiedCorrectCategory ?? settings?.unclassifiedCorrectScore;
+  const parsedUnclassifiedCorrectCategory = Number.parseInt(rawUnclassifiedCorrectCategory, 10);
+  const unclassifiedCorrectCategory = Number.isNaN(parsedUnclassifiedCorrectCategory)
+    ? DEFAULT_UNCLASSIFIED_CORRECT_CATEGORY
+    : parsedUnclassifiedCorrectCategory;
   const normalized = {
     mistakeDelaysMinutes: delays,
     mistakeCategorySizes: sizes,
+    unclassifiedCorrectCategory: Math.max(0, Math.min(delays.length, unclassifiedCorrectCategory)),
     includedCategories: normalizeIncludedCategories(settings?.includedCategories),
   };
   return normalized;
@@ -2558,6 +2572,7 @@ function mergeSetupSettings(baseSetup, localSetup, remoteSetup) {
   return normalizeSetupSettings({
     mistakeDelaysMinutes: mergePrimitive(baseSettings.mistakeDelaysMinutes, localSettings.mistakeDelaysMinutes, remoteSettings.mistakeDelaysMinutes),
     mistakeCategorySizes: mergePrimitive(baseSettings.mistakeCategorySizes, localSettings.mistakeCategorySizes, remoteSettings.mistakeCategorySizes),
+    unclassifiedCorrectCategory: mergePrimitive(baseSettings.unclassifiedCorrectCategory, localSettings.unclassifiedCorrectCategory, remoteSettings.unclassifiedCorrectCategory),
     includedCategories: mergePrimitive(baseSettings.includedCategories, localSettings.includedCategories, remoteSettings.includedCategories),
   });
 }
@@ -3634,6 +3649,11 @@ function clampMistakeCategory(value, settings = currentSetupSettings(), fallback
   return Math.max(-1, Math.min(maxMistakeCategory(settings), parsed));
 }
 
+function unclassifiedCorrectCategory(settings = currentSetupSettings()) {
+  settings = normalizeSetupSettings(settings || DEFAULT_SETUP_SETTINGS);
+  return Math.max(0, Math.min(maxMistakeCategory(settings), settings.unclassifiedCorrectCategory));
+}
+
 function enforceRecentWrongLimit(words, settings = currentSetupSettings()) {
   (words || []).forEach((entry) => {
     entry.mistakeCategory = clampMistakeCategory(entry.mistakeCategory, settings);
@@ -3813,7 +3833,7 @@ function applyCurrentAnswerCorrectProgress() {
   const entry = state.currentCard.entry;
   const maxCategory = maxMistakeCategory();
   entry.mistakeCategory = state.currentCard.previousMistakeCategory === -1
-    ? 1
+    ? unclassifiedCorrectCategory()
     : state.currentCard.randomFallback
     ? state.currentCard.previousMistakeCategory
     : Math.min(maxCategory, state.currentCard.previousMistakeCategory + 1);
@@ -3926,6 +3946,7 @@ function renderSettingsDialog() {
   const setupSettings = currentSetupSettings();
   elements.mistakeDelaysInput.value = setupSettings.mistakeDelaysMinutes.map(formatDuration).join(", ");
   elements.mistakeSizesInput.value = setupSettings.mistakeCategorySizes.join(", ");
+  elements.unclassifiedCorrectCategoryInput.value = setupSettings.unclassifiedCorrectCategory;
   elements.speechMaxSecondsInput.value = state.settings.speechMaxSeconds;
   elements.speakPromptsInput.checked = state.settings.speakPrompts;
   elements.speechModelSelect.innerHTML = "";
@@ -3966,6 +3987,8 @@ async function saveSettingsFromDialog(options = {}) {
   const { closeDialog = true, showMessage = true } = options;
   const mistakeDelaysMinutes = parseDurationList(elements.mistakeDelaysInput.value);
   const mistakeCategorySizes = parseSizeList(elements.mistakeSizesInput.value);
+  const unclassifiedCorrectCategoryRaw = elements.unclassifiedCorrectCategoryInput.value.trim();
+  const unclassifiedCorrectCategory = Number(unclassifiedCorrectCategoryRaw);
   const speechMaxSeconds = Number.parseFloat(elements.speechMaxSecondsInput.value);
   const speechModelId = elements.speechModelSelect.value || DEFAULT_SETTINGS.speechModelId;
   const speakPrompts = elements.speakPromptsInput.checked;
@@ -3997,11 +4020,23 @@ async function saveSettingsFromDialog(options = {}) {
     return false;
   }
 
+  if (
+    !unclassifiedCorrectCategoryRaw ||
+    !Number.isInteger(unclassifiedCorrectCategory) ||
+    unclassifiedCorrectCategory < 0 ||
+    unclassifiedCorrectCategory > mistakeDelaysMinutes.length
+  ) {
+    elements.settingsMessage.textContent =
+      `Correct -1 score must be a whole number between 0 and ${mistakeDelaysMinutes.length}.`;
+    return false;
+  }
+
   const setup = currentSetup();
   if (setup) {
     setup.settings = normalizeSetupSettings({
       mistakeDelaysMinutes,
       mistakeCategorySizes,
+      unclassifiedCorrectCategory,
       includedCategories,
     });
   }
@@ -4136,7 +4171,7 @@ async function revealAnswer() {
 
   if (isCorrect) {
     if (state.currentCard.previousMistakeCategory === -1) {
-      entry.mistakeCategory = Math.min(maxCategory, 1);
+      entry.mistakeCategory = unclassifiedCorrectCategory();
     } else if (!state.currentCard.randomFallback) {
       entry.mistakeCategory = Math.min(maxCategory, clampMistakeCategory(entry.mistakeCategory, currentSetupSettings(), 0) + 1);
     }
@@ -4631,6 +4666,7 @@ elements.saveSettingsButton.addEventListener("click", () =>
 [
   elements.mistakeDelaysInput,
   elements.mistakeSizesInput,
+  elements.unclassifiedCorrectCategoryInput,
   elements.speechModelSelect,
   elements.speechMaxSecondsInput,
   elements.speakPromptsInput,
