@@ -100,6 +100,13 @@ button:disabled {
   font-size: 0.92rem;
 }
 
+.category-summary {
+  display: block;
+  margin-top: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+}
+
 h1,
 h2 {
   margin: 0;
@@ -3693,14 +3700,13 @@ function mistakeCategorySummary(words = studyWords(), settings = currentSetupSet
 
 function mistakeCategorySummaryText(words = studyWords(), settings = currentSetupSettings()) {
   settings = normalizeSetupSettings(settings || DEFAULT_SETUP_SETTINGS);
-  return mistakeCategorySummary(words, settings)
+  const entries = mistakeCategorySummary(words, settings)
     .filter((item) => item.total || item.scheduled)
-    .map((item) => item.category === -1
-      ? `C-1: ${item.total} unclassified fallback`
-      : item.category < maxMistakeCategory(settings)
-      ? `C${item.category}: ${item.total} words, ${item.scheduled} scheduled`
-      : `C${item.category}: ${item.total} mastered`)
-    .join(" · ");
+    .map((item) => `C${item.category}: ${item.scheduled}/${item.total}`);
+  return Array.from(
+    { length: Math.ceil(entries.length / 4) },
+    (_, index) => entries.slice(index * 4, index * 4 + 4).join(", "),
+  ).join("\n");
 }
 
 function wordScheduleStatus(entry, words = studyWords(), settings = currentSetupSettings()) {
@@ -4302,13 +4308,20 @@ function renderQuiz() {
   const categorySummary = mistakeCategorySummaryText(activeWords, settings);
   elements.answerInput.disabled = !hasWords || !hasSetup;
   elements.submitAnswerButton.disabled = !hasWords || !hasSetup;
-  elements.quizMeta.textContent = hasWords
-    ? `${activeWords.length} active of ${state.words.length} saved${categorySummary ? ` · ${categorySummary}` : ""}`
+  const metaText = hasWords
+    ? `${activeWords.length} active of ${state.words.length} saved`
     : hasSetup
       ? state.words.length
         ? "No words match the selected categories"
         : "Add at least one word to begin"
       : "Choose or create a language setup to begin";
+  elements.quizMeta.replaceChildren(metaText);
+  if (hasWords && categorySummary) {
+    const summary = document.createElement("span");
+    summary.className = "category-summary";
+    summary.textContent = categorySummary;
+    elements.quizMeta.append(summary);
+  }
 
   if (!state.currentCard) {
     elements.promptLabel.textContent = "Prompt";
