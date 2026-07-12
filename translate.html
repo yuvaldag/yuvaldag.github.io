@@ -3,36 +3,115 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Greek Vocabulary Trainer</title>
+    <meta name="theme-color" content="#5b5bd6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e1020" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Vocabulary Trainer</title>
     <style>
+/* ============================================================
+   Vocabulary Trainer — modern design system
+   Light + automatic dark mode. All original class names kept.
+   ============================================================ */
+
 :root {
-  color-scheme: light;
-  --bg: #f5f7f2;
-  --ink: #18211f;
-  --muted: #65716b;
-  --line: #d9e0d7;
+  color-scheme: light dark;
+
+  /* Light theme */
+  --bg: #eef1f9;
+  --bg-grad-1: #e9ecfb;
+  --bg-grad-2: #eef4f3;
+  --surface: #ffffff;
   --panel: #ffffff;
-  --accent: #126a6d;
-  --accent-strong: #0b4d51;
-  --accent-soft: #dff0ef;
-  --warn: #9a4d16;
-  --good: #1f7a42;
-  --bad: #b43535;
-  --shadow: 0 18px 45px rgba(35, 45, 38, 0.1);
+  --panel-2: #f6f7fc;
+  --ink: #191d33;
+  --ink-soft: #3b4162;
+  --muted: #6c7392;
+  --line: #e4e7f2;
+  --line-strong: #d3d8e8;
+
+  --accent: #5b5bd6;
+  --accent-strong: #4a45c7;
+  --accent-ink: #ffffff;
+  --accent-soft: #ecebfb;
+  --accent-soft-ink: #4038b8;
+
+  --good: #12855f;
+  --good-soft: #e4f6ee;
+  --bad: #d1495b;
+  --bad-soft: #fbe8ec;
+  --warn: #b26a12;
+
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(24, 30, 60, 0.06), 0 2px 6px rgba(24, 30, 60, 0.05);
+  --shadow: 0 10px 30px rgba(30, 38, 80, 0.10), 0 2px 8px rgba(30, 38, 80, 0.05);
+  --shadow-lg: 0 24px 60px rgba(24, 30, 70, 0.22);
+
+  --ring: 0 0 0 4px rgba(91, 91, 214, 0.22);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1020;
+    --bg-grad-1: #12132a;
+    --bg-grad-2: #101a22;
+    --surface: #181b2e;
+    --panel: #181b2e;
+    --panel-2: #1f2338;
+    --ink: #eef0fb;
+    --ink-soft: #c7cbe6;
+    --muted: #9aa1c6;
+    --line: #2a2f49;
+    --line-strong: #363c5c;
+
+    --accent: #8888f2;
+    --accent-strong: #9c9cf6;
+    --accent-ink: #12132a;
+    --accent-soft: #24284a;
+    --accent-soft-ink: #c3c3fb;
+
+    --good: #43c993;
+    --good-soft: #16362b;
+    --bad: #f2788c;
+    --bad-soft: #3a2029;
+    --warn: #e0a94b;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 26px 64px rgba(0, 0, 0, 0.6);
+    --ring: 0 0 0 4px rgba(136, 136, 242, 0.28);
+  }
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
+  min-height: 100dvh;
+  background:
+    radial-gradient(1100px 620px at 12% -8%, var(--bg-grad-1), transparent 60%),
+    radial-gradient(1000px 560px at 100% 0%, var(--bg-grad-2), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--ink);
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -40,42 +119,70 @@ input,
 select,
 textarea {
   font: inherit;
+  color: var(--ink);
 }
 
 button {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   color: var(--ink);
-  min-height: 42px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 16px;
+  font-weight: 600;
   cursor: pointer;
+  transition: transform 0.06s ease, background 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease, color 0.15s ease;
 }
 
 button:hover {
   border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+button:active {
+  transform: translateY(1px);
 }
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.5;
+  transform: none;
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+button:focus-visible,
+summary:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
 }
 
 .primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: var(--accent-ink);
+  box-shadow: 0 6px 16px rgba(74, 69, 199, 0.28);
 }
 
 .primary:hover {
-  background: var(--accent-strong);
+  color: var(--accent-ink);
+  filter: brightness(1.05);
+  border-color: transparent;
+}
+
+.primary:disabled {
+  filter: none;
+  box-shadow: none;
 }
 
 .app-shell {
-  width: min(1180px, calc(100vw - 32px));
+  width: min(1120px, calc(100vw - 28px));
   margin: 0 auto;
-  padding: 32px 0;
+  padding: clamp(18px, 4vw, 40px) 0 56px;
 }
+
+/* ---------- Top bar ---------- */
 
 .topbar,
 .panel-heading,
@@ -88,7 +195,8 @@ button:disabled {
 }
 
 .topbar {
-  margin-bottom: 20px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
 }
 
 .eyebrow,
@@ -97,29 +205,49 @@ button:disabled {
 .prompt-label {
   margin: 0;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-size: 0.72rem;
+  color: var(--accent-soft-ink);
+  background: var(--accent-soft);
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 10px;
 }
 
 .category-summary {
   display: block;
-  margin-top: 4px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
   white-space: pre-wrap;
+  color: var(--muted);
 }
 
 h1,
 h2 {
   margin: 0;
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
 }
 
 h1 {
-  font-size: clamp(2rem, 6vw, 4rem);
-  line-height: 1;
+  font-size: clamp(1.7rem, 4.5vw, 2.7rem);
+  line-height: 1.05;
+  font-weight: 800;
 }
 
 h2 {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
+  font-weight: 750;
 }
 
 .toolbar,
@@ -134,12 +262,14 @@ h2 {
 .word-count-pill {
   display: inline-flex;
   align-items: center;
-  min-height: 42px;
+  min-height: 44px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
+  border-radius: var(--radius-pill);
+  background: var(--panel-2);
   color: var(--muted);
-  padding: 0 12px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0 14px;
   white-space: nowrap;
 }
 
@@ -151,14 +281,17 @@ h2 {
 
 .setup-picker {
   display: grid;
-  grid-template-columns: minmax(180px, 260px) auto auto;
+  grid-template-columns: minmax(170px, 250px) auto auto;
   align-items: center;
   gap: 8px;
 }
 
 .setup-picker select {
   min-width: 0;
+  min-height: 44px;
 }
+
+/* ---------- Action menus (dropdowns) ---------- */
 
 .action-menu {
   position: relative;
@@ -167,14 +300,23 @@ h2 {
 .action-menu summary {
   display: inline-flex;
   align-items: center;
-  min-height: 42px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
+  gap: 6px;
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   color: var(--ink);
-  padding: 0 14px;
+  font-weight: 600;
+  padding: 0 15px;
   cursor: pointer;
   list-style: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.action-menu summary::after {
+  content: "▾";
+  font-size: 0.7em;
+  color: var(--muted);
 }
 
 .action-menu summary::-webkit-details-marker {
@@ -183,27 +325,45 @@ h2 {
 
 .action-menu[open] summary {
   border-color: var(--accent);
+  color: var(--accent-strong);
 }
 
 .action-menu-content {
   position: absolute;
   right: 0;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   z-index: 5;
   display: grid;
-  gap: 8px;
-  min-width: 190px;
+  gap: 4px;
+  min-width: 200px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
+  border-radius: var(--radius);
+  background: var(--surface);
   box-shadow: var(--shadow);
   padding: 8px;
+  animation: menuPop 0.14s ease;
+}
+
+@keyframes menuPop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 
 .action-menu-content button {
   justify-content: flex-start;
   text-align: left;
+  border-color: transparent;
+  background: transparent;
 }
+
+.action-menu-content button:hover {
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+
+/* ---------- Workspace / panels ---------- */
 
 .workspace {
   display: block;
@@ -211,10 +371,10 @@ h2 {
 
 .panel {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--panel);
   box-shadow: var(--shadow);
-  padding: 18px;
+  padding: clamp(18px, 3vw, 28px);
 }
 
 .word-panel {
@@ -222,34 +382,55 @@ h2 {
 }
 
 .quiz-panel {
-  min-height: 560px;
+  min-height: 540px;
 }
+
+.panel-heading {
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+/* ---------- Segmented control ---------- */
 
 .segmented {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-pill);
   padding: 4px;
-  background: #f8faf7;
+  gap: 2px;
+  background: var(--panel-2);
 }
 
 .segmented button {
-  min-height: 34px;
+  min-height: 38px;
   border: 0;
+  border-radius: var(--radius-pill);
   background: transparent;
-  padding: 0 10px;
+  color: var(--muted);
+  font-weight: 650;
+  padding: 0 16px;
+}
+
+.segmented button:hover {
+  color: var(--ink);
+  border-color: transparent;
 }
 
 .segmented button.active {
-  background: var(--accent-soft);
+  background: var(--surface);
   color: var(--accent-strong);
+  box-shadow: var(--shadow-sm);
 }
+
+/* ---------- Empty state / starters ---------- */
 
 .empty-state {
   margin-top: 28px;
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  padding: 18px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+  padding: 22px;
   color: var(--muted);
+  display: none;
 }
 
 .start-actions,
@@ -259,18 +440,25 @@ h2 {
 }
 
 .start-actions {
-  margin-top: 14px;
+  margin-top: 16px;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .default-database-row {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 14px 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.default-database-row:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
 }
 
 .default-database-row strong,
@@ -283,18 +471,15 @@ h2 {
   font-size: 0.9rem;
 }
 
+/* ---------- Word list (edit view) ---------- */
+
 .word-list {
-  display: grid;
+  display: none;
   gap: 8px;
   margin-top: 18px;
   max-height: 455px;
   overflow: auto;
   padding-right: 4px;
-}
-
-.word-list,
-.empty-state {
-  display: none;
 }
 
 .word-row {
@@ -303,8 +488,9 @@ h2 {
   gap: 10px;
   align-items: center;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px;
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 12px;
 }
 
 .word-row span {
@@ -317,42 +503,61 @@ h2 {
 }
 
 .score {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-size: 0.82rem;
-  padding: 4px 8px;
+  color: var(--accent-soft-ink);
+  font-size: 0.8rem;
+  font-weight: 650;
+  padding: 4px 10px;
   white-space: nowrap;
 }
 
 .recent-wrong {
-  background: #fae9e7;
+  background: var(--bad-soft);
   color: var(--bad);
 }
 
 .delete-word {
-  width: 34px;
-  min-height: 34px;
+  width: 38px;
+  min-height: 38px;
   padding: 0;
   color: var(--bad);
+  border-color: var(--line);
 }
+
+.delete-word:hover {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+/* ---------- Quiz card ---------- */
 
 .quiz-card {
   display: grid;
   align-content: center;
-  gap: 18px;
-  min-height: 440px;
-  padding: 28px 4px 8px;
+  gap: 20px;
+  min-height: 430px;
+  padding: clamp(16px, 3vw, 30px) 2px 6px;
+}
+
+.prompt-label {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.74rem;
 }
 
 .prompt-word {
   min-height: 120px;
+  padding-bottom: 20px;
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
   overflow-wrap: anywhere;
-  font-size: clamp(2.2rem, 7vw, 5.5rem);
-  line-height: 1.05;
+  font-size: clamp(2.1rem, 7vw, 5rem);
+  line-height: 1.04;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .answer-form {
@@ -362,20 +567,31 @@ h2 {
 }
 
 .speech-button {
-  min-width: 48px;
-  padding: 0 12px;
+  min-width: 52px;
+  padding: 0 16px;
 }
 
 .speech-button.recording {
   border-color: var(--bad);
-  background: #fae9e7;
+  background: var(--bad-soft);
   color: var(--bad);
+  animation: pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(209, 73, 91, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(209, 73, 91, 0);
+  }
 }
 
 .speech-status {
   min-height: 20px;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 
 .speech-status:empty {
@@ -384,16 +600,17 @@ h2 {
 
 .speech-log {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f8faf7;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: 0.84rem;
 }
 
 .speech-log summary {
-  min-height: 34px;
-  padding: 8px 12px;
+  min-height: 38px;
+  padding: 9px 14px;
   cursor: pointer;
+  font-weight: 600;
 }
 
 .speech-log pre {
@@ -401,75 +618,99 @@ h2 {
   margin: 0;
   overflow: auto;
   border-top: 1px solid var(--line);
-  padding: 10px 12px;
+  padding: 10px 14px;
   white-space: pre-wrap;
+  font-family: var(--font-mono);
 }
 
 .speech-log.empty {
   display: none;
 }
 
+/* ---------- Form controls ---------- */
+
 input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   color: var(--ink);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
 }
 
 input {
-  min-height: 52px;
-  padding: 0 14px;
+  min-height: 54px;
+  padding: 0 16px;
   font-size: 1.05rem;
 }
 
 select {
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 12px;
-  background: #fff;
-  color: var(--ink);
+  cursor: pointer;
 }
 
 textarea {
   resize: vertical;
   min-height: 220px;
   padding: 14px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 input:focus,
+select:focus,
 textarea:focus {
-  outline: 3px solid rgba(18, 106, 109, 0.18);
+  outline: none;
   border-color: var(--accent);
+  box-shadow: var(--ring);
 }
+
+/* ---------- Feedback / notes ---------- */
 
 .feedback {
   min-height: 72px;
-  border-radius: 8px;
-  padding: 14px;
-  background: #f8faf7;
+  border-radius: var(--radius);
+  padding: 15px 16px;
+  background: var(--panel-2);
   color: var(--muted);
+  font-size: 1rem;
+  animation: fadeIn 0.18s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 
 .feedback.correct {
-  background: #e8f5ec;
+  background: var(--good-soft);
   color: var(--good);
+  border: 1px solid color-mix(in srgb, var(--good) 30%, transparent);
 }
 
 .feedback.incorrect {
-  background: #fae9e7;
+  background: var(--bad-soft);
   color: var(--bad);
+  border: 1px solid color-mix(in srgb, var(--bad) 30%, transparent);
 }
 
 .notes-panel {
   min-height: 0;
   border-left: 3px solid var(--accent);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--accent-soft);
-  color: var(--accent-strong);
-  padding: 12px 14px;
+  color: var(--accent-soft-ink);
+  padding: 13px 16px;
   white-space: pre-wrap;
 }
 
@@ -477,72 +718,204 @@ textarea:focus {
   display: none;
 }
 
+.notes-input {
+  min-height: 44px;
+}
+
 .inline-action {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
-  margin: 4px 6px;
+  min-height: 34px;
+  margin: 4px 6px 4px 0;
   border-color: currentColor;
-  background: #fff;
+  background: transparent;
   color: inherit;
+  font-size: 0.9rem;
+}
+
+.inline-action:hover {
+  color: inherit;
+  filter: brightness(0.94);
 }
 
 .edit-target-row {
   background: var(--accent-soft);
-  outline: 2px solid rgba(18, 106, 109, 0.24);
+  outline: 2px solid var(--accent);
 }
 
+/* ---------- Dialogs ---------- */
+
 dialog {
-  width: min(720px, calc(100vw - 28px));
-  border: 0;
-  border-radius: 8px;
+  width: min(720px, calc(100vw - 24px));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
   padding: 0;
-  box-shadow: var(--shadow);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+}
+
+dialog[open] {
+  animation: dialogIn 0.2s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
 }
 
 #editWordsDialog {
-  width: min(1040px, calc(100vw - 28px));
+  width: min(1040px, calc(100vw - 24px));
 }
 
 dialog::backdrop {
-  background: rgba(18, 28, 25, 0.45);
+  background: rgba(15, 18, 35, 0.5);
+  backdrop-filter: blur(3px);
 }
 
-.special-welcome {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
+.dialog-card {
   display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(18, 28, 25, 0.32);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 180ms ease;
+  gap: 18px;
+  padding: clamp(18px, 3vw, 26px);
 }
 
-.special-welcome.visible {
-  opacity: 1;
+.dialog-heading {
+  align-items: flex-start;
 }
 
-.special-welcome-card {
-  width: min(420px, calc(100vw - 48px));
-  border-radius: 8px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
+.icon-button {
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.icon-button:hover {
+  background: var(--panel-2);
   color: var(--ink);
-  direction: rtl;
-  font-size: 1.9rem;
-  font-weight: 800;
-  line-height: 1.25;
-  padding: 32px 24px;
-  text-align: center;
+  border-color: var(--line);
 }
+
+/* ---------- Settings ---------- */
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.settings-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.field-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.settings-grid input,
+.settings-grid textarea {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.category-settings {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 16px;
+}
+
+.category-settings-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.category-settings-heading span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.category-filter-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 14px;
+}
+
+.category-filter-list label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.parse-message {
+  min-height: 20px;
+  color: var(--warn);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* ---------- Cloud ---------- */
+
+.cloud-account {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  color: var(--muted);
+  padding: 14px 16px;
+}
+
+.cloud-account strong {
+  color: var(--ink);
+}
+
+.cloud-details {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.config-textarea {
+  min-height: 150px;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+/* ---------- Edit table ---------- */
 
 .edit-table-wrap {
   overflow: auto;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   max-height: min(62vh, 620px);
 }
 
@@ -555,7 +928,7 @@ dialog::backdrop {
 .edit-table th,
 .edit-table td {
   border-bottom: 1px solid var(--line);
-  padding: 10px;
+  padding: 11px;
   text-align: left;
   vertical-align: middle;
 }
@@ -564,10 +937,12 @@ dialog::backdrop {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #f8faf7;
+  background: var(--panel-2);
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .edit-table td:nth-child(3),
@@ -601,136 +976,101 @@ dialog::backdrop {
 }
 
 .edit-table input {
-  min-height: 40px;
+  min-height: 42px;
 }
 
 .edit-table textarea {
   min-height: 64px;
   resize: vertical;
   padding: 10px;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .edit-table input[type="number"] {
   padding: 0 8px;
 }
 
-.settings-grid {
+/* ---------- Special welcome overlay ---------- */
+
+.special-welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 18, 35, 0.4);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
 }
 
-.settings-grid label {
-  display: grid;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 0.9rem;
+.special-welcome.visible {
+  opacity: 1;
 }
 
-.field-help {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.35;
-}
-
-.settings-grid input,
-.settings-grid textarea {
+.special-welcome-card {
+  width: min(420px, calc(100vw - 48px));
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
   color: var(--ink);
+  direction: rtl;
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.25;
+  padding: 34px 26px;
+  text-align: center;
 }
 
-.category-settings {
-  display: grid;
-  gap: 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f8faf7;
-  padding: 12px;
+/* ---------- Scrollbars ---------- */
+
+.word-list::-webkit-scrollbar,
+.edit-table-wrap::-webkit-scrollbar,
+.speech-log pre::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
 
-.category-settings-heading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+.word-list::-webkit-scrollbar-thumb,
+.edit-table-wrap::-webkit-scrollbar-thumb,
+.speech-log pre::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
-.category-settings-heading span {
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.category-filter-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 8px 12px;
-}
-
-.category-filter-list label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--ink);
-  font-size: 0.92rem;
-}
-
-.dialog-card {
-  display: grid;
-  gap: 16px;
-  padding: 20px;
-}
-
-.icon-button {
-  width: 40px;
-  padding: 0;
-  font-size: 1.45rem;
-  line-height: 1;
-}
-
-.parse-message {
-  min-height: 22px;
-  color: var(--warn);
-}
-
-.cloud-account {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f8faf7;
-  color: var(--muted);
-  padding: 12px 14px;
-}
-
-.cloud-account strong {
-  color: var(--ink);
-}
-
-.cloud-details {
-  color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
-  white-space: pre-wrap;
-}
-
-.config-textarea {
-  min-height: 150px;
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    monospace;
-  font-size: 0.9rem;
-}
+/* ---------- Responsive ---------- */
 
 @media (max-width: 860px) {
   .app-shell {
-    width: min(100vw - 20px, 680px);
-    padding: 16px 0;
+    width: min(100vw - 18px, 680px);
   }
 
-  .topbar,
-  .panel-heading {
-    align-items: flex-start;
+  .topbar {
+    align-items: stretch;
     flex-direction: column;
+  }
+
+  .panel-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar {
+    justify-content: flex-start;
+  }
+
+  .segmented {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .segmented button {
+    flex: 1;
+    padding: 0 8px;
   }
 
   .workspace {
@@ -774,92 +1114,853 @@ dialog::backdrop {
   }
 }
 
+@media (max-width: 560px) {
+  .setup-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .prompt-word {
+    min-height: 96px;
+  }
+}
+
+/* ============================================================
+   Translate screen
+   ============================================================ */
+
+.translate-langs {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+  align-items: end;
+}
+
+.swap-button {
+  min-width: 46px;
+  padding: 0;
+  align-self: end;
+}
+
+#translateInput {
+  min-height: 110px;
+}
+
+.translate-result {
+  min-height: 60px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent-soft-ink);
+  padding: 15px 16px;
+  font-size: 1.2rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.translate-result:empty {
+  display: none;
+}
+
+.nav-item[hidden] {
+  display: none;
+}
+
+/* ============================================================
+   Texts (paragraph study)
+   ============================================================ */
+
+.texts-list {
+  display: grid;
+  gap: 10px;
+}
+
+.texts-empty {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.text-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 12px 14px;
+}
+
+.text-row-info {
+  min-width: 0;
+}
+
+.text-row-info strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-row-info span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.text-row-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.text-row-actions button {
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.text-sentences-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.text-sentences-head span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.text-sentences-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(46vh, 420px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.sentence-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.sentence-row textarea {
+  min-height: 46px;
+  padding: 8px 10px;
+  line-height: 1.35;
+}
+
+.sentence-row .delete-word {
+  align-self: center;
+}
+
+@media (max-width: 560px) {
+  .sentence-row {
+    grid-template-columns: 1fr auto;
+  }
+  .sentence-row textarea:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ============================================================
+   Bottom-tab shell (mobile-first navigation)
+   ============================================================ */
+
+.app-shell {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+.app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.topbar-info {
+  min-width: 0;
+}
+
+.topbar-info h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cloud-chip,
+.count-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+  padding: 0 13px;
+  white-space: nowrap;
+  max-width: 46vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Screens */
+.screen {
+  display: none;
+  animation: screenIn 0.18s ease;
+}
+
+.screen.active {
+  display: grid;
+  gap: 16px;
+}
+
+@keyframes screenIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.screen-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.screen-head h2 {
+  font-size: 1.35rem;
+}
+
+.screen-sub {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.screen-subhead {
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.screen-subhead h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.stack-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.grid-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.toggle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toggle-row .field-help {
+  margin: 0;
+}
+
+.advanced-settings {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 4px 14px;
+}
+
+.advanced-settings > summary {
+  cursor: pointer;
+  padding: 10px 0;
+  font-weight: 650;
+  color: var(--ink-soft);
+  list-style: none;
+}
+
+.advanced-settings > summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-settings > summary::before {
+  content: "▸ ";
+  color: var(--muted);
+}
+
+.advanced-settings[open] > summary::before {
+  content: "▾ ";
+}
+
+.advanced-settings .settings-grid {
+  margin-bottom: 12px;
+}
+
+/* Study screen controls */
+.study-content {
+  margin-bottom: 12px;
+}
+
+.study-content[hidden] {
+  display: none;
+}
+
+.mode-switch button {
+  font-weight: 650;
+}
+
+/* Collapsible study options */
+.study-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.options-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border-radius: var(--radius-pill);
+  border-color: var(--line);
+  background: var(--panel-2);
+  padding: 0 8px 0 16px;
+  font-weight: 650;
+}
+
+.options-toggle .options-caret {
+  transition: transform 0.18s ease;
+  color: var(--muted);
+}
+
+.options-toggle[aria-expanded="true"] .options-caret {
+  transform: rotate(180deg);
+}
+
+.quiz-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.category-summary {
+  margin-top: 2px;
+}
+
+.study-options {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  animation: screenIn 0.16s ease;
+}
+
+.study-options[hidden] {
+  display: none;
+}
+
+.option-group {
+  display: grid;
+  gap: 8px;
+}
+
+.option-group.study-content[hidden] {
+  display: none;
+}
+
+.option-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+/* Big revealed answer — same scale as the prompt */
+.solution-word {
+  min-height: 0;
+  border-bottom: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--good);
+}
+
+.solution-word.solution-incorrect {
+  color: var(--ink);
+}
+
+.solution-word[hidden] {
+  display: none;
+}
+
+/* Bottom navigation */
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--line);
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  padding: 6px 4px;
+}
+
+.nav-item:hover {
+  color: var(--ink);
+  border-color: transparent;
+}
+
+.nav-item .nav-ico {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.nav-item.active {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+@media (min-width: 861px) {
+  .bottom-nav {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    bottom: 18px;
+    width: min(560px, calc(100vw - 32px));
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow);
+    padding: 6px;
+  }
+
+  .nav-item {
+    min-height: 52px;
+    border-radius: var(--radius-pill);
+  }
+}
+
+/* Tap-a-word translation */
+.tap-word {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0 0.06em;
+  white-space: nowrap; /* never break a word across two lines */
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+/* Text sentences: smaller than the giant single-word size, flow as normal
+   inline text (not a flex row) so words wrap only at spaces. */
+.prompt-word.prompt-sentence {
+  display: block;
+  font-size: clamp(1.5rem, 5.5vw, 2.5rem);
+  line-height: 1.35;
+  font-weight: 750;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.tap-word:hover,
+.tap-word:active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.word-gloss {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: -6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  color: var(--ink);
+  padding: 10px 14px;
+  font-size: 1.05rem;
+  animation: fadeIn 0.14s ease;
+}
+
+.word-gloss[hidden] {
+  display: none;
+}
+
+.word-gloss strong {
+  color: var(--accent-strong);
+}
+
+/* ChatGPT import in the text dialog */
+.chat-import {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  padding: 14px;
+}
+
+.chat-import-steps p {
+  margin: 0 0 4px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.chat-import .field span {
+  color: var(--ink-soft);
+}
+
+.manual-entry {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 4px 14px;
+}
+
+.manual-entry > summary {
+  cursor: pointer;
+  padding: 10px 0;
+  font-weight: 650;
+  color: var(--ink-soft);
+  list-style: none;
+}
+
+.manual-entry > summary::-webkit-details-marker {
+  display: none;
+}
+
+.manual-entry > summary::before {
+  content: "▸ ";
+  color: var(--muted);
+}
+
+.manual-entry[open] > summary::before {
+  content: "▾ ";
+}
+
+.sentence-row.sentence-header .sentence-source,
+.sentence-row.sentence-header .sentence-translation {
+  opacity: 0.65;
+  font-style: italic;
+}
     </style>
   </head>
   <body>
     <main class="app-shell">
-      <section class="topbar" aria-label="Vocabulary tools">
-        <div>
+      <header class="app-topbar">
+        <div class="topbar-info">
           <p id="languagePairLabel" class="eyebrow">English ⇄ Greek</p>
-          <h1 id="appTitle">Greek Vocabulary Trainer</h1>
+          <h1 id="appTitle">Vocabulary Trainer</h1>
         </div>
-        <div class="toolbar">
-          <div class="setup-picker">
-            <select id="setupSelect" aria-label="Language setup"></select>
-            <button id="newSetupButton" type="button">New setup</button>
-            <button id="deleteSetupButton" type="button">Delete setup</button>
-          </div>
-          <span id="cloudStatus" class="word-count-pill cloud-status">Local only</span>
-          <button id="cloudButton" type="button">Cloud</button>
-          <span id="wordCount" class="word-count-pill">0 saved</span>
-          <button id="defaultDatabaseButton" type="button">Default words</button>
-          <details class="action-menu">
-            <summary>Words</summary>
-            <div class="action-menu-content">
+        <span id="cloudStatus" class="cloud-chip cloud-status">Local only</span>
+      </header>
+
+      <div class="screens">
+        <!-- ================= STUDY ================= -->
+        <section id="studyScreen" class="screen active" aria-label="Study">
+          <section class="panel quiz-panel">
+            <div class="study-bar">
+              <button id="studyOptionsToggle" class="options-toggle" type="button" aria-expanded="false" aria-controls="studyOptionsPanel">
+                <span class="options-summary" id="studyOptionsSummary">Study options</span>
+                <span class="options-caret" aria-hidden="true">▾</span>
+              </button>
+              <span id="quizMeta" class="quiz-meta">Add at least one word to begin</span>
+            </div>
+            <div id="studyOptionsPanel" class="study-options" hidden>
+              <div class="study-content option-group" hidden>
+                <span class="option-label">Studying</span>
+                <select id="studyContentSelect" aria-label="What to study"></select>
+              </div>
+              <div class="option-group">
+                <span class="option-label">Direction</span>
+                <div class="segmented" role="group" aria-label="Test direction">
+                  <button id="greekToEnglishButton" class="active" type="button">Greek → English</button>
+                  <button id="englishToGreekButton" type="button">English → Greek</button>
+                  <button id="mixedButton" type="button">Mixed</button>
+                </div>
+              </div>
+              <div class="option-group">
+                <span class="option-label">Answer mode</span>
+                <div class="segmented mode-switch" role="group" aria-label="Answer mode">
+                  <button id="typeModeButton" class="active" type="button">⌨ Type</button>
+                  <button id="speakingModeButton" type="button">🎙 Hands-free</button>
+                  <button id="revealModeButton" type="button">👁 Reveal</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="quiz-card">
+              <p id="promptLabel" class="prompt-label">Prompt</p>
+              <div id="promptWord" class="prompt-word">No words yet</div>
+              <div id="wordGloss" class="word-gloss" aria-live="polite" hidden></div>
+              <div id="solutionWord" class="prompt-word solution-word" hidden></div>
+              <form id="answerForm" class="answer-form">
+                <input
+                  id="answerInput"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Type the translation"
+                  disabled
+                />
+                <button
+                  id="speakAnswerButton"
+                  class="speech-button"
+                  type="button"
+                  title="Speak answer (Ctrl+M / ⌘M)"
+                  aria-label="Speak answer (Ctrl+M or Command+M)"
+                  disabled
+                >Speak</button>
+                <button id="submitAnswerButton" class="primary" type="submit" disabled>Enter</button>
+              </form>
+              <div id="speechStatus" class="speech-status" aria-live="polite"></div>
+              <details id="speechLogDetails" class="speech-log empty">
+                <summary>Speech timing log</summary>
+                <pre id="speechLog"></pre>
+              </details>
+              <div id="feedback" class="feedback" aria-live="polite"></div>
+              <div id="notesPanel" class="notes-panel" aria-live="polite"></div>
+            </div>
+          </section>
+        </section>
+
+        <!-- ================= WORDS ================= -->
+        <section id="wordsScreen" class="screen" aria-label="Words">
+          <section class="panel">
+            <div class="screen-head">
+              <div>
+                <h2>Words</h2>
+                <p class="screen-sub">Add, edit, and import your vocabulary.</p>
+              </div>
+              <span id="wordCount" class="count-chip">0 saved</span>
+            </div>
+            <div class="stack-actions">
               <button id="addWordsButton" class="primary" type="button">Add words</button>
               <button id="editWordsButton" type="button">Edit words</button>
             </div>
-          </details>
-          <details class="action-menu">
-            <summary>CSV</summary>
-            <div class="action-menu-content">
+            <div class="screen-subhead"><h3>Import &amp; export CSV</h3></div>
+            <div class="grid-actions">
               <button id="openCsvButton" type="button" title="Open CSV">Open CSV</button>
               <button id="pasteCsvButton" type="button" title="Paste CSV">Paste CSV</button>
               <button id="saveCsvButton" type="button" title="Save CSV">Save CSV</button>
               <button id="copyCsvButton" type="button" title="Copy CSV">Copy CSV</button>
               <button id="downloadCsvButton" type="button" title="Download CSV">Download CSV</button>
             </div>
-          </details>
-          <button id="settingsButton" type="button" title="Settings">Settings</button>
-        </div>
-      </section>
+          </section>
 
-      <section class="workspace">
-        <section class="panel quiz-panel" aria-label="Quiz">
-          <div class="panel-heading">
-            <div>
-              <h2>Test</h2>
-              <p id="quizMeta">Add at least one word to begin</p>
+          <section class="panel">
+            <div class="screen-head">
+              <div>
+                <h2>Texts</h2>
+                <p class="screen-sub">Paragraphs you study in order, sentence by sentence.</p>
+              </div>
+              <button id="addTextButton" class="primary" type="button">Add text</button>
             </div>
-            <div class="segmented" role="group" aria-label="Test direction">
-              <button id="greekToEnglishButton" class="active" type="button">Greek → English</button>
-              <button id="englishToGreekButton" type="button">English → Greek</button>
-              <button id="mixedButton" type="button">Mixed</button>
-            </div>
-          </div>
-
-          <div class="quiz-card">
-            <p id="promptLabel" class="prompt-label">Prompt</p>
-            <div id="promptWord" class="prompt-word">No words yet</div>
-            <form id="answerForm" class="answer-form">
-              <input
-                id="answerInput"
-                type="text"
-                autocomplete="off"
-                spellcheck="false"
-                placeholder="Type the translation"
-                disabled
-              />
-              <button
-                id="speakAnswerButton"
-                class="speech-button"
-                type="button"
-                title="Speak answer (Ctrl+M / ⌘M)"
-                aria-label="Speak answer (Ctrl+M or Command+M)"
-                disabled
-              >Speak</button>
-              <button id="submitAnswerButton" class="primary" type="submit" disabled>Enter</button>
-            </form>
-            <div id="speechStatus" class="speech-status" aria-live="polite"></div>
-            <details id="speechLogDetails" class="speech-log empty">
-              <summary>Speech timing log</summary>
-              <pre id="speechLog"></pre>
-            </details>
-            <div id="feedback" class="feedback" aria-live="polite"></div>
-            <div id="notesPanel" class="notes-panel" aria-live="polite"></div>
-          </div>
+            <div id="textsList" class="texts-list"></div>
+          </section>
         </section>
-      </section>
+
+        <!-- ================= SETUPS ================= -->
+        <section id="setupsScreen" class="screen" aria-label="Setups">
+          <section class="panel">
+            <div class="screen-head">
+              <div>
+                <h2>Setups</h2>
+                <p class="screen-sub">Switch or create a language pair to study.</p>
+              </div>
+            </div>
+            <label class="field">
+              <span>Active setup</span>
+              <select id="setupSelect" aria-label="Language setup"></select>
+            </label>
+            <div class="stack-actions">
+              <button id="defaultDatabaseButton" class="primary" type="button">Start from default words</button>
+              <button id="newSetupButton" type="button">New setup</button>
+              <button id="deleteSetupButton" type="button">Delete setup</button>
+            </div>
+          </section>
+        </section>
+
+        <!-- ================= SETTINGS ================= -->
+        <section id="settingsScreen" class="screen" aria-label="Settings">
+          <section class="panel">
+            <div class="screen-head">
+              <div>
+                <h2>Settings</h2>
+                <p class="screen-sub">Saved automatically.</p>
+              </div>
+            </div>
+
+            <div class="settings-grid">
+              <label>
+                <span>Speak new words aloud</span>
+                <span class="toggle-row">
+                  <input id="speakPromptsInput" type="checkbox" />
+                  <span class="field-help">Read each new prompt aloud when a card appears.</span>
+                </span>
+              </label>
+              <label>
+                <span>Hands-free wait (seconds)</span>
+                <input id="speakingSilenceInput" type="number" min="0.3" max="5" step="0.1" />
+                <p class="field-help">In hands-free mode, how long to wait after you stop talking before checking the answer.</p>
+              </label>
+              <label>
+                <span>Correct -1 score</span>
+                <input id="unclassifiedCorrectCategoryInput" type="number" min="0" step="1" />
+                <p class="field-help">Score given when a word at -1 is answered correctly. Default is 3.</p>
+              </label>
+              <label>
+                <span>Mistake delays</span>
+                <textarea id="mistakeDelaysInput" rows="3" placeholder="0:0:0, 1:0:0, 3:0:0"></textarea>
+                <p class="field-help">Wait time per category before a word is due again. Minutes or days:hours:minutes, one per category.</p>
+              </label>
+              <label>
+                <span>Mistake sizes</span>
+                <textarea id="mistakeSizesInput" rows="3" placeholder="4, 6, 10"></textarea>
+                <p class="field-help">Target due-word pool size per category. Smaller numbers make that category show up sooner.</p>
+              </label>
+            </div>
+
+            <details class="advanced-settings">
+              <summary>Browser speech (web only)</summary>
+              <div class="settings-grid">
+                <label>
+                  <span>Speech model</span>
+                  <select id="speechModelSelect"></select>
+                  <p class="field-help">In-browser speech-to-text model. On Android the device's native recognizer is used instead.</p>
+                </label>
+                <label>
+                  <span>Max recording seconds</span>
+                  <input id="speechMaxSecondsInput" type="number" min="1" max="10" step="0.5" />
+                  <p class="field-help">Longest in-browser recording before it stops and transcribes.</p>
+                </label>
+              </div>
+              <div class="stack-actions">
+                <button id="preloadSpeechModelButton" type="button">Preload speech model</button>
+              </div>
+            </details>
+
+            <div class="category-settings">
+              <div class="category-settings-heading">
+                <strong>Study categories</strong>
+                <span>Leave all checked to study everything.</span>
+              </div>
+              <div id="categoryFilterList" class="category-filter-list"></div>
+            </div>
+            <div id="settingsMessage" class="parse-message"></div>
+          </section>
+
+          <section class="panel">
+            <div class="screen-head">
+              <div>
+                <h2>Cloud sync</h2>
+                <p class="screen-sub">Sign in with Google to sync across devices.</p>
+              </div>
+            </div>
+            <div id="cloudAccount" class="cloud-account">Not signed in.</div>
+            <div id="cloudDetails" class="cloud-details"></div>
+            <div id="cloudMessage" class="parse-message"></div>
+            <div class="stack-actions">
+              <button id="signInButton" class="primary" type="button">Sign in with Google</button>
+              <button id="signOutButton" type="button">Sign out</button>
+              <button id="pullCloudButton" type="button">Pull from cloud</button>
+              <button id="pushCloudButton" type="button">Push to cloud</button>
+            </div>
+          </section>
+        </section>
+
+        <!-- ================= TRANSLATE (Android only) ================= -->
+        <section id="translateScreen" class="screen" aria-label="Translate">
+          <section class="panel">
+            <div class="screen-head">
+              <div>
+                <h2>Translate</h2>
+                <p class="screen-sub">Offline, on-device translation.</p>
+              </div>
+            </div>
+            <div class="translate-langs">
+              <label class="field">
+                <span>From</span>
+                <select id="translateFromSelect"></select>
+              </label>
+              <button id="translateSwapButton" class="swap-button" type="button" aria-label="Swap languages">⇅</button>
+              <label class="field">
+                <span>To</span>
+                <select id="translateToSelect"></select>
+              </label>
+            </div>
+            <textarea id="translateInput" rows="4" placeholder="Type a word or sentence…"></textarea>
+            <div class="stack-actions">
+              <button id="translateButton" class="primary" type="button">Translate</button>
+            </div>
+            <div id="translateStatus" class="speech-status"></div>
+            <div id="translateResult" class="translate-result" aria-live="polite"></div>
+          </section>
+        </section>
+      </div>
+
+      <nav class="bottom-nav" aria-label="Sections">
+        <button class="nav-item active" data-screen="studyScreen" type="button">
+          <span class="nav-ico" aria-hidden="true">✎</span><span class="nav-label">Study</span>
+        </button>
+        <button class="nav-item nav-translate" data-screen="translateScreen" type="button" hidden>
+          <span class="nav-ico" aria-hidden="true">🌐</span><span class="nav-label">Translate</span>
+        </button>
+        <button class="nav-item" data-screen="wordsScreen" type="button">
+          <span class="nav-ico" aria-hidden="true">≣</span><span class="nav-label">Words</span>
+        </button>
+        <button class="nav-item" data-screen="setupsScreen" type="button">
+          <span class="nav-ico" aria-hidden="true">⇄</span><span class="nav-label">Setups</span>
+        </button>
+        <button class="nav-item" data-screen="settingsScreen" type="button">
+          <span class="nav-ico" aria-hidden="true">⚙</span><span class="nav-label">Settings</span>
+        </button>
+      </nav>
     </main>
 
     <dialog id="addWordsDialog">
@@ -953,92 +2054,6 @@ dialog::backdrop {
       </form>
     </dialog>
 
-    <dialog id="settingsDialog">
-      <form method="dialog" class="dialog-card">
-        <div class="dialog-heading">
-          <div>
-            <h2>Settings</h2>
-            <p>Settings save automatically.</p>
-          </div>
-          <button id="closeSettingsDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
-        </div>
-        <div class="settings-grid">
-          <label>
-            <span>Mistake delays</span>
-            <textarea
-              id="mistakeDelaysInput"
-              rows="3"
-              placeholder="0:0:0, 1:0:0, 3:0:0"
-            ></textarea>
-            <p class="field-help">Wait time for each score category before a word is due again. Use minutes or days:hours:minutes, one value per category.</p>
-          </label>
-          <label>
-            <span>Mistake sizes</span>
-            <textarea
-              id="mistakeSizesInput"
-              rows="3"
-              placeholder="4, 6, 10"
-            ></textarea>
-            <p class="field-help">Target due-word pool size for each category. Smaller numbers make that category show up sooner.</p>
-          </label>
-          <label>
-            <span>Correct -1 score</span>
-            <input id="unclassifiedCorrectCategoryInput" type="number" min="0" step="1" />
-            <p class="field-help">Score assigned when a word at -1 is answered correctly or accepted as correct. Default is 3.</p>
-          </label>
-          <label>
-            <span>Speech model</span>
-            <select id="speechModelSelect"></select>
-            <p class="field-help">Browser speech-to-text model used for spoken answers.</p>
-          </label>
-          <label>
-            <span>Max recording seconds</span>
-            <input id="speechMaxSecondsInput" type="number" min="1" max="10" step="0.5" />
-            <p class="field-help">Longest speech recording before the app stops listening and transcribes.</p>
-          </label>
-          <label>
-            <span>Speak new words aloud</span>
-            <input id="speakPromptsInput" type="checkbox" />
-            <p class="field-help">Automatically read each new prompt aloud when a card appears.</p>
-          </label>
-        </div>
-        <div class="category-settings">
-          <div class="category-settings-heading">
-            <strong>Study categories</strong>
-            <span>Select all to include every category.</span>
-          </div>
-          <div id="categoryFilterList" class="category-filter-list"></div>
-        </div>
-        <div id="settingsMessage" class="parse-message"></div>
-        <div class="dialog-actions">
-          <button id="cancelSettingsButton" type="button">Close</button>
-          <button id="preloadSpeechModelButton" type="button">Preload speech model</button>
-          <button id="saveSettingsButton" class="primary" type="button">Done</button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="cloudDialog">
-      <form method="dialog" class="dialog-card">
-        <div class="dialog-heading">
-          <div>
-            <h2>Cloud Sync</h2>
-            <p>Sign in with Google and sync this trainer across your devices.</p>
-          </div>
-          <button id="closeCloudDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
-        </div>
-        <div id="cloudAccount" class="cloud-account">Not signed in.</div>
-        <div id="cloudDetails" class="cloud-details"></div>
-        <div id="cloudMessage" class="parse-message"></div>
-        <div class="dialog-actions">
-          <button id="pullCloudButton" type="button">Pull from cloud</button>
-          <button id="pushCloudButton" type="button">Push to cloud</button>
-          <button id="signOutButton" type="button">Sign out</button>
-          <button id="signInButton" class="primary" type="button">Sign in with Google</button>
-        </div>
-      </form>
-    </dialog>
-
     <dialog id="accountModeDialog">
       <form method="dialog" class="dialog-card">
         <div class="dialog-heading">
@@ -1087,6 +2102,62 @@ dialog::backdrop {
         <div class="dialog-actions">
           <button id="cancelPasteCsvButton" type="button">Cancel</button>
           <button id="importPastedCsvButton" class="primary" type="button">Import CSV</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="textDialog">
+      <form method="dialog" class="dialog-card edit-dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <h2 id="textDialogTitle">Add Text</h2>
+            <p>Translate a song or text with ChatGPT, then study it sentence by sentence with tap-to-translate.</p>
+          </div>
+          <button id="closeTextDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
+        </div>
+        <label class="field">
+          <span>Title (optional)</span>
+          <input id="textTitleInput" type="text" placeholder="e.g. Song name" />
+        </label>
+
+        <div class="chat-import">
+          <div class="chat-import-steps">
+            <p><strong>1.</strong> Paste your song/text below and open ChatGPT (the prompt is copied for you).</p>
+            <p><strong>2.</strong> Send it in ChatGPT, then paste its result back into “ChatGPT result”.</p>
+          </div>
+          <label class="field">
+            <span id="textSourceLabel">Song / text</span>
+            <textarea id="textSourceInput" rows="4" placeholder="Paste the lyrics or text here…"></textarea>
+          </label>
+          <div class="stack-actions">
+            <button id="openChatGptButton" class="primary" type="button">Copy prompt &amp; open ChatGPT</button>
+          </div>
+          <label class="field">
+            <span>ChatGPT result</span>
+            <textarea id="chatResultInput" rows="6" placeholder="Paste ChatGPT's formatted translation here — it turns into sentence pairs with tap-to-translate glosses…"></textarea>
+          </label>
+        </div>
+
+        <details class="manual-entry">
+          <summary>Or split &amp; translate the text without ChatGPT</summary>
+          <label class="field">
+            <span id="textTranslationLabel">Translation (optional)</span>
+            <textarea id="textTranslationInput" rows="4" placeholder="Leave empty to translate automatically, or paste your own translation to pair it sentence by sentence…"></textarea>
+          </label>
+          <div class="stack-actions">
+            <button id="translateTextButton" type="button">Translate &amp; split into sentences</button>
+          </div>
+        </details>
+        <div id="textDialogMessage" class="parse-message"></div>
+        <div id="textSentencesHead" class="text-sentences-head" hidden>
+          <strong>Sentences</strong>
+          <span>One row per test item. Edit either side.</span>
+        </div>
+        <div id="textSentencesList" class="text-sentences-list"></div>
+        <div class="dialog-actions">
+          <button id="addSentenceRowButton" type="button">Add sentence</button>
+          <button id="cancelTextButton" type="button">Cancel</button>
+          <button id="saveTextButton" class="primary" type="button">Save text</button>
         </div>
       </form>
     </dialog>
@@ -1224,10 +2295,14 @@ const LANGUAGE_SHORTCUTS = [
 const LANGUAGE_CODE_BY_NAME = new Map(
   LANGUAGE_SHORTCUTS.map(([name, code]) => [name.toLowerCase(), code]),
 );
+const DEFAULT_SPEAKING_SILENCE_MS = 500;
+const TTS_RATE = 0.9;
 const DEFAULT_SETTINGS = {
   speechModelId: DEFAULT_SPEECH_MODEL_ID,
   speechMaxSeconds: 7,
   speakPrompts: true,
+  speakingSilenceMs: DEFAULT_SPEAKING_SILENCE_MS,
+  inputMode: "normal",
 };
 const SPECIAL_WELCOME_EMAIL = "saraolsonmakes@gmail.com";
 const SPECIAL_WELCOME_TEXT = "את יודעת עברית ♥";
@@ -1243,6 +2318,10 @@ const state = {
   direction: "el-en",
   currentCard: null,
   revealed: false,
+  studyText: null,
+  textIndex: 0,
+  textStats: { right: 0, wrong: 0 },
+  editingTextId: null,
   fileHandle: null,
   speech: {
     transcriber: null,
@@ -1252,6 +2331,7 @@ const state = {
     stream: null,
     recording: false,
     transcribing: false,
+    native: false,
     stopTimer: null,
     logStartedAt: 0,
     ttsToken: 0,
@@ -1271,6 +2351,7 @@ const state = {
     saveTimer: null,
     initPromise: null,
     signInSyncPromise: null,
+    nativeAuthResolvers: null,
     initialized: false,
     initializing: false,
     applyingCloud: false,
@@ -1288,25 +2369,19 @@ const elements = {
   newSetupButton: document.querySelector("#newSetupButton"),
   deleteSetupButton: document.querySelector("#deleteSetupButton"),
   cloudStatus: document.querySelector("#cloudStatus"),
-  cloudButton: document.querySelector("#cloudButton"),
   defaultDatabaseButton: document.querySelector("#defaultDatabaseButton"),
   addWordsButton: document.querySelector("#addWordsButton"),
   editWordsButton: document.querySelector("#editWordsButton"),
-  settingsButton: document.querySelector("#settingsButton"),
   pasteCsvButton: document.querySelector("#pasteCsvButton"),
   accountModeDialog: document.querySelector("#accountModeDialog"),
   defaultDatabaseDialog: document.querySelector("#defaultDatabaseDialog"),
   newSetupDialog: document.querySelector("#newSetupDialog"),
   addWordsDialog: document.querySelector("#addWordsDialog"),
   editWordsDialog: document.querySelector("#editWordsDialog"),
-  settingsDialog: document.querySelector("#settingsDialog"),
-  cloudDialog: document.querySelector("#cloudDialog"),
   pasteCsvDialog: document.querySelector("#pasteCsvDialog"),
   closeNewSetupDialogButton: document.querySelector("#closeNewSetupDialogButton"),
   closeDialogButton: document.querySelector("#closeDialogButton"),
   closeEditDialogButton: document.querySelector("#closeEditDialogButton"),
-  closeSettingsDialogButton: document.querySelector("#closeSettingsDialogButton"),
-  closeCloudDialogButton: document.querySelector("#closeCloudDialogButton"),
   closeDefaultDatabaseDialogButton: document.querySelector("#closeDefaultDatabaseDialogButton"),
   closePasteCsvDialogButton: document.querySelector("#closePasteCsvDialogButton"),
   chooseLocalAccountButton: document.querySelector("#chooseLocalAccountButton"),
@@ -1332,11 +2407,35 @@ const elements = {
   importWordsButton: document.querySelector("#importWordsButton"),
   importPastedCsvButton: document.querySelector("#importPastedCsvButton"),
   saveEditedWordsButton: document.querySelector("#saveEditedWordsButton"),
-  saveSettingsButton: document.querySelector("#saveSettingsButton"),
   cancelNewSetupButton: document.querySelector("#cancelNewSetupButton"),
-  cancelSettingsButton: document.querySelector("#cancelSettingsButton"),
   cancelPasteCsvButton: document.querySelector("#cancelPasteCsvButton"),
   cancelEditWordsButton: document.querySelector("#cancelEditWordsButton"),
+  translateFromSelect: document.querySelector("#translateFromSelect"),
+  translateToSelect: document.querySelector("#translateToSelect"),
+  translateSwapButton: document.querySelector("#translateSwapButton"),
+  translateInput: document.querySelector("#translateInput"),
+  translateButton: document.querySelector("#translateButton"),
+  translateStatus: document.querySelector("#translateStatus"),
+  translateResult: document.querySelector("#translateResult"),
+  addTextButton: document.querySelector("#addTextButton"),
+  textsList: document.querySelector("#textsList"),
+  textDialog: document.querySelector("#textDialog"),
+  textDialogTitle: document.querySelector("#textDialogTitle"),
+  textTitleInput: document.querySelector("#textTitleInput"),
+  textSourceLabel: document.querySelector("#textSourceLabel"),
+  textSourceInput: document.querySelector("#textSourceInput"),
+  chatResultInput: document.querySelector("#chatResultInput"),
+  openChatGptButton: document.querySelector("#openChatGptButton"),
+  textTranslationLabel: document.querySelector("#textTranslationLabel"),
+  textTranslationInput: document.querySelector("#textTranslationInput"),
+  translateTextButton: document.querySelector("#translateTextButton"),
+  textDialogMessage: document.querySelector("#textDialogMessage"),
+  textSentencesHead: document.querySelector("#textSentencesHead"),
+  textSentencesList: document.querySelector("#textSentencesList"),
+  addSentenceRowButton: document.querySelector("#addSentenceRowButton"),
+  cancelTextButton: document.querySelector("#cancelTextButton"),
+  saveTextButton: document.querySelector("#saveTextButton"),
+  closeTextDialogButton: document.querySelector("#closeTextDialogButton"),
   newSetupMessage: document.querySelector("#newSetupMessage"),
   clearTextareaButton: document.querySelector("#clearTextareaButton"),
   parseMessage: document.querySelector("#parseMessage"),
@@ -1349,7 +2448,12 @@ const elements = {
   unclassifiedCorrectCategoryInput: document.querySelector("#unclassifiedCorrectCategoryInput"),
   speechModelSelect: document.querySelector("#speechModelSelect"),
   speechMaxSecondsInput: document.querySelector("#speechMaxSecondsInput"),
+  speakingSilenceInput: document.querySelector("#speakingSilenceInput"),
   speakPromptsInput: document.querySelector("#speakPromptsInput"),
+  typeModeButton: document.querySelector("#typeModeButton"),
+  speakingModeButton: document.querySelector("#speakingModeButton"),
+  revealModeButton: document.querySelector("#revealModeButton"),
+  studyContentSelect: document.querySelector("#studyContentSelect"),
   preloadSpeechModelButton: document.querySelector("#preloadSpeechModelButton"),
   categoryFilterList: document.querySelector("#categoryFilterList"),
   wordList: document.querySelector("#wordList"),
@@ -1357,6 +2461,12 @@ const elements = {
   wordCount: document.querySelector("#wordCount"),
   promptLabel: document.querySelector("#promptLabel"),
   promptWord: document.querySelector("#promptWord"),
+  wordGloss: document.querySelector("#wordGloss"),
+  solutionWord: document.querySelector("#solutionWord"),
+  studyOptionsToggle: document.querySelector("#studyOptionsToggle"),
+  studyOptionsPanel: document.querySelector("#studyOptionsPanel"),
+  studyOptionsSummary: document.querySelector("#studyOptionsSummary"),
+  studyContent: document.querySelector(".study-content"),
   answerForm: document.querySelector("#answerForm"),
   answerInput: document.querySelector("#answerInput"),
   speakAnswerButton: document.querySelector("#speakAnswerButton"),
@@ -1743,6 +2853,124 @@ function createSetupId(learnLanguage, fromLanguage) {
   return `${base || "setup"}-${Date.now().toString(36)}`;
 }
 
+// ---------------------------------------------------------------------------
+// Texts (paragraphs studied linearly, sentence by sentence)
+// ---------------------------------------------------------------------------
+
+function splitIntoSentences(text, { greek = false } = {}) {
+  // Greek writes its question mark as a semicolon (U+003B) or the Greek question
+  // mark (U+037E). Always honor U+037E; add U+003B only for Greek paragraphs so
+  // ordinary semicolons don't over-split other languages.
+  const base = ".!?\u2026\u037e\u061f\u3002\uff01\uff1f";
+  const terminators = greek ? `[${base}\u003b]` : `[${base}]`;
+  const splitter = new RegExp(`(?<=${terminators})\\s+`);
+  return String(text || "")
+    .split(/\n+/)
+    .flatMap((line) => line.split(splitter))
+    .map((sentence) => sentence.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
+
+function setupUsesGreekPunctuation(setup) {
+  return /^el/i.test((setup || DEFAULT_SETUP).learnLanguageCode || "");
+}
+
+function createTextId() {
+  return `text-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+function normalizeText(text) {
+  const sentences = Array.isArray(text?.sentences)
+    ? text.sentences
+        .filter((sentence) => sentence && typeof sentence === "object")
+        .map((sentence) => ({
+          source: String(sentence.source || "").trim(),
+          translation: String(sentence.translation || "").trim(),
+          glosses: Array.isArray(sentence.glosses)
+            ? sentence.glosses
+                .filter((gloss) => gloss && typeof gloss === "object")
+                .map((gloss) => ({ w: String(gloss.w || "").trim(), t: String(gloss.t || "").trim() }))
+                .filter((gloss) => gloss.w)
+            : [],
+          header: Boolean(sentence.header),
+        }))
+        .filter((sentence) => sentence.source || sentence.translation)
+    : [];
+  return {
+    id: String(text?.id || createTextId()),
+    title: String(text?.title || "").trim(),
+    sentences,
+    updatedAt: Number(text?.updatedAt) || 0,
+  };
+}
+
+function normalizeTexts(texts) {
+  return (Array.isArray(texts) ? texts : [])
+    .map(normalizeText)
+    .filter((text) => text.sentences.length || text.title);
+}
+
+function textTitle(text) {
+  if (text?.title) return text.title;
+  const firstReal = text?.sentences?.find((sentence) => !sentence.header) || text?.sentences?.[0];
+  const first = firstReal?.source || "";
+  return first ? (first.length > 40 ? `${first.slice(0, 40)}…` : first) : "Untitled text";
+}
+
+// ChatGPT export format, one block (blank-line separated) per line of the song:
+//   original line
+//   translation line
+//   word | gloss | word | gloss | ...
+// A block whose two text lines are both wrapped in [brackets] is a section header.
+function parseGlossLine(line) {
+  const parts = String(line).split("|").map((part) => part.trim());
+  const glosses = [];
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    if (parts[i]) glosses.push({ w: parts[i], t: parts[i + 1] || "" });
+  }
+  return glosses;
+}
+
+function parseChatGptText(raw) {
+  const text = String(raw || "").replace(/\r\n?/g, "\n").trim();
+  if (!text) return [];
+  const sentences = [];
+  text.split(/\n\s*\n+/).forEach((block) => {
+    const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+    if (!lines.length) return;
+    const glossIndex = lines.findIndex((line) => line.includes("|"));
+    let source = "";
+    let translation = "";
+    let glosses = [];
+    if (glossIndex === -1) {
+      source = lines[0] || "";
+      translation = lines[1] || "";
+    } else {
+      glosses = parseGlossLine(lines[glossIndex]);
+      const textLines = lines.filter((_, index) => index !== glossIndex);
+      source = textLines[0] || "";
+      translation = textLines[1] || "";
+    }
+    const header = /^\[.*\]$/.test(source) && /^\[.*\]$/.test(translation);
+    if (header) {
+      source = source.replace(/^\[|\]$/g, "").trim();
+      translation = translation.replace(/^\[|\]$/g, "").trim();
+    }
+    if (source || translation) sentences.push({ source, translation, glosses, header });
+  });
+  return sentences;
+}
+
+const CHATGPT_PROMPT = `Translate to english. Make the format as follow:
+original song line 1
+line 1 translation
+word 1 in original song | word 1 translation within the context of original song | word 2 in original song | ......
+original song line 2
+.......
+
+The song is:
+`;
+
 function normalizeSetup(setup) {
   const learnLanguage = cleanLanguageName(setup?.learnLanguage, DEFAULT_SETUP.learnLanguage);
   const fromLanguage = cleanLanguageName(setup?.fromLanguage, DEFAULT_SETUP.fromLanguage);
@@ -1761,6 +2989,7 @@ function normalizeSetup(setup) {
     fromLanguageCode: cleanLanguageCode(setup?.fromLanguageCode, fromLanguage),
     settings,
     words,
+    texts: normalizeTexts(setup?.texts),
   };
 }
 
@@ -1809,6 +3038,115 @@ function answerLanguageCodeForCurrentCard() {
     : setup.learnLanguageCode;
 }
 
+// ---------------------------------------------------------------------------
+// Native speech bridge
+//
+// When this page runs inside the Android WebView shell, the host injects a
+// `window.AndroidSpeech` object (a @JavascriptInterface) that exposes the
+// device's native Text-to-Speech and SpeechRecognizer. We prefer it because it
+// is faster and higher quality on Android than the in-browser Whisper model.
+// On the web (or any host without the bridge) these helpers return null and the
+// app falls back to Web Speech synthesis + Whisper transcription unchanged.
+// ---------------------------------------------------------------------------
+
+function nativeSpeech() {
+  return typeof window !== "undefined" && window.AndroidSpeech
+    ? window.AndroidSpeech
+    : null;
+}
+
+function nativeTtsAvailable() {
+  const bridge = nativeSpeech();
+  return bridge && typeof bridge.speak === "function" ? bridge : null;
+}
+
+function nativeSttAvailable() {
+  const bridge = nativeSpeech();
+  return bridge && typeof bridge.startRecognition === "function" ? bridge : null;
+}
+
+function startNativeSpeechRecognition() {
+  const bridge = nativeSttAvailable();
+  if (!bridge) return false;
+  const languageCode = speechLanguageCodeForCurrentCard() || "";
+  state.speech.native = true;
+  state.speech.recording = true;
+  state.speech.transcribing = false;
+  logSpeechStep("native recognition start", languageCode || "default");
+  setSpeechStatus(`Listening for ${speechLanguageNameForCurrentCard()}...`);
+  updateSpeechControls();
+  try {
+    // Pass the trailing-silence threshold so the recognizer finalizes shortly
+    // after the user stops talking (default 0.5s), configurable in Settings.
+    bridge.startRecognition(languageCode, Math.round(state.settings.speakingSilenceMs) || 500);
+    return true;
+  } catch (error) {
+    state.speech.native = false;
+    state.speech.recording = false;
+    setSpeechStatus("Could not start speech recognition.");
+    logSpeechStep("native start failed", error?.message || String(error));
+    updateSpeechControls();
+    return true;
+  }
+}
+
+function resetNativeSpeechState() {
+  state.speech.native = false;
+  state.speech.recording = false;
+  state.speech.transcribing = false;
+}
+
+// Callbacks invoked by the Android host after it runs native recognition.
+window.NativeSpeech = {
+  onPartial(text) {
+    if (!state.speech.native || !state.speech.recording) return;
+    const partial = String(text || "").trim();
+    if (partial) setSpeechStatus(`Hearing: ${partial}`);
+  },
+  onResult(text) {
+    if (!state.speech.native) return;
+    resetNativeSpeechState();
+    const heard = String(text || "").trim();
+    if (heard) {
+      elements.answerInput.value = heard;
+      elements.answerInput.focus();
+      setSpeechStatus(`Heard: ${heard}`);
+      logSpeechStep("native result", heard);
+    } else {
+      setSpeechStatus("No words detected.");
+      logSpeechStep("native empty result");
+    }
+    updateSpeechControls();
+    handleSpokenAnswerFilled(heard);
+  },
+  onError(message) {
+    if (!state.speech.native) return;
+    resetNativeSpeechState();
+    const detail = String(message || "").trim();
+    updateSpeechControls();
+    // In hands-free mode, silence isn't a failure — keep listening until the
+    // user actually speaks.
+    if (
+      isSpeakingMode() &&
+      state.currentCard &&
+      !state.revealed &&
+      document.querySelector(".screen.active")?.id === "studyScreen" &&
+      ["no match", "no speech", "recognizer busy"].includes(detail)
+    ) {
+      setSpeechStatus("Listening…");
+      logSpeechStep("native restart", detail);
+      startSpeakingListenNow(300);
+      return;
+    }
+    setSpeechStatus(detail ? `Could not recognize speech (${detail}).` : "Could not recognize speech.");
+    logSpeechStep("native error", detail);
+  },
+  // Fired by the Android host when native text-to-speech finishes an utterance.
+  onSpeakDone() {
+    runSpeakDoneAction();
+  },
+};
+
 function findVoiceForLanguage(languageCode) {
   const voices = window.speechSynthesis?.getVoices?.() || [];
   return (
@@ -1823,11 +3161,31 @@ function stopTextToSpeech() {
   window.clearTimeout(state.speech.ttsTimer);
   state.speech.ttsTimer = null;
   state.speech.currentUtterance = null;
+  const bridge = nativeTtsAvailable();
+  if (bridge && typeof bridge.stopSpeaking === "function") {
+    try {
+      bridge.stopSpeaking();
+    } catch (error) {
+      /* ignore */
+    }
+  }
   window.speechSynthesis?.cancel?.();
 }
 
-function speakText(text, languageCode) {
-  if (!state.settings.speakPrompts || !text) return;
+function speakText(text, languageCode, force = false) {
+  if ((!state.settings.speakPrompts && !force) || !text) return;
+
+  const bridge = nativeTtsAvailable();
+  if (bridge) {
+    stopTextToSpeech();
+    try {
+      bridge.speak(String(text), languageCode || "");
+    } catch (error) {
+      console.warn("Native text-to-speech failed.", error);
+    }
+    return;
+  }
+
   if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
     console.warn("Speech synthesis is not available in this browser.");
     return;
@@ -1837,10 +3195,13 @@ function speakText(text, languageCode) {
   const token = state.speech.ttsToken;
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = languageCode;
+  utterance.rate = TTS_RATE;
   utterance.voice = findVoiceForLanguage(languageCode);
   utterance.onend = utterance.onerror = () => {
     if (token !== state.speech.ttsToken) return;
     state.speech.currentUtterance = null;
+    // Drive any queued after-speech action (Web Speech fallback for onSpeakDone).
+    runSpeakDoneAction();
   };
   state.speech.currentUtterance = utterance;
   state.speech.ttsTimer = window.setTimeout(() => {
@@ -1885,7 +3246,7 @@ function updateSpeechControls() {
   const canSpeak =
     Boolean(state.currentCard) &&
     !state.revealed &&
-    state.words.length > 0 &&
+    (state.words.length > 0 || Boolean(state.studyText)) &&
     !state.speech.transcribing;
 
   elements.speakAnswerButton.disabled = !canSpeak && !state.speech.recording;
@@ -1953,6 +3314,12 @@ async function startSpeechRecording() {
   resetSpeechLog();
   logSpeechStep("speak clicked", `${speechLanguageNameForCurrentCard()} (${speechLanguageCodeForCurrentCard()})`);
 
+  // Prefer the Android host's native SpeechRecognizer when available.
+  if (nativeSttAvailable()) {
+    startNativeSpeechRecognition();
+    return;
+  }
+
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
     setSpeechStatus("Speech input needs microphone support in this browser.");
     logSpeechStep("microphone unavailable");
@@ -2014,6 +3381,24 @@ function stopSpeechRecording() {
   logSpeechStep("recording stop requested");
   window.clearTimeout(state.speech.stopTimer);
   state.speech.stopTimer = null;
+
+  // Native path: ask the host to finalize recognition; NativeSpeech.onResult
+  // (or onError) will clear the recording state and fill in the answer.
+  if (state.speech.native) {
+    state.speech.recording = false;
+    setSpeechStatus("Transcribing...");
+    updateSpeechControls();
+    const bridge = nativeSttAvailable();
+    if (bridge && typeof bridge.stopRecognition === "function") {
+      try {
+        bridge.stopRecognition();
+      } catch (error) {
+        /* ignore */
+      }
+    }
+    return;
+  }
+
   state.speech.recording = false;
   setSpeechStatus("Transcribing...");
   updateSpeechControls();
@@ -2064,6 +3449,7 @@ async function transcribeRecordedSpeech() {
     elements.answerInput.focus();
     setSpeechStatus(`Heard: ${text} (${speechModelLabel()})`);
     logSpeechStep("answer filled", text);
+    handleSpokenAnswerFilled(text);
   } catch (error) {
     console.warn("Could not transcribe speech.", error);
     setSpeechStatus("Could not transcribe that recording.");
@@ -2093,6 +3479,7 @@ function serializableSetups() {
     fromLanguageCode: setup.fromLanguageCode,
     settings: normalizeSetupSettings(setup.settings),
     words: setup.words.map((entry) => normalizeWordEntry(entry, normalizeSetupSettings(setup.settings))),
+    texts: normalizeTexts(setup.texts),
   }));
 }
 
@@ -2176,6 +3563,7 @@ function normalizeSettings(settings) {
   const speechModelId = SPEECH_MODEL_OPTIONS.some((option) => option.id === settings?.speechModelId)
     ? settings.speechModelId
     : DEFAULT_SETTINGS.speechModelId;
+  const speakingSilenceMs = Number.parseFloat(settings?.speakingSilenceMs);
   return {
     speechModelId,
     speechMaxSeconds: Number.isNaN(speechMaxSeconds)
@@ -2185,6 +3573,10 @@ function normalizeSettings(settings) {
       typeof settings?.speakPrompts === "boolean"
         ? settings.speakPrompts
         : DEFAULT_SETTINGS.speakPrompts,
+    speakingSilenceMs: Number.isNaN(speakingSilenceMs)
+      ? DEFAULT_SETTINGS.speakingSilenceMs
+      : Math.max(300, Math.min(5000, speakingSilenceMs)),
+    inputMode: ["speaking", "reveal"].includes(settings?.inputMode) ? settings.inputMode : "normal",
   };
 }
 
@@ -2611,6 +4003,22 @@ function mergeWord(baseWord, localWord, remoteWord, setupSettings) {
   }, setupSettings);
 }
 
+function mergeTexts(baseSetup, localSetup, remoteSetup) {
+  // Union texts by id; on conflict keep the most recently edited version.
+  const byId = new Map();
+  const add = (texts) =>
+    (texts || []).forEach((text) => {
+      const existing = byId.get(text.id);
+      if (!existing || (Number(text.updatedAt) || 0) >= (Number(existing.updatedAt) || 0)) {
+        byId.set(text.id, text);
+      }
+    });
+  add(baseSetup?.texts);
+  add(remoteSetup?.texts);
+  add(localSetup?.texts);
+  return [...byId.values()];
+}
+
 function mergeSetup(baseSetup, localSetup, remoteSetup) {
   const fallback = localSetup || remoteSetup || baseSetup;
   const settings = mergeSetupSettings(baseSetup, localSetup, remoteSetup);
@@ -2629,6 +4037,7 @@ function mergeSetup(baseSetup, localSetup, remoteSetup) {
     fromLanguageCode: fallback.fromLanguageCode,
     settings,
     words,
+    texts: mergeTexts(baseSetup, localSetup, remoteSetup),
   });
 }
 
@@ -2909,6 +4318,86 @@ async function configureAuthPersistence(authModule) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Native Google sign-in bridge
+//
+// Google blocks its OAuth flow inside embedded WebViews, so the Android shell
+// injects `window.AndroidAuth`. We ask it to run native Google Sign-In, receive
+// an ID token, and exchange it for a Firebase credential with
+// signInWithCredential. On the web this bridge is absent and we use the normal
+// popup/redirect flow below.
+// ---------------------------------------------------------------------------
+
+function nativeAuthBridge() {
+  return typeof window !== "undefined" &&
+    window.AndroidAuth &&
+    typeof window.AndroidAuth.signInWithGoogle === "function"
+    ? window.AndroidAuth
+    : null;
+}
+
+function requestNativeGoogleIdToken() {
+  const bridge = nativeAuthBridge();
+  if (!bridge) return Promise.reject(new Error("Native Google sign-in is not available."));
+  return new Promise((resolve, reject) => {
+    state.sync.nativeAuthResolvers = { resolve, reject };
+    try {
+      bridge.signInWithGoogle();
+    } catch (error) {
+      state.sync.nativeAuthResolvers = null;
+      reject(error);
+    }
+  });
+}
+
+// Callbacks invoked by the Android host after native Google Sign-In.
+window.NativeAuth = {
+  onGoogleIdToken(idToken) {
+    const resolvers = state.sync.nativeAuthResolvers;
+    state.sync.nativeAuthResolvers = null;
+    if (resolvers) resolvers.resolve(String(idToken || ""));
+  },
+  onError(message) {
+    const resolvers = state.sync.nativeAuthResolvers;
+    state.sync.nativeAuthResolvers = null;
+    if (resolvers) resolvers.reject(new Error(String(message || "cancelled")));
+  },
+};
+
+async function signInWithNativeGoogle() {
+  const { GoogleAuthProvider, signInWithCredential } = state.sync.modules.auth;
+  setCloudStatus("syncing", "Opening Google sign-in...");
+  try {
+    const idToken = await withCloudTimeout(
+      requestNativeGoogleIdToken(),
+      "Google sign-in",
+      60000,
+    );
+    if (!idToken) {
+      setCloudStatus("idle", "Google sign-in was cancelled.");
+      return;
+    }
+    const credential = GoogleAuthProvider.credential(idToken);
+    const result = await withCloudTimeout(
+      signInWithCredential(state.sync.auth, credential),
+      "Google sign-in",
+    );
+    state.sync.user = result.user || state.sync.auth.currentUser;
+    if (state.sync.user) {
+      await finishSignedInCloudSession(state.sync.user);
+    } else {
+      setCloudStatus("error", "Google sign-in finished, but no Firebase user was returned.");
+    }
+  } catch (error) {
+    if (error?.message === "cancelled") {
+      setCloudStatus("idle", "Google sign-in was cancelled.");
+      return;
+    }
+    console.warn("Native Google sign-in failed.", error);
+    setCloudStatus("error", firebaseErrorMessage(error, "Google sign-in failed."));
+  }
+}
+
 async function signInToCloud(options = {}) {
   const { offerMigration = true } = options;
   try {
@@ -2921,8 +4410,6 @@ async function signInToCloud(options = {}) {
     return;
   }
 
-  const { GoogleAuthProvider, signInWithPopup, signInWithRedirect } = state.sync.modules.auth;
-  const provider = new GoogleAuthProvider();
   state.pendingLocalMigration = null;
   if (offerMigration && state.accountMode === "local" && hasMeaningfulLocalState()) {
     const migrate = window.confirm(
@@ -2931,6 +4418,15 @@ async function signInToCloud(options = {}) {
     if (migrate) state.pendingLocalMigration = cloneAppState();
   }
   saveAccountMode("google");
+
+  // In the Android WebView shell, use native Google Sign-In instead of a popup.
+  if (nativeAuthBridge()) {
+    await signInWithNativeGoogle();
+    return;
+  }
+
+  const { GoogleAuthProvider, signInWithPopup, signInWithRedirect } = state.sync.modules.auth;
+  const provider = new GoogleAuthProvider();
   setCloudStatus("syncing", "Opening Google sign-in...");
 
   try {
@@ -3798,8 +5294,180 @@ function chooseNextWord() {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Hands-free "Speaking" mode
+//
+// In speaking mode the app drives the whole loop by voice: it opens the mic on
+// each new card, auto-checks the answer once you stop talking, reads the correct
+// answer aloud, and advances to the next word after a short pause.
+// ---------------------------------------------------------------------------
+
+function isSpeakingMode() {
+  return state.settings.inputMode === "speaking";
+}
+
+function cancelSpeakingTimers() {
+  window.clearTimeout(state.speech.speakingListenTimer);
+  window.clearTimeout(state.speech.speakDoneFallback);
+  state.speech.speakingListenTimer = null;
+  state.speech.speakDoneFallback = null;
+  state.speech.onSpeakDoneAction = null;
+}
+
+// Speak `text`, then run `action` once speech genuinely finishes. We wait for the
+// real end-of-speech (native TextToSpeech onDone / Web Speech onend) so the mic is
+// never opened while the app is still talking — that stops the recognizer from
+// hearing the app's own voice.
+function speakThen(text, languageCode, action) {
+  runSpeakDoneAction(); // flush any earlier pending action
+  state.speech.onSpeakDoneAction = typeof action === "function" ? action : null;
+  window.clearTimeout(state.speech.speakDoneFallback);
+  // Fallback in case an end-of-speech event never arrives.
+  const estimate = Math.min(15000, 1200 + String(text || "").length * 90);
+  state.speech.speakDoneFallback = window.setTimeout(runSpeakDoneAction, estimate);
+  speakText(text, languageCode, true);
+}
+
+function runSpeakDoneAction() {
+  window.clearTimeout(state.speech.speakDoneFallback);
+  state.speech.speakDoneFallback = null;
+  const action = state.speech.onSpeakDoneAction;
+  state.speech.onSpeakDoneAction = null;
+  if (typeof action === "function") action();
+}
+
+// Open the mic shortly after (never during) any spoken prompt/answer.
+function startSpeakingListenNow(delay = 150) {
+  window.clearTimeout(state.speech.speakingListenTimer);
+  state.speech.speakingListenTimer = window.setTimeout(() => {
+    if (
+      isSpeakingMode() &&
+      document.querySelector(".screen.active")?.id === "studyScreen" &&
+      state.currentCard &&
+      !state.revealed &&
+      !state.speech.recording &&
+      !state.speech.transcribing
+    ) {
+      startSpeechRecording();
+    }
+  }, delay);
+}
+
+// New card in hands-free mode: read the prompt aloud (if enabled), then — only
+// after it finishes speaking — start listening.
+function startSpeakingCard() {
+  if (!isSpeakingMode()) return;
+  cancelSpeakingTimers();
+  const prompt = state.currentCard?.spokenPrompt;
+  if (state.settings.speakPrompts && prompt) {
+    speakThen(prompt, promptLanguageCodeForCurrentCard(), () => startSpeakingListenNow(200));
+  } else {
+    startSpeakingListenNow(200);
+  }
+}
+
+// Called after a spoken answer fills the input (native or Whisper path).
+function handleSpokenAnswerFilled(text) {
+  if (!isSpeakingMode() || !state.currentCard || state.revealed) return;
+  if (String(text || "").trim()) {
+    revealAnswer();
+  } else {
+    // Heard nothing usable — keep listening until the user actually speaks.
+    setSpeechStatus("Listening…");
+    startSpeakingListenNow(300);
+  }
+}
+
+function isRevealMode() {
+  return state.settings.inputMode === "reveal";
+}
+
+function updateAnswerModeUI() {
+  const reveal = isRevealMode();
+  elements.answerInput.style.display = reveal ? "none" : "";
+  elements.speakAnswerButton.style.display = reveal ? "none" : "";
+}
+
+function updateModeControls() {
+  const mode = state.settings.inputMode;
+  elements.typeModeButton.classList.toggle("active", mode === "normal");
+  elements.speakingModeButton.classList.toggle("active", mode === "speaking");
+  elements.revealModeButton.classList.toggle("active", mode === "reveal");
+  updateAnswerModeUI();
+  updateStudyOptionsSummary();
+}
+
+// ---- Collapsible study options + summary ----
+
+function inputModeLabel() {
+  return state.settings.inputMode === "speaking"
+    ? "Hands-free"
+    : state.settings.inputMode === "reveal"
+      ? "Reveal"
+      : "Type";
+}
+
+function directionLabel() {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  if (state.direction === "mixed") return "Mixed";
+  return state.direction === "en-el"
+    ? `${setup.fromLanguage} → ${setup.learnLanguage}`
+    : `${setup.learnLanguage} → ${setup.fromLanguage}`;
+}
+
+function updateStudyOptionsSummary() {
+  if (!elements.studyOptionsSummary) return;
+  const studying = state.studyText ? `Text · ${textTitle(state.studyText)}` : "Words";
+  elements.studyOptionsSummary.textContent =
+    `${studying}  ·  ${directionLabel()}  ·  ${inputModeLabel()}`;
+}
+
+function toggleStudyOptions(force) {
+  const panel = elements.studyOptionsPanel;
+  const open = typeof force === "boolean" ? force : panel.hidden;
+  panel.hidden = !open;
+  elements.studyOptionsToggle.setAttribute("aria-expanded", String(open));
+}
+
+// ---- Big revealed answer ("solution", same size as the prompt) ----
+
+function hideSolution() {
+  elements.solutionWord.hidden = true;
+  elements.solutionWord.classList.remove("prompt-sentence", "solution-incorrect");
+  elements.solutionWord.textContent = "";
+}
+
+function showSolution(card, correct = true) {
+  if (!card) return;
+  elements.solutionWord.textContent = joinVariants(card.answers);
+  elements.solutionWord.classList.toggle("prompt-sentence", Boolean(card.isText));
+  elements.solutionWord.classList.toggle("solution-incorrect", !correct);
+  elements.solutionWord.hidden = false;
+}
+
+function setInputMode(mode) {
+  const next = ["speaking", "reveal", "normal"].includes(mode) ? mode : "normal";
+  if (state.settings.inputMode === next) return;
+  state.settings.inputMode = next;
+  saveSettings();
+  updateModeControls();
+  cancelSpeakingTimers();
+  if (next === "speaking") {
+    if (state.currentCard && !state.revealed) startSpeakingCard();
+  } else if (state.speech.recording) {
+    stopSpeechRecording();
+  }
+  // Refresh the current card's answer area / button label for the new mode.
+  if (!state.revealed) renderQuiz();
+}
+
 function nextCard() {
   stopTextToSpeech();
+  cancelSpeakingTimers();
+  if (state.studyText) {
+    showTextSentence();
+    return;
+  }
   const pool = studyWords();
   if (!pool.length) {
     state.currentCard = null;
@@ -3838,8 +5506,12 @@ function nextCard() {
   elements.answerInput.value = "";
   setSpeechStatus("");
   renderQuiz();
-  speakCurrentPrompt();
-  elements.answerInput.focus();
+  if (isSpeakingMode()) {
+    startSpeakingCard();
+  } else {
+    speakCurrentPrompt();
+    elements.answerInput.focus();
+  }
 }
 
 function answerMatches(input, answers) {
@@ -3967,6 +5639,7 @@ function renderSettingsDialog() {
   elements.mistakeSizesInput.value = setupSettings.mistakeCategorySizes.join(", ");
   elements.unclassifiedCorrectCategoryInput.value = setupSettings.unclassifiedCorrectCategory;
   elements.speechMaxSecondsInput.value = state.settings.speechMaxSeconds;
+  elements.speakingSilenceInput.value = (state.settings.speakingSilenceMs / 1000).toFixed(1);
   elements.speakPromptsInput.checked = state.settings.speakPrompts;
   elements.speechModelSelect.innerHTML = "";
   SPEECH_MODEL_OPTIONS.forEach((option) => {
@@ -4009,6 +5682,7 @@ async function saveSettingsFromDialog(options = {}) {
   const unclassifiedCorrectCategoryRaw = elements.unclassifiedCorrectCategoryInput.value.trim();
   const unclassifiedCorrectCategory = Number(unclassifiedCorrectCategoryRaw);
   const speechMaxSeconds = Number.parseFloat(elements.speechMaxSecondsInput.value);
+  const speakingSilenceSeconds = Number.parseFloat(elements.speakingSilenceInput.value);
   const speechModelId = elements.speechModelSelect.value || DEFAULT_SETTINGS.speechModelId;
   const speakPrompts = elements.speakPromptsInput.checked;
   const previousSpeechModelId = state.settings.speechModelId;
@@ -4039,6 +5713,11 @@ async function saveSettingsFromDialog(options = {}) {
     return false;
   }
 
+  if (Number.isNaN(speakingSilenceSeconds) || speakingSilenceSeconds < 0.3 || speakingSilenceSeconds > 5) {
+    elements.settingsMessage.textContent = "Hands-free wait must be between 0.3 and 5 seconds.";
+    return false;
+  }
+
   if (
     !unclassifiedCorrectCategoryRaw ||
     !Number.isInteger(unclassifiedCorrectCategory) ||
@@ -4063,6 +5742,8 @@ async function saveSettingsFromDialog(options = {}) {
     speechModelId,
     speechMaxSeconds,
     speakPrompts,
+    speakingSilenceMs: Math.round(speakingSilenceSeconds * 1000),
+    inputMode: ["speaking", "reveal"].includes(state.settings.inputMode) ? state.settings.inputMode : "normal",
   };
   if (!speakPrompts) stopTextToSpeech();
   if (speechModelId !== previousSpeechModelId) {
@@ -4072,13 +5753,13 @@ async function saveSettingsFromDialog(options = {}) {
   }
   saveSettings();
   applySettingsToWords();
-  if (state.currentCard && !wordCategoryAllowed(state.currentCard.entry)) {
+  if (state.currentCard && !state.currentCard.isText && !wordCategoryAllowed(state.currentCard.entry)) {
     state.currentCard = null;
     state.revealed = false;
   }
   await persistWords();
   elements.settingsMessage.textContent = showMessage ? "Saved." : "";
-  if (closeDialog) elements.settingsDialog.close();
+  if (closeDialog) showScreen("studyScreen");
   render();
   return true;
 }
@@ -4178,6 +5859,10 @@ async function saveEditedWords() {
 
 async function revealAnswer() {
   if (!state.currentCard) return;
+  if (state.currentCard.isText) {
+    revealTextAnswer();
+    return;
+  }
 
   const isCorrect = answerMatches(elements.answerInput.value, state.currentCard.answers);
   const entry = state.currentCard.entry;
@@ -4199,17 +5884,14 @@ async function revealAnswer() {
   }
   entry.lastAnsweredAt = answeredAt;
 
+  showSolution(state.currentCard, isCorrect);
   elements.feedback.className = `feedback ${isCorrect ? "correct" : "incorrect"}`;
-  const answersText = document.createElement("strong");
-  answersText.textContent = joinVariants(state.currentCard.answers);
   const categoryText = document.createElement("strong");
   categoryText.textContent = String(entry.mistakeCategory);
 
   if (isCorrect) {
     elements.feedback.replaceChildren(
-      "Correct. Accepted: ",
-      answersText,
-      ". Mistake category is now ",
+      "Correct. Mistake category is now ",
       categoryText,
       ". ",
       createEditCurrentWordButton(),
@@ -4227,9 +5909,7 @@ async function revealAnswer() {
     wasCorrectButton.textContent = "I was correct";
     wasCorrectButton.addEventListener("click", markCurrentAnswerCorrect);
     elements.feedback.replaceChildren(
-      "Not quite. Accepted: ",
-      answersText,
-      ". Mistake category is now ",
+      "Not quite. Mistake category is now ",
       categoryText,
       ". ",
       wasCorrectButton,
@@ -4244,7 +5924,15 @@ async function revealAnswer() {
   elements.notesPanel.textContent = entry.notes || "";
   updateSpeechControls();
   renderWords();
-  speakLearnedLanguageAnswer();
+  if (isSpeakingMode()) {
+    // Read the correct answer aloud, then advance only after it finishes
+    // speaking (so the next prompt/mic never overlaps this speech).
+    speakThen(state.currentCard.answers?.[0], answerLanguageCodeForCurrentCard(), () => {
+      if (isSpeakingMode()) advanceCard();
+    });
+  } else {
+    speakLearnedLanguageAnswer();
+  }
   await persistWords();
 }
 
@@ -4297,6 +5985,15 @@ function renderWords() {
 }
 
 function renderQuiz() {
+  renderStudyContent();
+  updateAnswerModeUI();
+  if (state.studyText) {
+    renderTextQuiz();
+    return;
+  }
+  hideWordGloss();
+  if (!state.revealed) hideSolution();
+  elements.promptWord.classList.remove("prompt-sentence");
   if (state.currentCard && !wordCategoryAllowed(state.currentCard.entry)) {
     state.currentCard = null;
     state.revealed = false;
@@ -4370,7 +6067,7 @@ function renderQuiz() {
     elements.feedback.className = "feedback";
     elements.feedback.textContent = "";
     elements.notesPanel.textContent = "";
-    elements.submitAnswerButton.textContent = "Check";
+    elements.submitAnswerButton.textContent = isRevealMode() ? "Show answer" : "Check";
   }
 
   updateSpeechControls();
@@ -4391,6 +6088,7 @@ function renderDirections() {
     button.classList.toggle("active", state.direction === direction);
     button.disabled = !currentSetup();
   });
+  updateStudyOptionsSummary();
 }
 
 function renderSetupControls() {
@@ -4431,7 +6129,6 @@ function renderSetupControls() {
   elements.saveCsvButton.disabled = !setup;
   elements.copyCsvButton.disabled = !setup;
   elements.downloadCsvButton.disabled = !setup;
-  elements.settingsButton.disabled = !setup;
 
   const headers = elements.editWordsDialog.querySelectorAll("th");
   if (headers[0]) headers[0].textContent = displaySetup.learnLanguage;
@@ -4444,8 +6141,9 @@ function render() {
   renderCloudControls();
   renderSetupControls();
   renderWords();
+  renderTexts();
   renderDirections();
-  if (currentSetup() && !state.currentCard && state.words.length) {
+  if (currentSetup() && !state.currentCard && !state.studyText && state.words.length) {
     nextCard();
     return;
   }
@@ -4591,26 +6289,55 @@ elements.pasteCsvButton.addEventListener("click", () => {
   elements.pasteCsvTextarea.focus();
 });
 
-elements.settingsButton.addEventListener("click", () => {
-  renderSettingsDialog();
-  elements.settingsDialog.showModal();
-});
+// ---- Bottom navigation between screens ----
+const navButtons = [...document.querySelectorAll(".nav-item")];
 
-elements.cloudButton.addEventListener("click", () => {
-  if (state.sync.status !== "error") setCloudMessage("");
-  renderCloudControls();
-  elements.cloudDialog.showModal();
-  if (
-    state.sync.user
-    && state.sync.db
-    && state.sync.status !== "syncing"
-    && (!state.sync.lastCloudUpdatedAtMillis || state.sync.status === "error")
-  ) {
-    syncCloudAfterSignIn().catch((error) => {
-      console.warn("Could not retry cloud sync.", error);
-      setCloudStatus("error", firebaseErrorMessage(error, "Signed in, but cloud sync failed."));
-    });
+function showScreen(screenId) {
+  const previous = document.querySelector(".screen.active");
+  // Persist any pending edits when leaving the Settings tab.
+  if (previous && previous.id === "settingsScreen" && screenId !== "settingsScreen") {
+    saveSettingsFromDialog({ closeDialog: false, showMessage: false });
   }
+
+  // Stop the hands-free loop whenever we leave the Study screen.
+  if (screenId !== "studyScreen") {
+    cancelSpeakingTimers();
+    if (state.speech.recording) stopSpeechRecording();
+  }
+
+  document.querySelectorAll(".screen").forEach((screen) => {
+    screen.classList.toggle("active", screen.id === screenId);
+  });
+  navButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.screen === screenId);
+  });
+  window.scrollTo(0, 0);
+
+  if (screenId === "settingsScreen") {
+    renderSettingsDialog();
+    if (state.sync.status !== "error") setCloudMessage("");
+    renderCloudControls();
+    if (
+      state.sync.user
+      && state.sync.db
+      && state.sync.status !== "syncing"
+      && (!state.sync.lastCloudUpdatedAtMillis || state.sync.status === "error")
+    ) {
+      syncCloudAfterSignIn().catch((error) => {
+        console.warn("Could not retry cloud sync.", error);
+        setCloudStatus("error", firebaseErrorMessage(error, "Signed in, but cloud sync failed."));
+      });
+    }
+  }
+  if (screenId === "studyScreen") {
+    renderStudyContent();
+    if (isSpeakingMode() && state.currentCard && !state.revealed) startSpeakingListenNow(200);
+    else if (!isRevealMode()) elements.answerInput.focus();
+  }
+}
+
+navButtons.forEach((button) => {
+  button.addEventListener("click", () => showScreen(button.dataset.screen));
 });
 
 elements.defaultDatabaseButton.addEventListener("click", () => {
@@ -4632,15 +6359,6 @@ elements.closeNewSetupDialogButton.addEventListener("click", () => {
 
 elements.closeEditDialogButton.addEventListener("click", () => {
   elements.editWordsDialog.close();
-});
-
-elements.closeSettingsDialogButton.addEventListener("click", () => {
-  saveSettingsFromDialog({ closeDialog: false, showMessage: false });
-  elements.settingsDialog.close();
-});
-
-elements.closeCloudDialogButton.addEventListener("click", () => {
-  elements.cloudDialog.close();
 });
 
 elements.closeDefaultDatabaseDialogButton.addEventListener("click", () => {
@@ -4680,19 +6398,11 @@ elements.newSetupDialog.querySelector("form").addEventListener("submit", (event)
   createNewSetup();
 });
 
-elements.cancelSettingsButton.addEventListener("click", () => {
-  saveSettingsFromDialog({ closeDialog: false, showMessage: false });
-  elements.settingsDialog.close();
-});
-
-elements.saveSettingsButton.addEventListener("click", () =>
-  saveSettingsFromDialog({ closeDialog: true, showMessage: false }),
-);
-
 [
   elements.mistakeDelaysInput,
   elements.mistakeSizesInput,
   elements.unclassifiedCorrectCategoryInput,
+  elements.speakingSilenceInput,
   elements.speechModelSelect,
   elements.speechMaxSecondsInput,
   elements.speakPromptsInput,
@@ -4753,13 +6463,21 @@ elements.importWordsButton.addEventListener("click", async () => {
 elements.answerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  if (!state.currentCard && studyWords().length) {
+  // Text study: nothing to do once the text is finished (no current card).
+  if (state.studyText && !state.currentCard) return;
+
+  if (!state.currentCard && !state.studyText && studyWords().length) {
     nextCard();
     return;
   }
 
   if (state.revealed) {
-    nextCard();
+    advanceCard();
+    return;
+  }
+
+  if (isRevealMode() && state.currentCard) {
+    revealSelfGrade();
     return;
   }
 
@@ -4767,6 +6485,12 @@ elements.answerForm.addEventListener("submit", async (event) => {
 });
 
 elements.speakAnswerButton.addEventListener("click", toggleSpeechRecording);
+
+// Tap any word in a text sentence to see its translation.
+elements.promptWord.addEventListener("click", (event) => {
+  const span = event.target.closest(".tap-word");
+  if (span) glossWord(span.textContent);
+});
 
 document.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() !== "m" || (!event.ctrlKey && !event.metaKey)) return;
@@ -4785,6 +6509,22 @@ document.addEventListener("keydown", (event) => {
     nextCard();
     renderDirections();
   });
+});
+
+elements.typeModeButton.addEventListener("click", () => setInputMode("normal"));
+elements.speakingModeButton.addEventListener("click", () => setInputMode("speaking"));
+elements.revealModeButton.addEventListener("click", () => setInputMode("reveal"));
+elements.studyOptionsToggle.addEventListener("click", () => toggleStudyOptions());
+
+elements.studyContentSelect.addEventListener("change", () => {
+  const value = elements.studyContentSelect.value;
+  if (!value) {
+    exitTextStudy();
+    return;
+  }
+  const text = (currentSetup()?.texts || []).find((entry) => entry.id === value);
+  if (text) startTextStudy(text);
+  else exitTextStudy();
 });
 
 elements.openCsvButton.addEventListener("click", async () => {
@@ -4828,6 +6568,861 @@ elements.downloadCsvButton.addEventListener("click", downloadCsv);
 
 elements.copyCsvButton.addEventListener("click", copyCsvToClipboard);
 
+// ---------------------------------------------------------------------------
+// Offline translation (Android on-device ML Kit bridge)
+// ---------------------------------------------------------------------------
+
+const translatePending = new Map();
+let translateRequestSeq = 0;
+
+function nativeTranslate() {
+  return typeof window !== "undefined" &&
+    window.AndroidTranslate &&
+    typeof window.AndroidTranslate.translate === "function"
+    ? window.AndroidTranslate
+    : null;
+}
+
+window.NativeTranslate = {
+  onResult(requestId, text) {
+    const pending = translatePending.get(requestId);
+    if (!pending) return;
+    translatePending.delete(requestId);
+    pending.resolve(String(text || ""));
+  },
+  onError(requestId, message) {
+    const pending = translatePending.get(requestId);
+    if (!pending) return;
+    translatePending.delete(requestId);
+    pending.reject(new Error(String(message || "Translation failed.")));
+  },
+};
+
+function translateWithNative(text, fromCode, toCode) {
+  const bridge = nativeTranslate();
+  if (!bridge) {
+    return Promise.reject(new Error("Offline translation is only available in the Android app."));
+  }
+  const requestId = `t${++translateRequestSeq}`;
+  return new Promise((resolve, reject) => {
+    translatePending.set(requestId, { resolve, reject });
+    try {
+      bridge.translate(requestId, String(text), fromCode || "", toCode || "");
+    } catch (error) {
+      translatePending.delete(requestId);
+      reject(error);
+    }
+  });
+}
+
+function populateTranslateLanguages() {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const build = (select, selectedCode) => {
+    if (!select) return;
+    select.innerHTML = "";
+    LANGUAGE_SHORTCUTS.forEach(([name, code]) => {
+      const option = document.createElement("option");
+      option.value = code;
+      option.textContent = name;
+      if (code === selectedCode) option.selected = true;
+      select.append(option);
+    });
+  };
+  build(elements.translateFromSelect, setup.fromLanguageCode);
+  build(elements.translateToSelect, setup.learnLanguageCode);
+}
+
+async function runTranslate() {
+  const text = elements.translateInput.value.trim();
+  elements.translateResult.textContent = "";
+  if (!text) {
+    elements.translateStatus.textContent = "";
+    return;
+  }
+  const fromCode = elements.translateFromSelect.value;
+  const toCode = elements.translateToSelect.value;
+  elements.translateStatus.textContent = "Translating…";
+  elements.translateButton.disabled = true;
+  try {
+    const result = await translateWithNative(text, fromCode, toCode);
+    elements.translateResult.textContent = result;
+    elements.translateStatus.textContent = "";
+  } catch (error) {
+    elements.translateStatus.textContent = error?.message || "Could not translate.";
+  } finally {
+    elements.translateButton.disabled = false;
+  }
+}
+
+function initTranslateFeature() {
+  if (!nativeTranslate()) return; // Android-only; leave the tab hidden on the web.
+  document.querySelector(".nav-translate")?.removeAttribute("hidden");
+  populateTranslateLanguages();
+
+  elements.translateButton.addEventListener("click", runTranslate);
+  elements.translateSwapButton.addEventListener("click", () => {
+    const from = elements.translateFromSelect.value;
+    elements.translateFromSelect.value = elements.translateToSelect.value;
+    elements.translateToSelect.value = from;
+  });
+  elements.translateInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      runTranslate();
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Text (paragraph) management UI
+// ---------------------------------------------------------------------------
+
+function renderTexts() {
+  const list = elements.textsList;
+  if (!list) return;
+  list.innerHTML = "";
+  const setup = currentSetup();
+  elements.addTextButton.disabled = !setup;
+  if (!setup) {
+    list.innerHTML = "";
+    const empty = document.createElement("p");
+    empty.className = "texts-empty";
+    empty.textContent = "Create a setup first to add texts.";
+    list.append(empty);
+    return;
+  }
+  const texts = setup.texts || [];
+  if (!texts.length) {
+    const empty = document.createElement("p");
+    empty.className = "texts-empty";
+    empty.textContent = "No texts yet. Add a paragraph to study it sentence by sentence.";
+    list.append(empty);
+    return;
+  }
+  texts.forEach((text) => {
+    const row = document.createElement("div");
+    row.className = "text-row";
+    const info = document.createElement("div");
+    info.className = "text-row-info";
+    const title = document.createElement("strong");
+    title.textContent = textTitle(text);
+    const meta = document.createElement("span");
+    meta.textContent = `${text.sentences.length} sentence${text.sentences.length === 1 ? "" : "s"}`;
+    info.append(title, meta);
+
+    const actions = document.createElement("div");
+    actions.className = "text-row-actions";
+    const studyBtn = document.createElement("button");
+    studyBtn.type = "button";
+    studyBtn.className = "primary";
+    studyBtn.textContent = "Study";
+    studyBtn.disabled = !text.sentences.length;
+    studyBtn.addEventListener("click", () => startTextStudy(text));
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.textContent = "Edit";
+    editBtn.addEventListener("click", () => openTextDialog(text));
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "delete-word";
+    delBtn.setAttribute("aria-label", "Delete text");
+    delBtn.textContent = "×";
+    delBtn.addEventListener("click", () => deleteText(text.id));
+    actions.append(studyBtn, editBtn, delBtn);
+
+    row.append(info, actions);
+    list.append(row);
+  });
+}
+
+function addSentenceRow(source = "", translation = "", glosses = [], header = false) {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const row = document.createElement("div");
+  row.className = header ? "sentence-row sentence-header" : "sentence-row";
+  row.dataset.glosses = JSON.stringify(glosses || []);
+  if (header) row.dataset.header = "1";
+  const src = document.createElement("textarea");
+  src.rows = 2;
+  src.className = "sentence-source";
+  src.placeholder = setup.learnLanguage;
+  src.value = source;
+  const tgt = document.createElement("textarea");
+  tgt.rows = 2;
+  tgt.className = "sentence-translation";
+  tgt.placeholder = setup.fromLanguage;
+  tgt.value = translation;
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "delete-word";
+  del.setAttribute("aria-label", "Remove sentence");
+  del.textContent = "×";
+  del.addEventListener("click", () => row.remove());
+  row.append(src, tgt, del);
+  elements.textSentencesList.append(row);
+  elements.textSentencesHead.hidden = false;
+}
+
+function renderSentenceRows(sentences) {
+  elements.textSentencesList.innerHTML = "";
+  (sentences || []).forEach((sentence) =>
+    addSentenceRow(sentence.source, sentence.translation, sentence.glosses, sentence.header),
+  );
+  elements.textSentencesHead.hidden = !(sentences && sentences.length);
+}
+
+function collectSentenceRows() {
+  return [...elements.textSentencesList.querySelectorAll(".sentence-row")]
+    .map((row) => {
+      let glosses = [];
+      try {
+        glosses = JSON.parse(row.dataset.glosses || "[]");
+      } catch (error) {
+        glosses = [];
+      }
+      return {
+        source: row.querySelector(".sentence-source").value.trim(),
+        translation: row.querySelector(".sentence-translation").value.trim(),
+        glosses,
+        header: row.dataset.header === "1",
+      };
+    })
+    .filter((sentence) => sentence.source || sentence.translation);
+}
+
+function openTextDialog(text = null) {
+  const setup = currentSetup();
+  if (!setup) return;
+  state.editingTextId = text?.id || null;
+  elements.textDialogTitle.textContent = text ? "Edit Text" : "Add Text";
+  elements.textTitleInput.value = text?.title || "";
+  elements.textSourceLabel.textContent = `Song / text (in ${setup.learnLanguage})`;
+  elements.textTranslationLabel.textContent = `Translation (optional, in ${setup.fromLanguage})`;
+  // Leave the input boxes empty; existing sentences (with their glosses) are
+  // shown in the editable rows below and are the source of truth on edit.
+  elements.textSourceInput.value = "";
+  elements.textTranslationInput.value = "";
+  elements.chatResultInput.value = "";
+  elements.textDialogMessage.textContent = text ? "" : "";
+  window.clearTimeout(autoTranslateTimer);
+  textTranslateToken += 1; // cancel any in-flight translation from a previous open
+  renderSentenceRows(text?.sentences || []);
+  elements.translateTextButton.textContent = nativeTranslate()
+    ? "Re-translate all sentences"
+    : "Split into sentences";
+  elements.textDialog.showModal();
+}
+
+let textTranslateToken = 0;
+let autoTranslateTimer = null;
+
+// Map of source sentence -> its current (possibly hand-edited) translation.
+function existingSentenceTranslations() {
+  const map = new Map();
+  [...elements.textSentencesList.querySelectorAll(".sentence-row")].forEach((row) => {
+    const source = row.querySelector(".sentence-source").value.trim();
+    const translation = row.querySelector(".sentence-translation").value.trim();
+    if (source && !map.has(source)) map.set(source, translation);
+  });
+  return map;
+}
+
+// Split the paragraph into sentences and fill translations. With { force: true }
+// every sentence is re-translated; otherwise existing/edited translations are
+// kept and only empty ones are filled (used for automatic translation).
+async function runTextTranslation({ force = false } = {}) {
+  const source = elements.textSourceInput.value.trim();
+  if (!source) {
+    if (force) elements.textDialogMessage.textContent = "Paste a paragraph first.";
+    return;
+  }
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const sentences = splitIntoSentences(source, { greek: setupUsesGreekPunctuation(setup) });
+  if (!sentences.length) {
+    if (force) elements.textDialogMessage.textContent = "Could not find any sentences.";
+    return;
+  }
+
+  const myToken = ++textTranslateToken;
+
+  // If you've provided your own translation, pair it sentence by sentence
+  // instead of machine-translating.
+  const providedTranslation = elements.textTranslationInput.value.trim();
+  if (providedTranslation) {
+    const translationSentences = splitIntoSentences(providedTranslation, {
+      greek: /^el/i.test(setup.fromLanguageCode || ""),
+    });
+    const count = Math.max(sentences.length, translationSentences.length);
+    const rows = [];
+    for (let i = 0; i < count; i += 1) {
+      rows.push({ source: sentences[i] || "", translation: translationSentences[i] || "" });
+    }
+    renderSentenceRows(rows);
+    elements.textDialogMessage.textContent =
+      sentences.length === translationSentences.length
+        ? `Paired ${count} sentences. Adjust any rows that don't line up.`
+        : `Split into ${sentences.length} source / ${translationSentences.length} translation sentences — check the alignment.`;
+    return;
+  }
+
+  const preserved = force ? new Map() : existingSentenceTranslations();
+  renderSentenceRows(sentences.map((sentence) => ({
+    source: sentence,
+    translation: preserved.get(sentence) || "",
+  })));
+
+  if (!nativeTranslate()) {
+    elements.textDialogMessage.textContent =
+      `Split into ${sentences.length} sentences. Type each translation (automatic offline translation is available in the Android app).`;
+    return;
+  }
+
+  const rows = [...elements.textSentencesList.querySelectorAll(".sentence-row")];
+  let translated = 0;
+  for (let i = 0; i < sentences.length; i += 1) {
+    if (myToken !== textTranslateToken) return; // superseded by a newer run
+    const target = rows[i]?.querySelector(".sentence-translation");
+    if (!target || (!force && target.value.trim())) continue; // keep existing
+    elements.textDialogMessage.textContent = `Translating ${i + 1} / ${sentences.length}…`;
+    try {
+      const translation = await translateWithNative(
+        sentences[i], setup.learnLanguageCode, setup.fromLanguageCode,
+      );
+      if (myToken !== textTranslateToken) return;
+      target.value = translation;
+      translated += 1;
+    } catch (error) {
+      elements.textDialogMessage.textContent = error?.message || "Translation failed.";
+      return;
+    }
+  }
+  elements.textDialogMessage.textContent = translated
+    ? `Translated ${translated} sentence${translated === 1 ? "" : "s"}. Review and edit as needed.`
+    : `Split into ${sentences.length} sentences.`;
+}
+
+function translateTextSource() {
+  runTextTranslation({ force: true });
+}
+
+function scheduleAutoTranslate(delay = 1000) {
+  window.clearTimeout(autoTranslateTimer);
+  autoTranslateTimer = window.setTimeout(() => runTextTranslation({ force: false }), delay);
+}
+
+function saveText() {
+  const setup = currentSetup();
+  if (!setup) return;
+  const sentences = collectSentenceRows();
+  if (!sentences.length) {
+    elements.textDialogMessage.textContent = "Add at least one sentence.";
+    return;
+  }
+  const normalized = normalizeText({
+    id: state.editingTextId || createTextId(),
+    title: elements.textTitleInput.value.trim(),
+    sentences,
+    updatedAt: Date.now(),
+  });
+  setup.texts = setup.texts || [];
+  const index = setup.texts.findIndex((text) => text.id === normalized.id);
+  if (index >= 0) setup.texts[index] = normalized;
+  else setup.texts.push(normalized);
+  saveSetups();
+  renderTexts();
+  renderStudyContent();
+  elements.textDialog.close();
+}
+
+function deleteText(id) {
+  const setup = currentSetup();
+  if (!setup) return;
+  const text = (setup.texts || []).find((entry) => entry.id === id);
+  if (!window.confirm(`Delete "${textTitle(text)}"?`)) return;
+  setup.texts = (setup.texts || []).filter((entry) => entry.id !== id);
+  if (state.studyText?.id === id) {
+    state.studyText = null;
+    state.currentCard = null;
+  }
+  saveSetups();
+  renderTexts();
+  render();
+}
+
+// ---------------------------------------------------------------------------
+// Text study (linear, sentence by sentence)
+// ---------------------------------------------------------------------------
+
+function renderStudyContent() {
+  const select = elements.studyContentSelect;
+  if (!select) return;
+  const setup = currentSetup();
+  const texts = setup?.texts || [];
+
+  // If the active text disappeared (deleted / setup switched), drop back to words.
+  if (state.studyText && !texts.some((text) => text.id === state.studyText.id)) {
+    state.studyText = null;
+    state.currentCard = null;
+    state.revealed = false;
+  }
+
+  select.innerHTML = "";
+  const wordsOption = document.createElement("option");
+  wordsOption.value = "";
+  wordsOption.textContent = "Words (deck)";
+  select.append(wordsOption);
+  texts.forEach((text) => {
+    const option = document.createElement("option");
+    option.value = text.id;
+    option.textContent = `Text · ${textTitle(text)}`;
+    select.append(option);
+  });
+  select.value = state.studyText?.id || "";
+
+  const wrapper = select.closest(".study-content");
+  if (wrapper) wrapper.toggleAttribute("hidden", texts.length === 0);
+  updateStudyOptionsSummary();
+}
+
+function startTextStudy(text) {
+  if (!text || !text.sentences.length) return;
+  state.studyText = text;
+  state.textIndex = 0;
+  state.textStats = { right: 0, wrong: 0 };
+  state.currentCard = null;
+  state.revealed = false;
+  renderStudyContent();
+  showScreen("studyScreen");
+  nextCard();
+}
+
+function exitTextStudy() {
+  state.studyText = null;
+  state.textIndex = 0;
+  state.currentCard = null;
+  state.revealed = false;
+  renderStudyContent();
+  nextCard();
+}
+
+function showTextSentence() {
+  stopTextToSpeech();
+  cancelSpeakingTimers();
+  const text = state.studyText;
+  if (!text || !text.sentences.length) {
+    state.currentCard = null;
+    state.revealed = false;
+    renderQuiz();
+    return;
+  }
+  // Skip section headers (e.g. "[Verse 1]") — they aren't quiz sentences.
+  while (state.textIndex < text.sentences.length && text.sentences[state.textIndex].header) {
+    state.textIndex += 1;
+  }
+  if (state.textIndex >= text.sentences.length) {
+    state.currentCard = null;
+    state.revealed = false;
+    renderQuiz();
+    return;
+  }
+  const sentence = text.sentences[state.textIndex];
+  const direction = state.direction === "en-el" ? "en-el" : "el-en";
+  const promptSide = direction === "el-en" ? sentence.source : sentence.translation;
+  const answerSide = direction === "el-en" ? sentence.translation : sentence.source;
+  state.currentCard = {
+    isText: true,
+    direction,
+    entry: null,
+    prompt: promptSide || "—",
+    spokenPrompt: promptSide || "",
+    answers: [answerSide].filter(Boolean),
+    answerKey: null,
+    submittedAnswer: "",
+    lastCorrect: false,
+    randomFallback: false,
+    textGraded: null,
+    glosses: Array.isArray(sentence.glosses) ? sentence.glosses : [],
+  };
+  state.revealed = false;
+  elements.answerInput.value = "";
+  setSpeechStatus("");
+  renderQuiz();
+  if (isSpeakingMode()) {
+    startSpeakingCard();
+  } else {
+    speakCurrentPrompt();
+    if (!isRevealMode()) elements.answerInput.focus();
+  }
+}
+
+function advanceText() {
+  state.textIndex += 1;
+  showTextSentence();
+}
+
+function advanceCard() {
+  if (state.studyText) advanceText();
+  else nextCard();
+}
+
+function recordTextResult(correct) {
+  if (correct) state.textStats.right += 1;
+  else state.textStats.wrong += 1;
+}
+
+// Type / Hands-free reveal for a text sentence (auto-check against the reference).
+function revealTextAnswer() {
+  const card = state.currentCard;
+  const isCorrect = answerMatches(elements.answerInput.value, card.answers);
+  card.submittedAnswer = elements.answerInput.value.trim();
+  card.textGraded = isCorrect;
+  state.revealed = true;
+  recordTextResult(isCorrect);
+
+  showSolution(card, isCorrect);
+  elements.feedback.className = `feedback ${isCorrect ? "correct" : "incorrect"}`;
+  const nodes = [isCorrect ? "Correct. " : "Not quite. "];
+  if (!isCorrect) {
+    const wasRight = document.createElement("button");
+    wasRight.className = "inline-action";
+    wasRight.type = "button";
+    wasRight.textContent = "I was right";
+    wasRight.addEventListener("click", () => {
+      if (card.textGraded === false) {
+        card.textGraded = true;
+        state.textStats.wrong = Math.max(0, state.textStats.wrong - 1);
+        state.textStats.right += 1;
+        renderQuiz();
+      }
+    });
+    nodes.push(wasRight);
+  }
+  nodes.push(" Press Enter for the next sentence.");
+  elements.feedback.replaceChildren(...nodes);
+  elements.notesPanel.textContent = "";
+  elements.submitAnswerButton.textContent = "Next";
+  updateSpeechControls();
+  if (isSpeakingMode()) {
+    speakThen(card.answers?.[0], answerLanguageCodeForCurrentCard(), () => {
+      if (isSpeakingMode()) advanceCard();
+    });
+  } else {
+    speakText(card.answers?.[0], answerLanguageCodeForCurrentCard(), false);
+  }
+}
+
+// Reveal (self-grade) for words or texts: show the answer, then the user judges.
+function revealSelfGrade() {
+  const card = state.currentCard;
+  if (!card) return;
+  card.submittedAnswer = "";
+  if (!card.isText) {
+    card.previousMistakeCategory = clampMistakeCategory(card.entry.mistakeCategory);
+    card.previousLastAnsweredAt = card.entry.lastAnsweredAt || 0;
+  }
+  state.revealed = true;
+
+  showSolution(card, false);
+  const rightButton = document.createElement("button");
+  rightButton.className = "inline-action";
+  rightButton.type = "button";
+  rightButton.textContent = "✓ I was right";
+  rightButton.addEventListener("click", () => gradeSelfAnswer(true));
+  const wrongButton = document.createElement("button");
+  wrongButton.className = "inline-action";
+  wrongButton.type = "button";
+  wrongButton.textContent = "✗ I was wrong";
+  wrongButton.addEventListener("click", () => gradeSelfAnswer(false));
+
+  elements.feedback.className = "feedback";
+  const nodes = ["Did you get it?  ", rightButton, wrongButton];
+  if (!card.isText) nodes.push(createEditCurrentWordButton());
+  elements.feedback.replaceChildren(...nodes);
+  elements.notesPanel.textContent = card.entry?.notes || "";
+  elements.submitAnswerButton.textContent = "Next";
+  updateSpeechControls();
+  speakText(card.answers?.[0], answerLanguageCodeForCurrentCard(), true);
+}
+
+function applyWordGrade(entry, isCorrect) {
+  if (!entry) return;
+  const maxCategory = maxMistakeCategory();
+  const previousCategory = clampMistakeCategory(entry.mistakeCategory);
+  if (isCorrect) {
+    if (previousCategory === -1) {
+      entry.mistakeCategory = unclassifiedCorrectCategory();
+    } else if (!state.currentCard?.randomFallback) {
+      entry.mistakeCategory = Math.min(maxCategory, previousCategory + 1);
+    }
+  } else {
+    entry.mistakeCategory = 0;
+  }
+  entry.lastAnsweredAt = Date.now();
+}
+
+async function gradeSelfAnswer(correct) {
+  const card = state.currentCard;
+  if (!card) return;
+  if (card.isText) {
+    recordTextResult(correct);
+    advanceText();
+    return;
+  }
+  applyWordGrade(card.entry, correct);
+  card.lastCorrect = correct;
+  renderWords();
+  await persistWords();
+  nextCard();
+}
+
+// ---------------------------------------------------------------------------
+// Tap-a-word translation (used while reading text sentences)
+//
+// Each word in a text sentence is tappable. On tap we first check your own
+// vocabulary deck (instant), then fall back to the on-device translator
+// (Android) and cache the result so repeats are instant.
+// ---------------------------------------------------------------------------
+
+function renderTappablePrompt(text) {
+  const frag = document.createDocumentFragment();
+  String(text).split(/(\s+)/).forEach((token) => {
+    if (!token) return;
+    if (/^\s+$/.test(token)) {
+      frag.append(token);
+      return;
+    }
+    const span = document.createElement("span");
+    span.className = "tap-word";
+    span.textContent = token;
+    frag.append(span);
+  });
+  elements.promptWord.classList.add("prompt-sentence");
+  elements.promptWord.replaceChildren(frag);
+}
+
+function hideWordGloss() {
+  elements.wordGloss.hidden = true;
+  elements.wordGloss.replaceChildren();
+}
+
+function showWordGloss(word, translation) {
+  const strong = document.createElement("strong");
+  strong.textContent = word;
+  elements.wordGloss.replaceChildren(strong, "  →  ", translation);
+  elements.wordGloss.hidden = false;
+}
+
+function lookupWordInDeck(word, promptIsLearn) {
+  const normalized = normalizeAnswer(word);
+  if (!normalized) return null;
+  for (const entry of state.words) {
+    const promptSide = promptIsLearn ? entry.greek : entry.english;
+    const answerSide = promptIsLearn ? entry.english : entry.greek;
+    if (promptSide.some((variant) => normalizeAnswer(variant) === normalized)) {
+      return joinVariants(answerSide);
+    }
+  }
+  return null;
+}
+
+// Context-specific gloss from the ChatGPT import for the current sentence.
+function lookupWordInSentence(word, promptIsLearn) {
+  const glosses = state.currentCard?.glosses;
+  if (!Array.isArray(glosses) || !glosses.length) return null;
+  const normalized = normalizeAnswer(word);
+  if (!normalized) return null;
+  for (const gloss of glosses) {
+    const shown = promptIsLearn ? gloss.w : gloss.t; // side displayed in the prompt
+    const other = promptIsLearn ? gloss.t : gloss.w;
+    if (normalizeAnswer(shown) === normalized && other) return other;
+  }
+  return null;
+}
+
+async function glossWord(rawWord) {
+  const word = String(rawWord || "")
+    .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")
+    .trim();
+  if (!word) return;
+
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const fromCode = promptLanguageCodeForCurrentCard();
+  const toCode = answerLanguageCodeForCurrentCard();
+  const promptIsLearn = fromCode === setup.learnLanguageCode;
+
+  // 1) Sentence-specific gloss from ChatGPT — the most accurate, in context.
+  const sentenceHit = lookupWordInSentence(word, promptIsLearn);
+  if (sentenceHit) {
+    showWordGloss(word, sentenceHit);
+    return;
+  }
+
+  // 2) Your own deck — instant and uses your curated translation.
+  const deckHit = lookupWordInDeck(word, promptIsLearn);
+  if (deckHit) {
+    showWordGloss(word, deckHit);
+    return;
+  }
+
+  // 2) Cached on-device translation — instant on repeat taps.
+  if (!state.glossCache) state.glossCache = new Map();
+  const key = `${fromCode}|${toCode}|${word.toLowerCase()}`;
+  if (state.glossCache.has(key)) {
+    showWordGloss(word, state.glossCache.get(key));
+    return;
+  }
+
+  // 3) On-device translator (Android). Not available on the web.
+  if (!nativeTranslate()) {
+    showWordGloss(word, "(live translation needs the Android app)");
+    return;
+  }
+  showWordGloss(word, "…");
+  try {
+    const translation = await translateWithNative(word, fromCode, toCode);
+    state.glossCache.set(key, translation);
+    showWordGloss(word, translation);
+  } catch (error) {
+    showWordGloss(word, "(could not translate)");
+  }
+}
+
+function renderTextQuiz() {
+  const text = state.studyText;
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const total = text.sentences.length;
+  updateAnswerModeUI();
+
+  const finished = state.textIndex >= total || !state.currentCard;
+  const position = Math.min(state.textIndex + 1, total);
+  elements.quizMeta.replaceChildren(
+    `${textTitle(text)} — ${finished ? total : position} of ${total}  ·  ✓ ${state.textStats.right}  ✗ ${state.textStats.wrong}`,
+  );
+
+  if (finished) {
+    elements.promptLabel.textContent = "Text complete";
+    elements.promptWord.classList.remove("prompt-sentence");
+    elements.promptWord.textContent = "🎉";
+    hideSolution();
+    elements.feedback.className = "feedback correct";
+    const again = document.createElement("button");
+    again.className = "inline-action";
+    again.type = "button";
+    again.textContent = "Study again";
+    again.addEventListener("click", () => {
+      state.textIndex = 0;
+      state.textStats = { right: 0, wrong: 0 };
+      nextCard();
+    });
+    const back = document.createElement("button");
+    back.className = "inline-action";
+    back.type = "button";
+    back.textContent = "Back to words";
+    back.addEventListener("click", exitTextStudy);
+    elements.feedback.replaceChildren(
+      `Finished "${textTitle(text)}".  ✓ ${state.textStats.right}  ·  ✗ ${state.textStats.wrong}.  `,
+      again,
+      back,
+    );
+    elements.notesPanel.textContent = "";
+    elements.submitAnswerButton.textContent = "Done";
+    elements.submitAnswerButton.disabled = true;
+    elements.answerInput.disabled = true;
+    updateSpeechControls();
+    return;
+  }
+
+  elements.answerInput.disabled = false;
+  elements.submitAnswerButton.disabled = false;
+  elements.promptLabel.textContent =
+    state.currentCard.direction === "el-en"
+      ? `${setup.learnLanguage} to ${setup.fromLanguage}`
+      : `${setup.fromLanguage} to ${setup.learnLanguage}`;
+  renderTappablePrompt(state.currentCard.prompt);
+  hideWordGloss();
+
+  if (!state.revealed) {
+    hideSolution();
+    elements.feedback.className = "feedback";
+    elements.feedback.textContent = "";
+    elements.notesPanel.textContent = "";
+    elements.submitAnswerButton.textContent = isRevealMode() ? "Show answer" : "Check";
+  }
+  updateSpeechControls();
+}
+
+elements.addTextButton.addEventListener("click", () => openTextDialog());
+elements.translateTextButton.addEventListener("click", translateTextSource);
+
+// ChatGPT import: copy the prompt (with the song) and open ChatGPT.
+function openChatGpt() {
+  const song = elements.textSourceInput.value.trim();
+  const prompt = CHATGPT_PROMPT + song;
+  const url = "https://chatgpt.com/";
+  const bridge = typeof window !== "undefined" ? window.AndroidApp : null;
+
+  if (bridge && typeof bridge.copyText === "function") {
+    try {
+      bridge.copyText(prompt);
+      if (typeof bridge.openUrl === "function") bridge.openUrl(url);
+    } catch (error) {
+      /* ignore */
+    }
+    elements.textDialogMessage.textContent =
+      "Prompt copied. In ChatGPT: paste, add nothing else, send — then paste the result below.";
+    return;
+  }
+
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(prompt).then(
+      () => {
+        elements.textDialogMessage.textContent =
+          "Prompt copied. In ChatGPT: paste, send, then paste the result below.";
+      },
+      () => {
+        elements.textDialogMessage.textContent =
+          "Copy this prompt into ChatGPT, then paste its result below.";
+      },
+    );
+  }
+  try {
+    window.open(url, "_blank", "noopener");
+  } catch (error) {
+    /* ignore */
+  }
+}
+elements.openChatGptButton.addEventListener("click", openChatGpt);
+
+// Paste ChatGPT's formatted result -> sentence pairs with per-word glosses.
+function importChatGptResult() {
+  const parsed = parseChatGptText(elements.chatResultInput.value);
+  if (!parsed.length) {
+    elements.textDialogMessage.textContent =
+      "Paste ChatGPT's result to build the sentences.";
+    return;
+  }
+  renderSentenceRows(parsed);
+  const glossCount = parsed.reduce((sum, sentence) => sum + (sentence.glosses?.length || 0), 0);
+  elements.textDialogMessage.textContent =
+    `Loaded ${parsed.filter((s) => !s.header).length} sentences and ${glossCount} word glosses. Review, then Save text.`;
+}
+elements.chatResultInput.addEventListener("paste", () => {
+  window.setTimeout(importChatGptResult, 0);
+});
+elements.chatResultInput.addEventListener("input", () => {
+  window.clearTimeout(autoTranslateTimer);
+  autoTranslateTimer = window.setTimeout(importChatGptResult, 400);
+});
+
+// Manual (offline) path: re-pair when you paste your own translation.
+elements.textTranslationInput.addEventListener("paste", () => {
+  window.setTimeout(() => runTextTranslation({ force: false }), 0);
+});
+elements.textTranslationInput.addEventListener("input", () => scheduleAutoTranslate(1000));
+elements.addSentenceRowButton.addEventListener("click", () => addSentenceRow());
+elements.saveTextButton.addEventListener("click", saveText);
+elements.cancelTextButton.addEventListener("click", () => elements.textDialog.close());
+elements.closeTextDialogButton.addEventListener("click", () => elements.textDialog.close());
+
 window.addEventListener("beforeunload", stopSpeechStream);
 
 loadAccountMode();
@@ -4836,6 +7431,8 @@ loadSetups();
 loadFirebaseConfig();
 ensureLocalTimestampForExistingData();
 fillLanguageOptions();
+updateModeControls();
+initTranslateFeature();
 render();
 initializeFirebaseFromSavedConfig()
   .catch(() => {})
