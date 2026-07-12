@@ -1820,6 +1820,7 @@ input[type="checkbox"] {
             </label>
             <div class="stack-actions">
               <button id="defaultDatabaseButton" class="primary" type="button">Start from default words</button>
+              <button id="shareSetupButton" type="button">Share this setup…</button>
               <button id="newSetupButton" type="button">New setup</button>
               <button id="deleteSetupButton" type="button">Delete setup</button>
             </div>
@@ -2162,6 +2163,41 @@ input[type="checkbox"] {
       </form>
     </dialog>
 
+    <dialog id="shareLinkDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <h2>Share setup</h2>
+            <p>Send this link. Whoever opens it can add this setup to their own account.</p>
+          </div>
+          <button id="closeShareLinkDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
+        </div>
+        <textarea id="shareLinkText" rows="4" readonly class="config-textarea"></textarea>
+        <div id="shareLinkMessage" class="parse-message"></div>
+        <div class="dialog-actions">
+          <button id="shareLinkNativeButton" type="button" hidden>Share…</button>
+          <button id="copyShareLinkButton" class="primary" type="button">Copy link</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="shareSetupDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <h2>Add shared setup?</h2>
+            <p>Someone shared a language setup with you.</p>
+          </div>
+        </div>
+        <div id="shareSetupSummary" class="cloud-account"></div>
+        <div id="shareSetupMessage" class="parse-message"></div>
+        <div class="dialog-actions">
+          <button id="declineSharedSetupButton" type="button">Not now</button>
+          <button id="acceptSharedSetupButton" class="primary" type="button">Add to my setups</button>
+        </div>
+      </form>
+    </dialog>
+
     <script>
 const STORAGE_KEY = "greek-vocabulary-trainer.words";
 const SETUPS_KEY = "vocabulary-trainer.setups";
@@ -2387,6 +2423,18 @@ const elements = {
   chooseLocalAccountButton: document.querySelector("#chooseLocalAccountButton"),
   chooseGoogleAccountButton: document.querySelector("#chooseGoogleAccountButton"),
   accountModeMessage: document.querySelector("#accountModeMessage"),
+  shareSetupButton: document.querySelector("#shareSetupButton"),
+  shareLinkDialog: document.querySelector("#shareLinkDialog"),
+  shareLinkText: document.querySelector("#shareLinkText"),
+  shareLinkMessage: document.querySelector("#shareLinkMessage"),
+  copyShareLinkButton: document.querySelector("#copyShareLinkButton"),
+  shareLinkNativeButton: document.querySelector("#shareLinkNativeButton"),
+  closeShareLinkDialogButton: document.querySelector("#closeShareLinkDialogButton"),
+  shareSetupDialog: document.querySelector("#shareSetupDialog"),
+  shareSetupSummary: document.querySelector("#shareSetupSummary"),
+  shareSetupMessage: document.querySelector("#shareSetupMessage"),
+  acceptSharedSetupButton: document.querySelector("#acceptSharedSetupButton"),
+  declineSharedSetupButton: document.querySelector("#declineSharedSetupButton"),
   defaultDatabaseList: document.querySelector("#defaultDatabaseList"),
   defaultDatabaseMessage: document.querySelector("#defaultDatabaseMessage"),
   cloudAccount: document.querySelector("#cloudAccount"),
@@ -4137,11 +4185,13 @@ function chooseLocalAccount() {
   saveAccountMode("local");
   elements.accountModeDialog.close();
   render();
+  maybeShowSharedSetupDialog();
 }
 
 async function chooseGoogleAccount() {
   saveAccountMode("google");
   elements.accountModeDialog.close();
+  maybeShowSharedSetupDialog();
   await signInToCloud({ offerMigration: false });
 }
 
@@ -5019,6 +5069,212 @@ function deleteCurrentSetup() {
   stopTextToSpeech();
   saveSetups();
   render();
+}
+
+// ---------------------------------------------------------------------------
+// Shareable setup links
+//
+// A setup is encoded (gzip when available) into the URL fragment so the link is
+// fully self-contained — no server needed. Opening it offers to add the setup
+// to the recipient's account.
+// ---------------------------------------------------------------------------
+
+function bytesToBase64Url(bytes) {
+  let binary = "";
+  bytes.forEach((byte) => (binary += String.fromCharCode(byte)));
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function base64UrlToBytes(value) {
+  let text = String(value).replace(/-/g, "+").replace(/_/g, "/");
+  while (text.length % 4) text += "=";
+  const binary = atob(text);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function encodeSharePayload(text) {
+  const input = new TextEncoder().encode(text);
+  if (typeof CompressionStream === "function") {
+    const stream = new Blob([input]).stream().pipeThrough(new CompressionStream("gzip"));
+    const buffer = await new Response(stream).arrayBuffer();
+    return `g${bytesToBase64Url(new Uint8Array(buffer))}`;
+  }
+  return `r${bytesToBase64Url(input)}`;
+}
+
+async function decodeSharePayload(data) {
+  const kind = data[0];
+  const bytes = base64UrlToBytes(data.slice(1));
+  if (kind === "g") {
+    if (typeof DecompressionStream !== "function") throw new Error("Unsupported browser.");
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+    return new Response(stream).text();
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+function shareableSetupPayload(setup) {
+  const serialized = serializableSetups().find((entry) => entry.id === setup.id);
+  if (!serialized) return null;
+  return {
+    v: 1,
+    setup: {
+      learnLanguage: serialized.learnLanguage,
+      learnLanguageCode: serialized.learnLanguageCode,
+      fromLanguage: serialized.fromLanguage,
+      fromLanguageCode: serialized.fromLanguageCode,
+      settings: serialized.settings,
+      words: serialized.words.map((word) => ({
+        greek: word.greek,
+        english: word.english,
+        notes: word.notes || "",
+        category: word.category || "",
+      })),
+      texts: serialized.texts,
+    },
+  };
+}
+
+// Where recipients open a share link. On the web we use the current page; in the
+// Android app the origin is file:// (useless to share), so fall back to the
+// hosted site.
+const PUBLIC_APP_URL = "https://yuvaldag.github.io/translate.html";
+
+async function buildShareLink(setup) {
+  const payload = shareableSetupPayload(setup);
+  if (!payload) throw new Error("No setup to share.");
+  const encoded = await encodeSharePayload(JSON.stringify(payload));
+  const base = /^https?:$/.test(location.protocol)
+    ? `${location.origin}${location.pathname}`
+    : PUBLIC_APP_URL;
+  return `${base}#setup=${encoded}`;
+}
+
+function copyShareLink() {
+  const text = elements.shareLinkText.value;
+  const bridge = typeof window !== "undefined" ? window.AndroidApp : null;
+  if (bridge && typeof bridge.copyText === "function") {
+    try {
+      bridge.copyText(text);
+    } catch (error) {
+      /* ignore */
+    }
+    elements.shareLinkMessage.textContent = "Link copied.";
+    return;
+  }
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(
+      () => {
+        elements.shareLinkMessage.textContent = "Link copied.";
+      },
+      () => elements.shareLinkText.select(),
+    );
+  } else {
+    elements.shareLinkText.select();
+  }
+}
+
+async function shareCurrentSetup() {
+  syncActiveSetupWords();
+  const setup = currentSetup();
+  if (!setup) return;
+  try {
+    const link = await buildShareLink(setup);
+    elements.shareLinkText.value = link;
+    elements.shareLinkMessage.textContent =
+      link.length > 8000
+        ? "This setup is large — the link may be too long for some chat apps; email works best."
+        : "";
+    const bridge = typeof window !== "undefined" ? window.AndroidApp : null;
+    elements.shareLinkNativeButton.hidden = !(bridge && typeof bridge.shareText === "function");
+    elements.shareLinkDialog.showModal();
+    copyShareLink();
+  } catch (error) {
+    console.warn("Could not build share link.", error);
+  }
+}
+
+async function detectSharedSetup() {
+  const match = String(location.hash || "").match(/[#&]setup=([^&]+)/);
+  if (!match) return;
+  try {
+    const payload = JSON.parse(await decodeSharePayload(match[1]));
+    const shared = payload?.setup;
+    if (shared && shared.learnLanguage && shared.fromLanguage) {
+      state.pendingSharedSetup = shared;
+    }
+  } catch (error) {
+    console.warn("Could not read shared setup link.", error);
+  }
+  maybeShowSharedSetupDialog();
+}
+
+function maybeShowSharedSetupDialog() {
+  if (!state.pendingSharedSetup) return;
+  if (elements.accountModeDialog.open || !state.accountMode) return; // choose account first
+  if (elements.shareSetupDialog.open) return;
+  const shared = state.pendingSharedSetup;
+  const wordCount = Array.isArray(shared.words) ? shared.words.length : 0;
+  const textCount = Array.isArray(shared.texts) ? shared.texts.length : 0;
+  elements.shareSetupSummary.innerHTML =
+    `<strong>${escapeHtml(shared.learnLanguage)} ↔ ${escapeHtml(shared.fromLanguage)}</strong><br>` +
+    `${wordCount} word${wordCount === 1 ? "" : "s"}` +
+    (textCount ? ` · ${textCount} text${textCount === 1 ? "" : "s"}` : "");
+  elements.shareSetupMessage.textContent = "";
+  elements.shareSetupDialog.showModal();
+}
+
+function clearShareHash() {
+  try {
+    history.replaceState(null, "", `${location.pathname}${location.search}`);
+  } catch (error) {
+    /* ignore */
+  }
+}
+
+function acceptSharedSetup() {
+  const shared = state.pendingSharedSetup;
+  if (!shared) return;
+  syncActiveSetupWords();
+  if (state.activeSetupId) state.fileHandles.set(state.activeSetupId, state.fileHandle);
+  const existingIds = new Set(state.setups.map((entry) => entry.id));
+  const baseId = createSetupId(shared.learnLanguage, shared.fromLanguage);
+  const setup = normalizeSetup({
+    id: uniqueSetupId(baseId, existingIds),
+    learnLanguage: shared.learnLanguage,
+    learnLanguageCode: shared.learnLanguageCode,
+    fromLanguage: shared.fromLanguage,
+    fromLanguageCode: shared.fromLanguageCode,
+    settings: shared.settings || { ...DEFAULT_SETUP_SETTINGS },
+    // Start fresh — don't inherit the sharer's scheduling progress.
+    words: (Array.isArray(shared.words) ? shared.words : []).map((word) => ({
+      ...word,
+      mistakeCategory: -1,
+      lastAnsweredAt: 0,
+    })),
+    texts: Array.isArray(shared.texts) ? shared.texts : [],
+  });
+  state.setups.push(setup);
+  state.activeSetupId = setup.id;
+  state.words = setup.words;
+  state.fileHandle = null;
+  state.currentCard = null;
+  state.revealed = false;
+  state.studyText = null;
+  saveSetups();
+  state.pendingSharedSetup = null;
+  clearShareHash();
+  elements.shareSetupDialog.close();
+  showScreen("studyScreen");
+  render();
+}
+
+function declineSharedSetup() {
+  state.pendingSharedSetup = null;
+  clearShareHash();
+  elements.shareSetupDialog.close();
 }
 
 function createNewSetup() {
@@ -6283,6 +6539,22 @@ elements.setupSelect.addEventListener("change", () => {
 
 elements.deleteSetupButton.addEventListener("click", deleteCurrentSetup);
 
+elements.shareSetupButton.addEventListener("click", shareCurrentSetup);
+elements.copyShareLinkButton.addEventListener("click", copyShareLink);
+elements.closeShareLinkDialogButton.addEventListener("click", () => elements.shareLinkDialog.close());
+elements.shareLinkNativeButton.addEventListener("click", () => {
+  const bridge = window.AndroidApp;
+  if (bridge && typeof bridge.shareText === "function") {
+    try {
+      bridge.shareText(elements.shareLinkText.value);
+    } catch (error) {
+      /* ignore */
+    }
+  }
+});
+elements.acceptSharedSetupButton.addEventListener("click", acceptSharedSetup);
+elements.declineSharedSetupButton.addEventListener("click", declineSharedSetup);
+
 elements.pasteCsvButton.addEventListener("click", () => {
   elements.pasteCsvMessage.textContent = "";
   elements.pasteCsvDialog.showModal();
@@ -7434,19 +7706,27 @@ fillLanguageOptions();
 updateModeControls();
 initTranslateFeature();
 render();
-initializeFirebaseFromSavedConfig()
-  .catch(() => {})
-  .finally(() => {
-    const existingUser = state.sync.user || state.sync.auth?.currentUser || null;
-    if (existingUser) {
-      finishSignedInCloudSession(existingUser).catch((error) => {
-        console.warn("Could not finish saved Google sign-in.", error);
-        setCloudStatus("error", firebaseErrorMessage(error, "Signed in, but cloud sync failed."));
-      });
-    }
-    if (!existingUser) maybeShowAccountModeDialog();
-    render();
-  });
+
+(async function boot() {
+  // Decode a shared-setup link (if any) BEFORE deciding what dialog to show, so
+  // the "add shared setup" prompt appears at the right moment.
+  await detectSharedSetup();
+  try {
+    await initializeFirebaseFromSavedConfig();
+  } catch (error) {
+    /* handled inside */
+  }
+  const existingUser = state.sync.user || state.sync.auth?.currentUser || null;
+  if (existingUser) {
+    finishSignedInCloudSession(existingUser).catch((error) => {
+      console.warn("Could not finish saved Google sign-in.", error);
+      setCloudStatus("error", firebaseErrorMessage(error, "Signed in, but cloud sync failed."));
+    });
+  }
+  if (!existingUser) maybeShowAccountModeDialog();
+  render();
+  maybeShowSharedSetupDialog();
+})();
 
     </script>
   </body>
