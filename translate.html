@@ -1688,6 +1688,24 @@ input[type="checkbox"] {
   opacity: 0.65;
   font-style: italic;
 }
+
+/* Hear-it-aloud buttons under the prompt / answer */
+.replay-button {
+  justify-self: start;
+  min-height: 36px;
+  margin-top: -8px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border-color: var(--line);
+  background: var(--panel-2);
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.replay-button[hidden] {
+  display: none;
+}
     </style>
   </head>
   <body>
@@ -1737,8 +1755,10 @@ input[type="checkbox"] {
             <div class="quiz-card">
               <p id="promptLabel" class="prompt-label">Prompt</p>
               <div id="promptWord" class="prompt-word">No words yet</div>
+              <button id="replayPromptButton" class="replay-button" type="button" aria-label="Hear the prompt aloud" hidden>🔊 Hear it</button>
               <div id="wordGloss" class="word-gloss" aria-live="polite" hidden></div>
               <div id="solutionWord" class="prompt-word solution-word" hidden></div>
+              <button id="replayAnswerButton" class="replay-button" type="button" aria-label="Hear the translation aloud" hidden>🔊 Hear translation</button>
               <form id="answerForm" class="answer-form">
                 <input
                   id="answerInput"
@@ -2511,6 +2531,8 @@ const elements = {
   promptWord: document.querySelector("#promptWord"),
   wordGloss: document.querySelector("#wordGloss"),
   solutionWord: document.querySelector("#solutionWord"),
+  replayPromptButton: document.querySelector("#replayPromptButton"),
+  replayAnswerButton: document.querySelector("#replayAnswerButton"),
   studyOptionsToggle: document.querySelector("#studyOptionsToggle"),
   studyOptionsPanel: document.querySelector("#studyOptionsPanel"),
   studyOptionsSummary: document.querySelector("#studyOptionsSummary"),
@@ -3009,15 +3031,18 @@ function parseChatGptText(raw) {
   return sentences;
 }
 
-const CHATGPT_PROMPT = `Translate to english. Make the format as follow:
+function buildChatGptPrompt() {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  return `Translate to ${setup.fromLanguage}. Make the format as follow:
 original song line 1
 line 1 translation
 word 1 in original song | word 1 translation within the context of original song | word 2 in original song | ......
 original song line 2
 .......
 
-The song is:
+The song (in ${setup.learnLanguage}) is:
 `;
+}
 
 function normalizeSetup(setup) {
   const learnLanguage = cleanLanguageName(setup?.learnLanguage, DEFAULT_SETUP.learnLanguage);
@@ -5691,6 +5716,7 @@ function hideSolution() {
   elements.solutionWord.hidden = true;
   elements.solutionWord.classList.remove("prompt-sentence", "solution-incorrect");
   elements.solutionWord.textContent = "";
+  elements.replayAnswerButton.hidden = true;
 }
 
 function showSolution(card, correct = true) {
@@ -5699,6 +5725,12 @@ function showSolution(card, correct = true) {
   elements.solutionWord.classList.toggle("prompt-sentence", Boolean(card.isText));
   elements.solutionWord.classList.toggle("solution-incorrect", !correct);
   elements.solutionWord.hidden = false;
+  elements.replayAnswerButton.hidden = !(card.answers && card.answers.length);
+}
+
+// Show/hide the "hear the prompt" button based on whether a card is present.
+function updateReplayPromptButton() {
+  elements.replayPromptButton.hidden = !(state.currentCard && state.currentCard.spokenPrompt);
 }
 
 function setInputMode(mode) {
@@ -6249,6 +6281,7 @@ function renderQuiz() {
   }
   hideWordGloss();
   if (!state.revealed) hideSolution();
+  updateReplayPromptButton();
   elements.promptWord.classList.remove("prompt-sentence");
   if (state.currentCard && !wordCategoryAllowed(state.currentCard.entry)) {
     state.currentCard = null;
@@ -6757,6 +6790,19 @@ elements.answerForm.addEventListener("submit", async (event) => {
 });
 
 elements.speakAnswerButton.addEventListener("click", toggleSpeechRecording);
+
+// Replay the prompt / translation aloud on demand (force = play even if the
+// "speak new words" setting is off).
+elements.replayPromptButton.addEventListener("click", () => {
+  if (state.currentCard) {
+    speakText(state.currentCard.spokenPrompt, promptLanguageCodeForCurrentCard(), true);
+  }
+});
+elements.replayAnswerButton.addEventListener("click", () => {
+  if (state.currentCard) {
+    speakText(state.currentCard.answers?.[0], answerLanguageCodeForCurrentCard(), true);
+  }
+});
 
 // Tap any word in a text sentence to see its translation.
 elements.promptWord.addEventListener("click", (event) => {
@@ -7574,6 +7620,7 @@ function renderTextQuiz() {
     elements.promptLabel.textContent = "Text complete";
     elements.promptWord.classList.remove("prompt-sentence");
     elements.promptWord.textContent = "🎉";
+    elements.replayPromptButton.hidden = true;
     hideSolution();
     elements.feedback.className = "feedback correct";
     const again = document.createElement("button");
@@ -7611,6 +7658,7 @@ function renderTextQuiz() {
       : `${setup.fromLanguage} to ${setup.learnLanguage}`;
   renderTappablePrompt(state.currentCard.prompt);
   hideWordGloss();
+  updateReplayPromptButton();
 
   if (!state.revealed) {
     hideSolution();
@@ -7628,27 +7676,30 @@ elements.translateTextButton.addEventListener("click", translateTextSource);
 // ChatGPT import: copy the prompt (with the song) and open ChatGPT.
 function openChatGpt() {
   const song = elements.textSourceInput.value.trim();
-  const prompt = CHATGPT_PROMPT + song;
-  const url = "https://chatgpt.com/";
+  const prompt = buildChatGptPrompt() + song;
   const bridge = typeof window !== "undefined" ? window.AndroidApp : null;
 
-  if (bridge && typeof bridge.copyText === "function") {
+  // Android: hand the prompt to the ChatGPT app so it lands in the message box
+  // (not sent) — you can add the lyrics under it and send.
+  if (bridge && typeof bridge.openChatGpt === "function") {
     try {
-      bridge.copyText(prompt);
-      if (typeof bridge.openUrl === "function") bridge.openUrl(url);
+      bridge.openChatGpt(prompt);
     } catch (error) {
       /* ignore */
     }
     elements.textDialogMessage.textContent =
-      "Prompt copied. In ChatGPT: paste, add nothing else, send — then paste the result below.";
+      "Opening ChatGPT with the prompt ready. Add the song under it, send, then paste the result below.";
     return;
   }
 
+  // Web: prefilling the composer without auto-sending isn't possible via URL, so
+  // copy the prompt and open ChatGPT — one paste drops it into the message box.
+  const url = "https://chatgpt.com/";
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(prompt).then(
       () => {
         elements.textDialogMessage.textContent =
-          "Prompt copied. In ChatGPT: paste, send, then paste the result below.";
+          "Prompt copied. Paste it into ChatGPT, add the song under it, send — then paste the result below.";
       },
       () => {
         elements.textDialogMessage.textContent =
