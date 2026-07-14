@@ -2291,6 +2291,18 @@ input[type="checkbox"] {
           <input id="textMediaInput" type="file" accept="audio/*,video/*" />
           <p id="textMediaInfo" class="field-help"></p>
         </label>
+        <div class="field" id="mediaCompressRow" hidden>
+          <span>Compress to save space</span>
+          <div class="stack-actions">
+            <select id="mediaCompressSelect" aria-label="Compression">
+              <option value="none">Keep original</option>
+              <option value="video">Smaller video (480p)</option>
+              <option value="audio">Audio only (smallest)</option>
+            </select>
+            <button id="compressMediaButton" type="button">Compress now</button>
+          </div>
+          <p class="field-help">Compressing plays the file through once, so it takes about the song's length. Do it before saving.</p>
+        </div>
         <div class="stack-actions" id="textMediaActions" hidden>
           <button id="removeMediaButton" type="button">Remove audio/video</button>
         </div>
@@ -2680,6 +2692,9 @@ const elements = {
   textMediaInfo: document.querySelector("#textMediaInfo"),
   textMediaActions: document.querySelector("#textMediaActions"),
   removeMediaButton: document.querySelector("#removeMediaButton"),
+  mediaCompressRow: document.querySelector("#mediaCompressRow"),
+  mediaCompressSelect: document.querySelector("#mediaCompressSelect"),
+  compressMediaButton: document.querySelector("#compressMediaButton"),
   playerOverlay: document.querySelector("#playerOverlay"),
   playerTitle: document.querySelector("#playerTitle"),
   playerCloseButton: document.querySelector("#playerCloseButton"),
@@ -3203,6 +3218,115 @@ async function deleteMedia(id) {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+}
+
+function formatFileSize(bytes) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function firstSupportedMime(candidates) {
+  if (typeof MediaRecorder === "undefined") return "";
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+}
+
+// Re-encode a media file in-browser to save storage. "audio" keeps only the
+// sound (best for songs); "video" downscales to ~480p. Runs in real time (it
+// plays the file through once), reporting progress 0..1.
+async function compressMediaFile(file, mode, onProgress) {
+  if (mode !== "audio" && mode !== "video") return file;
+  if (typeof MediaRecorder === "undefined") throw new Error("Compression isn't supported here.");
+
+  const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.src = url;
+  video.playsInline = true;
+  video.preload = "auto";
+
+  try {
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = resolve;
+      video.onerror = () => reject(new Error("Could not read this file."));
+    });
+    const duration = video.duration || 0;
+
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioCtx();
+    if (audioCtx.state === "suspended") await audioCtx.resume().catch(() => {});
+    const audioSource = audioCtx.createMediaElementSource(video);
+    const audioDest = audioCtx.createMediaStreamDestination();
+    audioSource.connect(audioDest); // recorded, but NOT to speakers → silent while compressing
+
+    let stream;
+    let mime;
+    let drawStop = () => {};
+    if (mode === "audio") {
+      stream = new MediaStream(audioDest.stream.getAudioTracks());
+      mime = firstSupportedMime(["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]);
+    } else {
+      const maxHeight = 480;
+      const scale = video.videoHeight > maxHeight ? maxHeight / video.videoHeight : 1;
+      const width = Math.max(2, Math.round((video.videoWidth * scale) / 2) * 2);
+      const height = Math.max(2, Math.round((video.videoHeight * scale) / 2) * 2);
+      const canvas = document.createElement("canvas");
+      canvas.width = width || 640;
+      canvas.height = height || 360;
+      const ctx = canvas.getContext("2d");
+      const canvasStream = canvas.captureStream(30);
+      audioDest.stream.getAudioTracks().forEach((track) => canvasStream.addTrack(track));
+      stream = canvasStream;
+      mime = firstSupportedMime(["video/webm;codecs=vp8,opus", "video/webm"]);
+      // A timer pump is more reliable than requestAnimationFrame for a canvas
+      // that isn't in the DOM (rAF is throttled off-screen).
+      let timer = 0;
+      const draw = () => {
+        if (video.readyState >= 2) ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      };
+      video.addEventListener("play", () => {
+        window.clearInterval(timer);
+        timer = window.setInterval(draw, 1000 / 30);
+      });
+      drawStop = () => window.clearInterval(timer);
+    }
+    if (!mime) throw new Error("No supported output format.");
+
+    const options = { mimeType: mime, audioBitsPerSecond: 96000 };
+    if (mode === "video") options.videoBitsPerSecond = 900000;
+    const recorder = new MediaRecorder(stream, options);
+    const chunks = [];
+    recorder.ondataavailable = (event) => {
+      if (event.data && event.data.size) chunks.push(event.data);
+    };
+
+    const finished = new Promise((resolve, reject) => {
+      recorder.onstop = () => resolve(new Blob(chunks, { type: mime.split(";")[0] }));
+      recorder.onerror = () => reject(new Error("Compression failed."));
+    });
+
+    video.ontimeupdate = () => {
+      if (duration) onProgress?.(Math.min(0.99, video.currentTime / duration));
+    };
+    video.onended = () => {
+      drawStop();
+      try {
+        recorder.stop();
+      } catch (error) {
+        /* ignore */
+      }
+    };
+
+    recorder.start(1000);
+    await video.play();
+    const blob = await finished;
+    audioCtx.close().catch(() => {});
+    onProgress?.(1);
+    if (!blob.size) throw new Error("Compression produced no output.");
+
+    const baseName = (file.name || "media").replace(/\.[^.]+$/, "") || "media";
+    return new File([blob], `${baseName}.webm`, { type: blob.type });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function normalizeText(text) {
@@ -7409,10 +7533,13 @@ function openTextDialog(text = null) {
 
 function updateTextMediaInfo(hasExistingMedia) {
   if (state.pendingMediaFile) {
-    elements.textMediaInfo.textContent = `Selected: ${state.pendingMediaFile.name}`;
+    elements.textMediaInfo.textContent =
+      `Selected: ${state.pendingMediaFile.name} (${formatFileSize(state.pendingMediaFile.size)})`;
     elements.textMediaActions.hidden = false;
+    elements.mediaCompressRow.hidden = false;
     return;
   }
+  elements.mediaCompressRow.hidden = true;
   if (hasExistingMedia && !state.pendingMediaRemoved) {
     elements.textMediaInfo.textContent = "Audio/video is attached. Choose a file to replace it.";
     elements.textMediaActions.hidden = false;
@@ -8258,6 +8385,38 @@ elements.removeMediaButton.addEventListener("click", () => {
   elements.textMediaInput.value = "";
   state.pendingMediaRemoved = true;
   updateTextMediaInfo(false);
+});
+elements.compressMediaButton.addEventListener("click", async () => {
+  const original = state.pendingMediaFile;
+  const mode = elements.mediaCompressSelect.value;
+  if (!original) return;
+  if (mode === "none") {
+    elements.textMediaInfo.textContent = "Pick a compression option first.";
+    return;
+  }
+  elements.compressMediaButton.disabled = true;
+  elements.mediaCompressSelect.disabled = true;
+  try {
+    const compressed = await compressMediaFile(original, mode, (progress) => {
+      elements.textMediaInfo.textContent = `Compressing… ${Math.round(progress * 100)}% (keep this open)`;
+    });
+    if (compressed && compressed.size && compressed.size < original.size) {
+      state.pendingMediaFile = compressed;
+      const saved = Math.round((1 - compressed.size / original.size) * 100);
+      elements.textMediaInfo.textContent =
+        `Compressed to ${formatFileSize(compressed.size)} (${saved}% smaller). Save to keep it.`;
+    } else {
+      elements.textMediaInfo.textContent =
+        "That didn't come out smaller — keeping the original file.";
+    }
+  } catch (error) {
+    console.warn("Compression failed.", error);
+    elements.textMediaInfo.textContent =
+      "Could not compress this file — the original will be used.";
+  } finally {
+    elements.compressMediaButton.disabled = false;
+    elements.mediaCompressSelect.disabled = false;
+  }
 });
 
 // ---- Karaoke player controls ----
