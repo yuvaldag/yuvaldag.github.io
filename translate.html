@@ -1706,6 +1706,149 @@ input[type="checkbox"] {
 .replay-button[hidden] {
   display: none;
 }
+
+/* ---------- Song play-along (karaoke) player ---------- */
+.player-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  background: #05060c;
+  color: #f4f6ff;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+
+.player-overlay[hidden] {
+  display: none;
+}
+
+.player-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.player-title {
+  font-size: 1.05rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-topbar .icon-button {
+  color: #f4f6ff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.player-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  cursor: pointer;
+}
+
+.player-video {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.player-tap-hint {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.player-subs {
+  flex: none;
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px 6px;
+  text-align: center;
+}
+
+.player-original {
+  color: #ffffff;
+  min-height: 0;
+  border-bottom: 0;
+  padding: 0;
+  justify-content: center;
+  font-size: clamp(1.3rem, 4.5vw, 2rem);
+}
+
+.player-translation {
+  color: #9fb4ff;
+  font-size: clamp(1rem, 3.4vw, 1.4rem);
+  min-height: 1.4em;
+}
+
+.player-subs .word-gloss {
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #f4f6ff;
+}
+
+.player-controls {
+  flex: none;
+  display: grid;
+  gap: 8px;
+  padding: 6px 12px 14px;
+}
+
+.player-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.player-seek button,
+.player-sync button {
+  min-height: 46px;
+}
+
+.player-sync {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.player-controls button {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #f4f6ff;
+}
+
+.player-controls button.primary {
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  border-color: transparent;
+  color: #fff;
+}
+
+.player-seek #playerPlayButton {
+  flex: 1;
+}
+
+.player-time {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+}
     </style>
   </head>
   <body>
@@ -2140,6 +2283,14 @@ input[type="checkbox"] {
           <span>Title (optional)</span>
           <input id="textTitleInput" type="text" placeholder="e.g. Song name" />
         </label>
+        <label class="field">
+          <span>Audio / video (optional — for the play-along mode)</span>
+          <input id="textMediaInput" type="file" accept="audio/*,video/*" />
+          <p id="textMediaInfo" class="field-help"></p>
+        </label>
+        <div class="stack-actions" id="textMediaActions" hidden>
+          <button id="removeMediaButton" type="button">Remove audio/video</button>
+        </div>
 
         <div class="chat-import">
           <div class="chat-import-steps">
@@ -2217,6 +2368,34 @@ input[type="checkbox"] {
         </div>
       </form>
     </dialog>
+
+    <div id="playerOverlay" class="player-overlay" hidden>
+      <div class="player-topbar">
+        <strong id="playerTitle" class="player-title"></strong>
+        <button id="playerCloseButton" class="icon-button" type="button" aria-label="Close player">×</button>
+      </div>
+      <div id="playerStage" class="player-stage">
+        <video id="playerVideo" class="player-video" playsinline></video>
+        <div id="playerTapHint" class="player-tap-hint">Tap the video to play / pause</div>
+      </div>
+      <div class="player-subs">
+        <div id="playerOriginal" class="player-original prompt-word prompt-sentence"></div>
+        <div id="playerTranslation" class="player-translation"></div>
+        <div id="playerGloss" class="word-gloss" aria-live="polite" hidden></div>
+      </div>
+      <div class="player-controls">
+        <div class="player-row player-seek">
+          <button id="playerBackButton" type="button" aria-label="Back 5 seconds">« 5s</button>
+          <button id="playerPlayButton" class="primary" type="button">Play</button>
+          <button id="playerForwardButton" type="button" aria-label="Forward 5 seconds">5s »</button>
+          <span id="playerTime" class="player-time">0:00</span>
+        </div>
+        <div class="player-row player-sync">
+          <button id="playerPostponeButton" type="button">Postpone current line</button>
+          <button id="playerNextLineButton" class="primary" type="button">Next line starts now</button>
+        </div>
+      </div>
+    </div>
 
     <script>
 const STORAGE_KEY = "greek-vocabulary-trainer.words";
@@ -2494,6 +2673,25 @@ const elements = {
   textSourceInput: document.querySelector("#textSourceInput"),
   chatResultInput: document.querySelector("#chatResultInput"),
   openChatGptButton: document.querySelector("#openChatGptButton"),
+  textMediaInput: document.querySelector("#textMediaInput"),
+  textMediaInfo: document.querySelector("#textMediaInfo"),
+  textMediaActions: document.querySelector("#textMediaActions"),
+  removeMediaButton: document.querySelector("#removeMediaButton"),
+  playerOverlay: document.querySelector("#playerOverlay"),
+  playerTitle: document.querySelector("#playerTitle"),
+  playerCloseButton: document.querySelector("#playerCloseButton"),
+  playerStage: document.querySelector("#playerStage"),
+  playerVideo: document.querySelector("#playerVideo"),
+  playerTapHint: document.querySelector("#playerTapHint"),
+  playerOriginal: document.querySelector("#playerOriginal"),
+  playerTranslation: document.querySelector("#playerTranslation"),
+  playerGloss: document.querySelector("#playerGloss"),
+  playerBackButton: document.querySelector("#playerBackButton"),
+  playerPlayButton: document.querySelector("#playerPlayButton"),
+  playerForwardButton: document.querySelector("#playerForwardButton"),
+  playerTime: document.querySelector("#playerTime"),
+  playerPostponeButton: document.querySelector("#playerPostponeButton"),
+  playerNextLineButton: document.querySelector("#playerNextLineButton"),
   textTranslationLabel: document.querySelector("#textTranslationLabel"),
   textTranslationInput: document.querySelector("#textTranslationInput"),
   translateTextButton: document.querySelector("#translateTextButton"),
@@ -2949,6 +3147,61 @@ function createTextId() {
   return `text-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
 }
 
+// ---------------------------------------------------------------------------
+// Media store (IndexedDB) — song audio/video blobs stay on-device (not synced).
+// ---------------------------------------------------------------------------
+const MEDIA_DB_NAME = "vocabulary-trainer-media";
+const MEDIA_STORE = "media";
+let mediaDbPromise = null;
+
+function openMediaDb() {
+  if (mediaDbPromise) return mediaDbPromise;
+  mediaDbPromise = new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      reject(new Error("IndexedDB is not available."));
+      return;
+    }
+    const request = indexedDB.open(MEDIA_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(MEDIA_STORE)) {
+        request.result.createObjectStore(MEDIA_STORE, { keyPath: "id" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  return mediaDbPromise;
+}
+
+async function putMedia(id, blob, type) {
+  const db = await openMediaDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MEDIA_STORE, "readwrite");
+    tx.objectStore(MEDIA_STORE).put({ id, blob, type });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getMedia(id) {
+  const db = await openMediaDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(MEDIA_STORE, "readonly").objectStore(MEDIA_STORE).get(id);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function deleteMedia(id) {
+  const db = await openMediaDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MEDIA_STORE, "readwrite");
+    tx.objectStore(MEDIA_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 function normalizeText(text) {
   const sentences = Array.isArray(text?.sentences)
     ? text.sentences
@@ -2963,6 +3216,7 @@ function normalizeText(text) {
                 .filter((gloss) => gloss.w)
             : [],
           header: Boolean(sentence.header),
+          time: Number.isFinite(sentence.time) ? sentence.time : null,
         }))
         .filter((sentence) => sentence.source || sentence.translation)
     : [];
@@ -2970,6 +3224,8 @@ function normalizeText(text) {
     id: String(text?.id || createTextId()),
     title: String(text?.title || "").trim(),
     sentences,
+    hasMedia: Boolean(text?.hasMedia),
+    mediaType: String(text?.mediaType || ""),
     updatedAt: Number(text?.updatedAt) || 0,
   };
 }
@@ -7036,6 +7292,14 @@ function renderTexts() {
     studyBtn.textContent = "Study";
     studyBtn.disabled = !text.sentences.length;
     studyBtn.addEventListener("click", () => startTextStudy(text));
+    actions.append(studyBtn);
+    if (text.hasMedia) {
+      const playBtn = document.createElement("button");
+      playBtn.type = "button";
+      playBtn.textContent = "▶ Play";
+      playBtn.addEventListener("click", () => openPlayer(text));
+      actions.append(playBtn);
+    }
     const editBtn = document.createElement("button");
     editBtn.type = "button";
     editBtn.textContent = "Edit";
@@ -7046,19 +7310,20 @@ function renderTexts() {
     delBtn.setAttribute("aria-label", "Delete text");
     delBtn.textContent = "×";
     delBtn.addEventListener("click", () => deleteText(text.id));
-    actions.append(studyBtn, editBtn, delBtn);
+    actions.append(editBtn, delBtn);
 
     row.append(info, actions);
     list.append(row);
   });
 }
 
-function addSentenceRow(source = "", translation = "", glosses = [], header = false) {
+function addSentenceRow(source = "", translation = "", glosses = [], header = false, time = null) {
   const setup = currentSetup() || DEFAULT_SETUP;
   const row = document.createElement("div");
   row.className = header ? "sentence-row sentence-header" : "sentence-row";
   row.dataset.glosses = JSON.stringify(glosses || []);
   if (header) row.dataset.header = "1";
+  if (Number.isFinite(time)) row.dataset.time = String(time);
   const src = document.createElement("textarea");
   src.rows = 2;
   src.className = "sentence-source";
@@ -7083,7 +7348,7 @@ function addSentenceRow(source = "", translation = "", glosses = [], header = fa
 function renderSentenceRows(sentences) {
   elements.textSentencesList.innerHTML = "";
   (sentences || []).forEach((sentence) =>
-    addSentenceRow(sentence.source, sentence.translation, sentence.glosses, sentence.header),
+    addSentenceRow(sentence.source, sentence.translation, sentence.glosses, sentence.header, sentence.time),
   );
   elements.textSentencesHead.hidden = !(sentences && sentences.length);
 }
@@ -7097,11 +7362,13 @@ function collectSentenceRows() {
       } catch (error) {
         glosses = [];
       }
+      const time = row.dataset.time !== undefined ? Number(row.dataset.time) : null;
       return {
         source: row.querySelector(".sentence-source").value.trim(),
         translation: row.querySelector(".sentence-translation").value.trim(),
         glosses,
         header: row.dataset.header === "1",
+        time: Number.isFinite(time) ? time : null,
       };
     })
     .filter((sentence) => sentence.source || sentence.translation);
@@ -7127,7 +7394,31 @@ function openTextDialog(text = null) {
   elements.translateTextButton.textContent = nativeTranslate()
     ? "Re-translate all sentences"
     : "Split into sentences";
+
+  // Media state for this dialog session.
+  elements.textMediaInput.value = "";
+  state.pendingMediaFile = null;
+  state.pendingMediaRemoved = false;
+  updateTextMediaInfo(Boolean(text?.hasMedia));
+
   elements.textDialog.showModal();
+}
+
+function updateTextMediaInfo(hasExistingMedia) {
+  if (state.pendingMediaFile) {
+    elements.textMediaInfo.textContent = `Selected: ${state.pendingMediaFile.name}`;
+    elements.textMediaActions.hidden = false;
+    return;
+  }
+  if (hasExistingMedia && !state.pendingMediaRemoved) {
+    elements.textMediaInfo.textContent = "Audio/video is attached. Choose a file to replace it.";
+    elements.textMediaActions.hidden = false;
+    return;
+  }
+  elements.textMediaInfo.textContent = state.pendingMediaRemoved
+    ? "Audio/video will be removed on save."
+    : "No audio/video attached.";
+  elements.textMediaActions.hidden = true;
 }
 
 let textTranslateToken = 0;
@@ -7227,7 +7518,7 @@ function scheduleAutoTranslate(delay = 1000) {
   autoTranslateTimer = window.setTimeout(() => runTextTranslation({ force: false }), delay);
 }
 
-function saveText() {
+async function saveText() {
   const setup = currentSetup();
   if (!setup) return;
   const sentences = collectSentenceRows();
@@ -7235,10 +7526,36 @@ function saveText() {
     elements.textDialogMessage.textContent = "Add at least one sentence.";
     return;
   }
+  const id = state.editingTextId || createTextId();
+  const existing = (setup.texts || []).find((text) => text.id === id);
+  let hasMedia = Boolean(existing?.hasMedia);
+  let mediaType = existing?.mediaType || "";
+
+  if (state.pendingMediaFile) {
+    try {
+      await putMedia(id, state.pendingMediaFile, state.pendingMediaFile.type);
+      hasMedia = true;
+      mediaType = state.pendingMediaFile.type;
+    } catch (error) {
+      elements.textDialogMessage.textContent = "Could not store the audio/video on this device.";
+      return;
+    }
+  } else if (state.pendingMediaRemoved) {
+    try {
+      await deleteMedia(id);
+    } catch (error) {
+      /* ignore */
+    }
+    hasMedia = false;
+    mediaType = "";
+  }
+
   const normalized = normalizeText({
-    id: state.editingTextId || createTextId(),
+    id,
     title: elements.textTitleInput.value.trim(),
     sentences,
+    hasMedia,
+    mediaType,
     updatedAt: Date.now(),
   });
   setup.texts = setup.texts || [];
@@ -7248,6 +7565,8 @@ function saveText() {
   saveSetups();
   renderTexts();
   renderStudyContent();
+  state.pendingMediaFile = null;
+  state.pendingMediaRemoved = false;
   elements.textDialog.close();
 }
 
@@ -7264,6 +7583,7 @@ function deleteText(id) {
   saveSetups();
   renderTexts();
   render();
+  deleteMedia(id).catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -7299,6 +7619,176 @@ function renderStudyContent() {
   const wrapper = select.closest(".study-content");
   if (wrapper) wrapper.toggleAttribute("hidden", texts.length === 0);
   updateStudyOptionsSummary();
+}
+
+// ---------------------------------------------------------------------------
+// Song play-along (karaoke) player with manual subtitle sync
+// ---------------------------------------------------------------------------
+
+const player = {
+  text: null,
+  order: [],       // indices of non-header sentences, in order
+  currentPos: -1,  // position within `order` of the current line
+  mediaUrl: null,
+  dirty: false,
+};
+
+function playerPlayableOrder(text) {
+  return text.sentences.map((sentence, index) => ({ sentence, index }))
+    .filter((entry) => !entry.sentence.header)
+    .map((entry) => entry.index);
+}
+
+function playerSentenceAt(pos) {
+  if (pos < 0 || pos >= player.order.length) return null;
+  return player.text.sentences[player.order[pos]];
+}
+
+function playerCurrentPos(time) {
+  let pos = -1;
+  for (let i = 0; i < player.order.length; i += 1) {
+    const sentence = player.text.sentences[player.order[i]];
+    if (Number.isFinite(sentence.time) && sentence.time <= time + 0.02) pos = i;
+    else if (Number.isFinite(sentence.time)) break;
+  }
+  return pos;
+}
+
+function renderTappableInto(container, text) {
+  const frag = document.createDocumentFragment();
+  String(text || "").split(/(\s+)/).forEach((token) => {
+    if (!token) return;
+    if (/^\s+$/.test(token)) {
+      frag.append(token);
+      return;
+    }
+    const span = document.createElement("span");
+    span.className = "tap-word";
+    span.textContent = token;
+    frag.append(span);
+  });
+  container.replaceChildren(frag);
+}
+
+function renderPlayerSubs() {
+  const sentence = playerSentenceAt(player.currentPos);
+  if (!sentence) {
+    renderTappableInto(elements.playerOriginal, playerSentenceAt(0)?.source || "");
+    elements.playerTranslation.textContent = "Tap “Next line starts now” when the first line begins.";
+    return;
+  }
+  renderTappableInto(elements.playerOriginal, sentence.source);
+  elements.playerTranslation.textContent = sentence.translation || "";
+}
+
+async function resolveGloss(rawWord, glosses, fromCode, toCode) {
+  const word = String(rawWord || "").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "").trim();
+  if (!word) return null;
+  const normalized = normalizeAnswer(word);
+  for (const gloss of glosses || []) {
+    if (normalizeAnswer(gloss.w) === normalized && gloss.t) return gloss.t;
+  }
+  const setup = currentSetup();
+  if (setup) {
+    const deckHit = lookupWordInDeck(word, fromCode === setup.learnLanguageCode);
+    if (deckHit) return deckHit;
+  }
+  if (nativeTranslate()) {
+    if (!state.glossCache) state.glossCache = new Map();
+    const key = `${fromCode}|${toCode}|${word.toLowerCase()}`;
+    if (state.glossCache.has(key)) return state.glossCache.get(key);
+    try {
+      const translation = await translateWithNative(word, fromCode, toCode);
+      state.glossCache.set(key, translation);
+      return translation;
+    } catch (error) {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
+async function playerGlossWord(rawWord) {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const sentence = playerSentenceAt(player.currentPos);
+  const word = String(rawWord || "").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "").trim();
+  if (!word) return;
+  const translation = await resolveGloss(
+    word, sentence?.glosses, setup.learnLanguageCode, setup.fromLanguageCode,
+  );
+  const strong = document.createElement("strong");
+  strong.textContent = word;
+  elements.playerGloss.replaceChildren(strong, "  →  ", translation || "(no translation)");
+  elements.playerGloss.hidden = false;
+}
+
+function formatPlayerTime(seconds) {
+  const total = Math.max(0, Math.floor(seconds || 0));
+  const minutes = Math.floor(total / 60);
+  return `${minutes}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function updatePlayPauseUI() {
+  const paused = elements.playerVideo.paused;
+  elements.playerPlayButton.textContent = paused ? "Play" : "Pause";
+  elements.playerTapHint.style.opacity = paused ? "1" : "0";
+}
+
+function onPlayerTimeUpdate() {
+  const time = elements.playerVideo.currentTime;
+  elements.playerTime.textContent = formatPlayerTime(time);
+  const pos = playerCurrentPos(time);
+  if (pos !== player.currentPos) {
+    player.currentPos = pos;
+    renderPlayerSubs();
+  }
+}
+
+function playerSetLineTime(pos, time) {
+  const sentence = playerSentenceAt(pos);
+  if (!sentence) return;
+  sentence.time = time;
+  player.dirty = true;
+  player.currentPos = playerCurrentPos(elements.playerVideo.currentTime);
+  renderPlayerSubs();
+}
+
+async function openPlayer(text) {
+  const media = await getMedia(text.id).catch(() => null);
+  if (!media) {
+    window.alert("The audio/video isn't on this device. Open Edit and add it again.");
+    return;
+  }
+  player.text = text;
+  player.order = playerPlayableOrder(text);
+  player.currentPos = -1;
+  player.dirty = false;
+  if (player.mediaUrl) URL.revokeObjectURL(player.mediaUrl);
+  player.mediaUrl = URL.createObjectURL(media.blob);
+
+  elements.playerTitle.textContent = textTitle(text);
+  elements.playerVideo.src = player.mediaUrl;
+  elements.playerGloss.hidden = true;
+  elements.playerOverlay.hidden = false;
+  renderPlayerSubs();
+  updatePlayPauseUI();
+  elements.playerVideo.load();
+}
+
+function closePlayer() {
+  elements.playerVideo.pause();
+  elements.playerVideo.removeAttribute("src");
+  elements.playerVideo.load();
+  if (player.mediaUrl) {
+    URL.revokeObjectURL(player.mediaUrl);
+    player.mediaUrl = null;
+  }
+  if (player.dirty) {
+    saveSetups();
+    player.dirty = false;
+  }
+  elements.playerOverlay.hidden = true;
+  player.text = null;
 }
 
 function startTextStudy(text) {
@@ -7745,6 +8235,54 @@ elements.addSentenceRowButton.addEventListener("click", () => addSentenceRow());
 elements.saveTextButton.addEventListener("click", saveText);
 elements.cancelTextButton.addEventListener("click", () => elements.textDialog.close());
 elements.closeTextDialogButton.addEventListener("click", () => elements.textDialog.close());
+
+// ---- Media upload in the text dialog ----
+elements.textMediaInput.addEventListener("change", () => {
+  const file = elements.textMediaInput.files?.[0] || null;
+  state.pendingMediaFile = file;
+  if (file) state.pendingMediaRemoved = false;
+  const editing = (currentSetup()?.texts || []).find((t) => t.id === state.editingTextId);
+  updateTextMediaInfo(Boolean(editing?.hasMedia));
+});
+elements.removeMediaButton.addEventListener("click", () => {
+  state.pendingMediaFile = null;
+  elements.textMediaInput.value = "";
+  state.pendingMediaRemoved = true;
+  updateTextMediaInfo(false);
+});
+
+// ---- Karaoke player controls ----
+elements.playerCloseButton.addEventListener("click", closePlayer);
+elements.playerVideo.addEventListener("timeupdate", onPlayerTimeUpdate);
+elements.playerVideo.addEventListener("play", updatePlayPauseUI);
+elements.playerVideo.addEventListener("pause", updatePlayPauseUI);
+elements.playerStage.addEventListener("click", () => {
+  if (elements.playerVideo.paused) elements.playerVideo.play();
+  else elements.playerVideo.pause();
+});
+elements.playerPlayButton.addEventListener("click", () => {
+  if (elements.playerVideo.paused) elements.playerVideo.play();
+  else elements.playerVideo.pause();
+});
+elements.playerBackButton.addEventListener("click", () => {
+  elements.playerVideo.currentTime = Math.max(0, elements.playerVideo.currentTime - 5);
+});
+elements.playerForwardButton.addEventListener("click", () => {
+  elements.playerVideo.currentTime = Math.min(
+    elements.playerVideo.duration || Infinity, elements.playerVideo.currentTime + 5,
+  );
+});
+elements.playerNextLineButton.addEventListener("click", () => {
+  const target = player.currentPos + 1;
+  playerSetLineTime(target, elements.playerVideo.currentTime);
+});
+elements.playerPostponeButton.addEventListener("click", () => {
+  if (player.currentPos >= 0) playerSetLineTime(player.currentPos, elements.playerVideo.currentTime);
+});
+elements.playerOriginal.addEventListener("click", (event) => {
+  const span = event.target.closest(".tap-word");
+  if (span) playerGlossWord(span.textContent);
+});
 
 window.addEventListener("beforeunload", stopSpeechStream);
 
