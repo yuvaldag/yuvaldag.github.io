@@ -1192,7 +1192,13 @@ input[type="checkbox"] {
 
 .text-row-info { grid-area: info; }
 .text-row-actions { grid-area: actions; }
-.media-line { grid-area: media; }
+.media-line {
+  grid-area: media;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 
 .text-row-info {
   min-width: 0;
@@ -1243,6 +1249,27 @@ input[type="checkbox"] {
 
 .text-row .media-badge.sync-btn:hover {
   border-color: var(--accent);
+}
+
+.media-size {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.texts-storage {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.texts-storage[hidden] {
+  display: none;
 }
 
 .text-row-actions button {
@@ -2002,6 +2029,7 @@ input[type="checkbox"] {
               </div>
               <button id="addTextButton" class="primary" type="button">Add text</button>
             </div>
+            <p id="textsStorage" class="texts-storage" hidden></p>
             <div id="textsList" class="texts-list"></div>
           </section>
         </section>
@@ -2728,6 +2756,7 @@ const elements = {
   translateResult: document.querySelector("#translateResult"),
   addTextButton: document.querySelector("#addTextButton"),
   textsList: document.querySelector("#textsList"),
+  textsStorage: document.querySelector("#textsStorage"),
   textDialog: document.querySelector("#textDialog"),
   textDialogTitle: document.querySelector("#textDialogTitle"),
   textTitleInput: document.querySelector("#textTitleInput"),
@@ -7709,7 +7738,43 @@ function createMediaSyncControl(text) {
     syncBtn.addEventListener("click", () => syncTextMediaToDrive(text, syncBtn));
     line.append(syncBtn);
   }
+  // Show the on-device size once we read it from storage.
+  const size = document.createElement("span");
+  size.className = "media-size";
+  line.append(size);
+  getMedia(text.id).then(
+    (media) => {
+      size.textContent = media?.blob
+        ? formatFileSize(media.blob.size)
+        : "not on this device";
+    },
+    () => {},
+  );
   return line;
+}
+
+// Sum the on-device size of all songs' media and show it above the list.
+async function updateTextsStorage() {
+  const el = elements.textsStorage;
+  if (!el) return;
+  const texts = (currentSetup()?.texts || []).filter((text) => text.hasMedia);
+  if (!texts.length) {
+    el.hidden = true;
+    return;
+  }
+  let total = 0;
+  let onDevice = 0;
+  for (const text of texts) {
+    const media = await getMedia(text.id).catch(() => null);
+    if (media?.blob) {
+      total += media.blob.size;
+      onDevice += 1;
+    }
+  }
+  el.hidden = false;
+  el.textContent = onDevice
+    ? `🎵 ${formatFileSize(total)} of audio/video on this device (${onDevice} of ${texts.length} song${texts.length === 1 ? "" : "s"})`
+    : `🎵 ${texts.length} song${texts.length === 1 ? "" : "s"} have media, none downloaded on this device`;
 }
 
 function renderTexts() {
@@ -7778,6 +7843,7 @@ function renderTexts() {
     if (mediaControl) row.append(mediaControl);
     list.append(row);
   });
+  updateTextsStorage();
 }
 
 function addSentenceRow(source = "", translation = "", glosses = [], header = false, time = null) {
