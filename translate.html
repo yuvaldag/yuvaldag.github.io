@@ -2358,6 +2358,12 @@ input[type="checkbox"] {
           </div>
           <button id="closeShareLinkDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
         </div>
+        <label class="field" id="shareIncludeMediaRow" hidden>
+          <span class="toggle-row">
+            <input id="shareIncludeMedia" type="checkbox" />
+            <span class="field-help">Include the songs' audio/video (shared link-only from your Google Drive).</span>
+          </span>
+        </label>
         <textarea id="shareLinkText" rows="4" readonly class="config-textarea"></textarea>
         <div id="shareLinkMessage" class="parse-message"></div>
         <div class="dialog-actions">
@@ -2408,6 +2414,9 @@ input[type="checkbox"] {
         <div class="player-row player-sync">
           <button id="playerPostponeButton" type="button">Postpone current line</button>
           <button id="playerNextLineButton" class="primary" type="button">Next line starts now</button>
+        </div>
+        <div class="player-row">
+          <button id="playerResetSyncButton" type="button">Reset subtitle sync</button>
         </div>
       </div>
     </div>
@@ -2642,6 +2651,8 @@ const elements = {
   shareLinkDialog: document.querySelector("#shareLinkDialog"),
   shareLinkText: document.querySelector("#shareLinkText"),
   shareLinkMessage: document.querySelector("#shareLinkMessage"),
+  shareIncludeMediaRow: document.querySelector("#shareIncludeMediaRow"),
+  shareIncludeMedia: document.querySelector("#shareIncludeMedia"),
   copyShareLinkButton: document.querySelector("#copyShareLinkButton"),
   shareLinkNativeButton: document.querySelector("#shareLinkNativeButton"),
   closeShareLinkDialogButton: document.querySelector("#closeShareLinkDialogButton"),
@@ -2711,6 +2722,7 @@ const elements = {
   playerTime: document.querySelector("#playerTime"),
   playerPostponeButton: document.querySelector("#playerPostponeButton"),
   playerNextLineButton: document.querySelector("#playerNextLineButton"),
+  playerResetSyncButton: document.querySelector("#playerResetSyncButton"),
   textTranslationLabel: document.querySelector("#textTranslationLabel"),
   textTranslationInput: document.querySelector("#textTranslationInput"),
   translateTextButton: document.querySelector("#translateTextButton"),
@@ -3445,6 +3457,33 @@ async function driveUpload(blob, name, onProgress) {
   });
 }
 
+// Make a Drive file link-viewable so anyone with a share link can stream it.
+async function driveMakePublic(fileId) {
+  const token = await driveAccessToken();
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "reader", type: "anyone" }),
+    },
+  );
+  if (!res.ok && res.status !== 409) {
+    throw new Error(`Could not share the media (${res.status}).`);
+  }
+}
+
+// Download a link-viewable (public) Drive file with just the project API key —
+// works for recipients who aren't signed in.
+async function drivePublicDownload(fileId) {
+  const key = DEFAULT_FIREBASE_CONFIG.apiKey;
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&key=${encodeURIComponent(key)}`,
+  );
+  if (!res.ok) throw new Error(`Drive download failed (${res.status}).`);
+  return res.blob();
+}
+
 async function driveDownload(fileId, onProgress) {
   const token = await driveAccessToken();
   return new Promise((resolve, reject) => {
@@ -3489,6 +3528,7 @@ function normalizeText(text) {
     hasMedia: Boolean(text?.hasMedia),
     mediaType: String(text?.mediaType || ""),
     driveFileId: String(text?.driveFileId || ""),
+    drivePublic: Boolean(text?.drivePublic),
     updatedAt: Number(text?.updatedAt) || 0,
   };
 }
@@ -5662,9 +5702,34 @@ async function decodeSharePayload(data) {
   return new TextDecoder().decode(bytes);
 }
 
-function shareableSetupPayload(setup) {
+// Build the shareable payload. With includeMedia, each song's Drive file is made
+// link-viewable so the recipient can stream it; otherwise media is stripped and
+// only lyrics + timings travel in the link.
+async function shareableSetupPayload(setup, includeMedia) {
   const serialized = serializableSetups().find((entry) => entry.id === setup.id);
   if (!serialized) return null;
+
+  const texts = [];
+  for (const text of serialized.texts) {
+    const base = { id: text.id, title: text.title, sentences: text.sentences };
+    if (includeMedia && text.driveFileId) {
+      try {
+        await driveMakePublic(text.driveFileId);
+        texts.push({
+          ...base,
+          hasMedia: true,
+          mediaType: text.mediaType || "",
+          driveFileId: text.driveFileId,
+          drivePublic: true,
+        });
+        continue;
+      } catch (error) {
+        console.warn(`Could not share media for "${text.title}".`, error);
+      }
+    }
+    texts.push(base);
+  }
+
   return {
     v: 1,
     setup: {
@@ -5679,13 +5744,7 @@ function shareableSetupPayload(setup) {
         notes: word.notes || "",
         category: word.category || "",
       })),
-      // Media lives in the sharer's own Drive/device, so strip media references
-      // from a shared setup — the recipient keeps the lyrics + timings only.
-      texts: serialized.texts.map((text) => ({
-        id: text.id,
-        title: text.title,
-        sentences: text.sentences,
-      })),
+      texts,
     },
   };
 }
@@ -5695,14 +5754,18 @@ function shareableSetupPayload(setup) {
 // hosted site.
 const PUBLIC_APP_URL = "https://yuvaldag.github.io/translate.html";
 
-async function buildShareLink(setup) {
-  const payload = shareableSetupPayload(setup);
+async function buildShareLink(setup, includeMedia) {
+  const payload = await shareableSetupPayload(setup, includeMedia);
   if (!payload) throw new Error("No setup to share.");
   const encoded = await encodeSharePayload(JSON.stringify(payload));
   const base = /^https?:$/.test(location.protocol)
     ? `${location.origin}${location.pathname}`
     : PUBLIC_APP_URL;
   return `${base}#setup=${encoded}`;
+}
+
+function setupHasDriveMedia(setup) {
+  return (setup?.texts || []).some((text) => text.driveFileId);
 }
 
 function copyShareLink() {
@@ -5729,24 +5792,42 @@ function copyShareLink() {
   }
 }
 
+async function refreshShareLink(includeMedia) {
+  const setup = currentSetup();
+  if (!setup) return;
+  elements.shareLinkText.value = "";
+  elements.shareLinkMessage.textContent = includeMedia
+    ? "Preparing media on Google Drive…"
+    : "Building link…";
+  try {
+    const link = await buildShareLink(setup, includeMedia);
+    elements.shareLinkText.value = link;
+    if (link.length > 8000) {
+      elements.shareLinkMessage.textContent =
+        "This link is large — email works better than chat apps for it.";
+    } else {
+      elements.shareLinkMessage.textContent = includeMedia
+        ? "Link includes the songs' audio/video from your Drive."
+        : "";
+    }
+    copyShareLink();
+  } catch (error) {
+    console.warn("Could not build share link.", error);
+    elements.shareLinkMessage.textContent = `Could not build the link: ${error.message}`;
+  }
+}
+
 async function shareCurrentSetup() {
   syncActiveSetupWords();
   const setup = currentSetup();
   if (!setup) return;
-  try {
-    const link = await buildShareLink(setup);
-    elements.shareLinkText.value = link;
-    elements.shareLinkMessage.textContent =
-      link.length > 8000
-        ? "This setup is large — the link may be too long for some chat apps; email works best."
-        : "";
-    const bridge = typeof window !== "undefined" ? window.AndroidApp : null;
-    elements.shareLinkNativeButton.hidden = !(bridge && typeof bridge.shareText === "function");
-    elements.shareLinkDialog.showModal();
-    copyShareLink();
-  } catch (error) {
-    console.warn("Could not build share link.", error);
-  }
+  const canIncludeMedia = setupHasDriveMedia(setup);
+  elements.shareIncludeMediaRow.hidden = !canIncludeMedia;
+  elements.shareIncludeMedia.checked = false;
+  const bridge = typeof window !== "undefined" ? window.AndroidApp : null;
+  elements.shareLinkNativeButton.hidden = !(bridge && typeof bridge.shareText === "function");
+  elements.shareLinkDialog.showModal();
+  await refreshShareLink(false);
 }
 
 async function detectSharedSetup() {
@@ -7102,6 +7183,9 @@ elements.deleteSetupButton.addEventListener("click", deleteCurrentSetup);
 
 elements.shareSetupButton.addEventListener("click", shareCurrentSetup);
 elements.copyShareLinkButton.addEventListener("click", copyShareLink);
+elements.shareIncludeMedia.addEventListener("change", () => {
+  refreshShareLink(elements.shareIncludeMedia.checked);
+});
 elements.closeShareLinkDialogButton.addEventListener("click", () => elements.shareLinkDialog.close());
 elements.shareLinkNativeButton.addEventListener("click", () => {
   const bridge = window.AndroidApp;
@@ -8051,11 +8135,14 @@ function playerSetLineTime(pos, time) {
 
 async function openPlayer(text) {
   let media = await getMedia(text.id).catch(() => null);
-  // Not on this device but synced to Drive? Download it once and cache locally.
-  if (!media && text.driveFileId && driveSyncAvailable()) {
+  // Not on this device? Fetch it: a shared (public) file needs no sign-in; your
+  // own private file uses your Drive access. Cache locally after the first time.
+  if (!media && text.driveFileId && (text.drivePublic || driveSyncAvailable())) {
     const type = text.mediaType || "video/webm";
     try {
-      const blob = await driveDownload(text.driveFileId);
+      const blob = text.drivePublic
+        ? await drivePublicDownload(text.driveFileId)
+        : await driveDownload(text.driveFileId);
       await putMedia(text.id, blob, blob.type || type);
       media = { blob, type: blob.type || type };
     } catch (error) {
@@ -8629,6 +8716,14 @@ elements.playerNextLineButton.addEventListener("click", () => {
 });
 elements.playerPostponeButton.addEventListener("click", () => {
   if (player.currentPos >= 0) playerSetLineTime(player.currentPos, elements.playerVideo.currentTime);
+});
+elements.playerResetSyncButton.addEventListener("click", () => {
+  if (!player.text) return;
+  if (!window.confirm("Clear all subtitle timings for this song? You'll re-sync from the start.")) return;
+  (player.text.sentences || []).forEach((sentence) => { sentence.time = null; });
+  player.dirty = true;
+  player.currentPos = -1;
+  renderPlayerSubs();
 });
 elements.playerOriginal.addEventListener("click", (event) => {
   const span = event.target.closest(".tap-word");
