@@ -1793,8 +1793,11 @@ input[type="checkbox"] {
 
 .player-translation {
   color: #9fb4ff;
-  font-size: clamp(1rem, 3.4vw, 1.4rem);
-  min-height: 1.4em;
+  /* Match the original line, which inherits .prompt-sentence sizing. */
+  font-size: clamp(1.5rem, 5.5vw, 2.5rem);
+  font-weight: 750;
+  line-height: 1.35;
+  min-height: 1.2em;
 }
 
 .player-subs .word-gloss {
@@ -7771,8 +7774,14 @@ async function openPlayer(text) {
   elements.playerGloss.hidden = true;
   elements.playerOverlay.hidden = false;
   renderPlayerSubs();
-  updatePlayPauseUI();
   elements.playerVideo.load();
+  // Start playing right away (you already tapped Play in the Words tab). If the
+  // browser blocks autoplay, the Play button stays available.
+  elements.playerVideo.play().catch(() => {});
+  elements.playerVideo.addEventListener("canplay", () => {
+    elements.playerVideo.play().catch(() => {});
+  }, { once: true });
+  updatePlayPauseUI();
 }
 
 function closePlayer() {
