@@ -1181,6 +1181,7 @@ input[type="checkbox"] {
 .text-row {
   display: grid;
   grid-template-columns: 1fr auto;
+  grid-template-areas: "info actions" "media media";
   gap: 8px 12px;
   align-items: center;
   border: 1px solid var(--line);
@@ -1188,6 +1189,10 @@ input[type="checkbox"] {
   background: var(--panel-2);
   padding: 12px 14px;
 }
+
+.text-row-info { grid-area: info; }
+.text-row-actions { grid-area: actions; }
+.media-line { grid-area: media; }
 
 .text-row-info {
   min-width: 0;
@@ -1207,7 +1212,37 @@ input[type="checkbox"] {
 
 .text-row-actions {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.text-row .media-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.text-row .media-badge.synced {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.text-row .media-badge.sync-btn {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border: 1px solid transparent;
+  min-height: 0;
+  cursor: pointer;
+}
+
+.text-row .media-badge.sync-btn:hover {
+  border-color: var(--accent);
 }
 
 .text-row-actions button {
@@ -7607,6 +7642,60 @@ function initTranslateFeature() {
 // Text (paragraph) management UI
 // ---------------------------------------------------------------------------
 
+async function syncTextMediaToDrive(text, button) {
+  if (!driveSyncAvailable()) {
+    window.alert("Sign in with Google (Settings → Cloud sync) to back up media to your Drive.");
+    return;
+  }
+  const media = await getMedia(text.id).catch(() => null);
+  if (!media) {
+    window.alert("This song's audio/video isn't on this device to upload.");
+    return;
+  }
+  button.disabled = true;
+  const originalText = button.textContent;
+  try {
+    const fileId = await driveUpload(
+      media.blob,
+      `LanguageTrainer-${text.id}.webm`,
+      (progress) => {
+        button.textContent = `Uploading… ${Math.round(progress * 100)}%`;
+      },
+    );
+    text.driveFileId = fileId;
+    text.updatedAt = Date.now();
+    saveSetups();
+    renderTexts();
+  } catch (error) {
+    console.warn("Media sync failed.", error);
+    window.alert(`Could not sync to Google Drive: ${error.message}`);
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
+function createMediaSyncControl(text) {
+  if (!text.hasMedia) return null;
+  const line = document.createElement("div");
+  line.className = "media-line";
+  if (text.driveFileId) {
+    const badge = document.createElement("span");
+    badge.className = "media-badge synced";
+    badge.textContent = "☁ Synced";
+    badge.title = "Backed up to your Google Drive";
+    line.append(badge);
+  } else {
+    const syncBtn = document.createElement("button");
+    syncBtn.type = "button";
+    syncBtn.className = "media-badge sync-btn";
+    syncBtn.textContent = "☁ Sync to Drive";
+    syncBtn.title = "Upload this song's audio/video to your Google Drive";
+    syncBtn.addEventListener("click", () => syncTextMediaToDrive(text, syncBtn));
+    line.append(syncBtn);
+  }
+  return line;
+}
+
 function renderTexts() {
   const list = elements.textsList;
   if (!list) return;
@@ -7639,6 +7728,7 @@ function renderTexts() {
     const meta = document.createElement("span");
     meta.textContent = `${text.sentences.length} sentence${text.sentences.length === 1 ? "" : "s"}`;
     info.append(title, meta);
+    const mediaControl = createMediaSyncControl(text);
 
     const actions = document.createElement("div");
     actions.className = "text-row-actions";
@@ -7669,6 +7759,7 @@ function renderTexts() {
     actions.append(editBtn, delBtn);
 
     row.append(info, actions);
+    if (mediaControl) row.append(mediaControl);
     list.append(row);
   });
 }
