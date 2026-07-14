@@ -3452,6 +3452,22 @@ async function driveAccessToken() {
   return token;
 }
 
+// Pull the real reason out of a Google API error response (e.g. "Drive API has
+// not been used in project … or it is disabled").
+async function driveErrorDetail(response, prefix) {
+  let detail = "";
+  try {
+    const body = await response.json();
+    detail = body?.error?.message || "";
+  } catch (error) {
+    /* ignore */
+  }
+  if (!detail && response.status === 403) {
+    detail = "the Google Drive API is likely not enabled for this project.";
+  }
+  return `${prefix} (${response.status})${detail ? `: ${detail}` : "."}`;
+}
+
 async function driveUpload(blob, name, onProgress) {
   const token = await driveAccessToken();
   const startRes = await fetch(
@@ -3465,7 +3481,7 @@ async function driveUpload(blob, name, onProgress) {
       body: JSON.stringify({ name, mimeType: blob.type || "application/octet-stream" }),
     },
   );
-  if (!startRes.ok) throw new Error(`Drive upload could not start (${startRes.status}).`);
+  if (!startRes.ok) throw new Error(await driveErrorDetail(startRes, "Drive upload could not start"));
   const uploadUrl = startRes.headers.get("Location");
   if (!uploadUrl) throw new Error("Drive did not return an upload URL.");
 
@@ -3504,7 +3520,7 @@ async function driveMakePublic(fileId) {
     },
   );
   if (!res.ok && res.status !== 409) {
-    throw new Error(`Could not share the media (${res.status}).`);
+    throw new Error(await driveErrorDetail(res, "Could not share the media"));
   }
 }
 
