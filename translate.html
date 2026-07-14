@@ -2589,6 +2589,7 @@ const state = {
     currentUtterance: null,
   },
   settings: { ...DEFAULT_SETTINGS },
+  drive: { token: "", expiresAt: 0 },
   sync: {
     config: null,
     modules: null,
@@ -3329,6 +3330,140 @@ async function compressMediaFile(file, mode, onProgress) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Google Drive media sync
+//
+// Big media files aren't put in Firestore. Instead, when signed in, they upload
+// to the user's own Google Drive (drive.file scope — the app only sees files it
+// created) and the returned fileId is synced with the text. Other devices then
+// download the file from Drive on demand and cache it locally.
+//
+// Access tokens: Android hands one over via the AndroidDrive bridge (native
+// Google account); the web reuses the Firebase Google sign-in credential.
+// ---------------------------------------------------------------------------
+
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+let driveTokenSeq = 0;
+const driveTokenResolvers = {};
+
+window.DriveNative = {
+  onToken(id, token) {
+    const resolver = driveTokenResolvers[id];
+    if (resolver) {
+      delete driveTokenResolvers[id];
+      resolver.resolve(String(token || ""));
+    }
+  },
+  onError(id, message) {
+    const resolver = driveTokenResolvers[id];
+    if (resolver) {
+      delete driveTokenResolvers[id];
+      resolver.reject(new Error(String(message || "Drive access failed.")));
+    }
+  },
+};
+
+function nativeDriveBridge() {
+  return typeof window !== "undefined" &&
+    window.AndroidDrive &&
+    typeof window.AndroidDrive.getAccessToken === "function"
+    ? window.AndroidDrive
+    : null;
+}
+
+function driveSyncAvailable() {
+  return Boolean(nativeDriveBridge() || state.sync.user);
+}
+
+async function driveAccessToken() {
+  const bridge = nativeDriveBridge();
+  if (bridge) {
+    return new Promise((resolve, reject) => {
+      const id = String(++driveTokenSeq);
+      driveTokenResolvers[id] = { resolve, reject };
+      try {
+        bridge.getAccessToken(id);
+      } catch (error) {
+        delete driveTokenResolvers[id];
+        reject(error);
+      }
+    });
+  }
+  // Web: reuse the Firebase Google sign-in credential.
+  const now = Date.now();
+  if (state.drive.token && state.drive.expiresAt > now + 60000) return state.drive.token;
+  if (!state.sync.user || !state.sync.modules) {
+    throw new Error("Sign in with Google first (Settings → Cloud sync).");
+  }
+  const { GoogleAuthProvider, reauthenticateWithPopup } = state.sync.modules.auth;
+  const provider = new GoogleAuthProvider();
+  provider.addScope(DRIVE_SCOPE);
+  const result = await reauthenticateWithPopup(state.sync.user, provider);
+  const token = GoogleAuthProvider.credentialFromResult(result)?.accessToken;
+  if (!token) throw new Error("Could not get Google Drive access.");
+  state.drive = { token, expiresAt: now + 55 * 60 * 1000 };
+  return token;
+}
+
+async function driveUpload(blob, name, onProgress) {
+  const token = await driveAccessToken();
+  const startRes = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json; charset=UTF-8",
+      },
+      body: JSON.stringify({ name, mimeType: blob.type || "application/octet-stream" }),
+    },
+  );
+  if (!startRes.ok) throw new Error(`Drive upload could not start (${startRes.status}).`);
+  const uploadUrl = startRes.headers.get("Location");
+  if (!uploadUrl) throw new Error("Drive did not return an upload URL.");
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", uploadUrl);
+    xhr.setRequestHeader("Content-Type", blob.type || "application/octet-stream");
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText).id);
+        } catch (error) {
+          reject(new Error("Unexpected Drive response."));
+        }
+      } else {
+        reject(new Error(`Drive upload failed (${xhr.status}).`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Drive upload failed."));
+    xhr.send(blob);
+  });
+}
+
+async function driveDownload(fileId, onProgress) {
+  const token = await driveAccessToken();
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.responseType = "blob";
+    xhr.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response);
+      else reject(new Error(`Drive download failed (${xhr.status}).`));
+    };
+    xhr.onerror = () => reject(new Error("Drive download failed."));
+    xhr.send();
+  });
+}
+
 function normalizeText(text) {
   const sentences = Array.isArray(text?.sentences)
     ? text.sentences
@@ -3353,6 +3488,7 @@ function normalizeText(text) {
     sentences,
     hasMedia: Boolean(text?.hasMedia),
     mediaType: String(text?.mediaType || ""),
+    driveFileId: String(text?.driveFileId || ""),
     updatedAt: Number(text?.updatedAt) || 0,
   };
 }
@@ -4885,6 +5021,7 @@ async function signInToCloud(options = {}) {
 
   const { GoogleAuthProvider, signInWithPopup, signInWithRedirect } = state.sync.modules.auth;
   const provider = new GoogleAuthProvider();
+  provider.addScope(DRIVE_SCOPE); // so media can sync to the user's Drive
   setCloudStatus("syncing", "Opening Google sign-in...");
 
   try {
@@ -4892,6 +5029,8 @@ async function signInToCloud(options = {}) {
       signInWithPopup(state.sync.auth, provider),
       "Google sign-in popup",
     );
+    const driveToken = GoogleAuthProvider.credentialFromResult(result)?.accessToken;
+    if (driveToken) state.drive = { token: driveToken, expiresAt: Date.now() + 55 * 60 * 1000 };
     state.sync.user = result.user || state.sync.auth.currentUser;
     if (state.sync.user) {
       await finishSignedInCloudSession(state.sync.user);
@@ -5540,7 +5679,13 @@ function shareableSetupPayload(setup) {
         notes: word.notes || "",
         category: word.category || "",
       })),
-      texts: serialized.texts,
+      // Media lives in the sharer's own Drive/device, so strip media references
+      // from a shared setup — the recipient keeps the lyrics + timings only.
+      texts: serialized.texts.map((text) => ({
+        id: text.id,
+        title: text.title,
+        sentences: text.sentences,
+      })),
     },
   };
 }
@@ -7660,6 +7805,7 @@ async function saveText() {
   const existing = (setup.texts || []).find((text) => text.id === id);
   let hasMedia = Boolean(existing?.hasMedia);
   let mediaType = existing?.mediaType || "";
+  let driveFileId = existing?.driveFileId || "";
 
   if (state.pendingMediaFile) {
     try {
@@ -7670,6 +7816,24 @@ async function saveText() {
       elements.textDialogMessage.textContent = "Could not store the audio/video on this device.";
       return;
     }
+    // Sync the media to the user's Google Drive so other devices can get it.
+    driveFileId = "";
+    if (driveSyncAvailable()) {
+      try {
+        driveFileId = await driveUpload(
+          state.pendingMediaFile,
+          `LanguageTrainer-${id}.webm`,
+          (progress) => {
+            elements.textDialogMessage.textContent = `Uploading to Google Drive… ${Math.round(progress * 100)}%`;
+          },
+        );
+        elements.textDialogMessage.textContent = "Uploaded to Google Drive.";
+      } catch (error) {
+        console.warn("Drive upload failed.", error);
+        elements.textDialogMessage.textContent =
+          `Saved on this device. Google Drive sync failed: ${error.message}`;
+      }
+    }
   } else if (state.pendingMediaRemoved) {
     try {
       await deleteMedia(id);
@@ -7678,6 +7842,7 @@ async function saveText() {
     }
     hasMedia = false;
     mediaType = "";
+    driveFileId = "";
   }
 
   const normalized = normalizeText({
@@ -7686,6 +7851,7 @@ async function saveText() {
     sentences,
     hasMedia,
     mediaType,
+    driveFileId,
     updatedAt: Date.now(),
   });
   setup.texts = setup.texts || [];
@@ -7884,9 +8050,26 @@ function playerSetLineTime(pos, time) {
 }
 
 async function openPlayer(text) {
-  const media = await getMedia(text.id).catch(() => null);
+  let media = await getMedia(text.id).catch(() => null);
+  // Not on this device but synced to Drive? Download it once and cache locally.
+  if (!media && text.driveFileId && driveSyncAvailable()) {
+    const type = text.mediaType || "video/webm";
+    try {
+      const blob = await driveDownload(text.driveFileId);
+      await putMedia(text.id, blob, blob.type || type);
+      media = { blob, type: blob.type || type };
+    } catch (error) {
+      console.warn("Drive download failed.", error);
+      window.alert(`Could not download the audio/video from Google Drive: ${error.message}`);
+      return;
+    }
+  }
   if (!media) {
-    window.alert("The audio/video isn't on this device. Open Edit and add it again.");
+    window.alert(
+      text.driveFileId
+        ? "This song's media is in Google Drive. Sign in with Google (Settings → Cloud sync) to download it."
+        : "The audio/video isn't on this device. Open Edit and add it again.",
+    );
     return;
   }
   player.text = text;
