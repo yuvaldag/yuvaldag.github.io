@@ -1311,8 +1311,23 @@ input[type="checkbox"] {
   line-height: 1.35;
 }
 
-.sentence-row .delete-word {
+.sentence-row-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   align-self: center;
+}
+
+.sentence-row-actions .dup-row {
+  min-height: 30px;
+  padding: 0 8px;
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.sentence-row-actions .dup-row:hover {
+  color: var(--accent-strong);
+  border-color: var(--accent);
 }
 
 @media (max-width: 560px) {
@@ -1892,6 +1907,17 @@ input[type="checkbox"] {
   grid-template-columns: 1fr 1fr;
 }
 
+.player-sync-status {
+  margin-top: 4px;
+  color: #cfd6ff;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.player-sync-status[hidden] {
+  display: none;
+}
+
 .player-controls button {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.16);
@@ -2401,7 +2427,7 @@ input[type="checkbox"] {
         <div id="textDialogMessage" class="parse-message"></div>
         <div id="textSentencesHead" class="text-sentences-head" hidden>
           <strong>Sentences</strong>
-          <span>One row per test item. Edit either side.</span>
+          <span>One row per line. Use ⧉ to duplicate a line — repeat a chorus as many times as the song sings it.</span>
         </div>
         <div id="textSentencesList" class="text-sentences-list"></div>
         <div class="dialog-actions">
@@ -2479,8 +2505,10 @@ input[type="checkbox"] {
           <button id="playerNextLineButton" class="primary" type="button">Next line starts now</button>
         </div>
         <div class="player-row">
+          <button id="playerAutoSyncButton" type="button">✨ Auto-sync (beta)</button>
           <button id="playerResetSyncButton" type="button">Reset subtitle sync</button>
         </div>
+        <div id="playerSyncStatus" class="player-sync-status" hidden></div>
       </div>
     </div>
 
@@ -2787,6 +2815,8 @@ const elements = {
   playerPostponeButton: document.querySelector("#playerPostponeButton"),
   playerNextLineButton: document.querySelector("#playerNextLineButton"),
   playerResetSyncButton: document.querySelector("#playerResetSyncButton"),
+  playerAutoSyncButton: document.querySelector("#playerAutoSyncButton"),
+  playerSyncStatus: document.querySelector("#playerSyncStatus"),
   textTranslationLabel: document.querySelector("#textTranslationLabel"),
   textTranslationInput: document.querySelector("#textTranslationInput"),
   translateTextButton: document.querySelector("#translateTextButton"),
@@ -7846,7 +7876,7 @@ function renderTexts() {
   updateTextsStorage();
 }
 
-function addSentenceRow(source = "", translation = "", glosses = [], header = false, time = null) {
+function addSentenceRow(source = "", translation = "", glosses = [], header = false, time = null, afterRow = null) {
   const setup = currentSetup() || DEFAULT_SETUP;
   const row = document.createElement("div");
   row.className = header ? "sentence-row sentence-header" : "sentence-row";
@@ -7863,14 +7893,36 @@ function addSentenceRow(source = "", translation = "", glosses = [], header = fa
   tgt.className = "sentence-translation";
   tgt.placeholder = setup.fromLanguage;
   tgt.value = translation;
+
+  const rowActions = document.createElement("div");
+  rowActions.className = "sentence-row-actions";
+  const dup = document.createElement("button");
+  dup.type = "button";
+  dup.className = "dup-row";
+  dup.textContent = "⧉";
+  dup.title = "Duplicate this line (e.g. for a repeated chorus)";
+  dup.setAttribute("aria-label", "Duplicate sentence");
+  dup.addEventListener("click", () => {
+    let currentGlosses = [];
+    try {
+      currentGlosses = JSON.parse(row.dataset.glosses || "[]");
+    } catch (error) {
+      currentGlosses = [];
+    }
+    // A copy gets no timing of its own — each occurrence is timed separately.
+    addSentenceRow(src.value, tgt.value, currentGlosses, row.dataset.header === "1", null, row);
+  });
   const del = document.createElement("button");
   del.type = "button";
   del.className = "delete-word";
   del.setAttribute("aria-label", "Remove sentence");
   del.textContent = "×";
   del.addEventListener("click", () => row.remove());
-  row.append(src, tgt, del);
-  elements.textSentencesList.append(row);
+  rowActions.append(dup, del);
+  row.append(src, tgt, rowActions);
+
+  if (afterRow && afterRow.parentNode) afterRow.after(row);
+  else elements.textSentencesList.append(row);
   elements.textSentencesHead.hidden = false;
 }
 
@@ -8306,6 +8358,129 @@ function playerSetLineTime(pos, time) {
   renderPlayerSubs();
 }
 
+// ---------------------------------------------------------------------------
+// Automatic subtitle sync (beta): transcribe the audio with the bundled Whisper
+// model, then align its timestamped segments to the known lyric lines.
+// ---------------------------------------------------------------------------
+
+function setPlayerSyncStatus(message) {
+  const el = elements.playerSyncStatus;
+  if (!el) return;
+  el.textContent = message || "";
+  el.hidden = !message;
+}
+
+// Fill lines that have no matched time by interpolating between matched anchors.
+function interpolateMissingTimes(lines) {
+  const n = lines.length;
+  let prevIdx = -1;
+  let prevTime = 0;
+  for (let i = 0; i < n; i += 1) {
+    if (!Number.isFinite(lines[i].time)) continue;
+    if (i - prevIdx > 1) {
+      const startT = prevIdx < 0 ? 0 : prevTime;
+      const endT = lines[i].time;
+      const gap = i - prevIdx;
+      for (let k = prevIdx + 1; k < i; k += 1) {
+        lines[k].time = startT + (endT - startT) * ((k - prevIdx) / gap);
+      }
+    }
+    prevIdx = i;
+    prevTime = lines[i].time;
+  }
+  // Trailing unmatched lines: space them out after the last anchor.
+  for (let i = prevIdx + 1; i < n; i += 1) {
+    lines[i].time = prevTime + (i - prevIdx) * 2;
+  }
+}
+
+// Greedy, order-preserving alignment of lyric lines to transcript segments.
+function alignLyricsToSegments(lines, segments) {
+  const tokenize = (text) => normalizeAnswer(text).split(/\s+/).filter(Boolean);
+  const segmentTokenSets = segments.map((seg) => new Set(tokenize(seg.text)));
+  let anchors = 0;
+  let cursor = 0;
+  lines.forEach((line) => {
+    const lineTokens = tokenize(line.source);
+    line.time = null;
+    if (!lineTokens.length) return;
+    let bestIndex = -1;
+    let bestScore = 0;
+    for (let k = cursor; k < segments.length && k < cursor + 14; k += 1) {
+      let overlap = 0;
+      lineTokens.forEach((token) => {
+        if (segmentTokenSets[k].has(token)) overlap += 1;
+      });
+      const score = overlap / lineTokens.length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = k;
+      }
+    }
+    if (bestIndex >= 0 && bestScore >= 0.34) {
+      line.time = segments[bestIndex].start;
+      cursor = bestIndex + 1;
+      anchors += 1;
+    }
+  });
+  interpolateMissingTimes(lines);
+  return anchors;
+}
+
+async function autoSyncPlayer() {
+  if (!player.text) return;
+  const lines = player.order.map((index) => player.text.sentences[index]);
+  if (!lines.length) return;
+  const media = await getMedia(player.text.id).catch(() => null);
+  if (!media?.blob) {
+    setPlayerSyncStatus("No audio on this device to analyze.");
+    return;
+  }
+
+  elements.playerAutoSyncButton.disabled = true;
+  const wasPlaying = !elements.playerVideo.paused;
+  elements.playerVideo.pause();
+  const url = URL.createObjectURL(media.blob);
+  try {
+    setPlayerSyncStatus("Loading the speech model… (first time downloads it)");
+    const transcriber = await loadSpeechTranscriber();
+    setPlayerSyncStatus("Listening to the song… this can take a minute.");
+    const language = (currentSetup() || DEFAULT_SETUP).learnLanguageCode || undefined;
+    const result = await transcriber(url, {
+      language,
+      task: "transcribe",
+      return_timestamps: true,
+      chunk_length_s: 30,
+      stride_length_s: 5,
+    });
+    const segments = (result?.chunks || [])
+      .map((chunk) => ({
+        start: Array.isArray(chunk.timestamp) ? chunk.timestamp[0] : null,
+        text: String(chunk.text || ""),
+      }))
+      .filter((seg) => Number.isFinite(seg.start));
+
+    if (!segments.length) {
+      setPlayerSyncStatus("Couldn't make out any words — try syncing by hand.");
+      return;
+    }
+    const anchors = alignLyricsToSegments(lines, segments);
+    player.dirty = true;
+    player.currentPos = playerCurrentPos(elements.playerVideo.currentTime);
+    renderPlayerSubs();
+    setPlayerSyncStatus(
+      `Auto-synced ${anchors} of ${lines.length} lines. Play it and fine-tune with the buttons above.`,
+    );
+  } catch (error) {
+    console.warn("Auto-sync failed.", error);
+    setPlayerSyncStatus(`Auto-sync failed: ${error.message}. Sync by hand instead.`);
+  } finally {
+    URL.revokeObjectURL(url);
+    elements.playerAutoSyncButton.disabled = false;
+    if (wasPlaying) elements.playerVideo.play().catch(() => {});
+  }
+}
+
 async function openPlayer(text) {
   let media = await getMedia(text.id).catch(() => null);
   // Not on this device? Fetch it: a shared (public) file needs no sign-in; your
@@ -8342,6 +8517,7 @@ async function openPlayer(text) {
   elements.playerTitle.textContent = textTitle(text);
   elements.playerVideo.src = player.mediaUrl;
   elements.playerGloss.hidden = true;
+  setPlayerSyncStatus("");
   elements.playerOverlay.hidden = false;
   renderPlayerSubs();
   elements.playerVideo.load();
@@ -8896,8 +9072,10 @@ elements.playerResetSyncButton.addEventListener("click", () => {
   (player.text.sentences || []).forEach((sentence) => { sentence.time = null; });
   player.dirty = true;
   player.currentPos = -1;
+  setPlayerSyncStatus("");
   renderPlayerSubs();
 });
+elements.playerAutoSyncButton.addEventListener("click", autoSyncPlayer);
 elements.playerOriginal.addEventListener("click", (event) => {
   const span = event.target.closest(".tap-word");
   if (span) playerGlossWord(span.textContent);
