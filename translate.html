@@ -2384,13 +2384,17 @@ input[type="checkbox"] {
           <span>Compress to save space</span>
           <div class="stack-actions">
             <select id="mediaCompressSelect" aria-label="Compression">
+              <option value="audio" selected>Audio only — small, best for songs (~64 kbps)</option>
+              <option value="audioTiny">Audio only — tiny (~48 kbps)</option>
+              <option value="audioHi">Audio only — better quality (~96 kbps)</option>
+              <option value="v144">Ultra-low video — 144p, 8 fps</option>
+              <option value="v240">Tiny video — 240p, low frame rate</option>
+              <option value="v360">Small video — 360p</option>
               <option value="none">Keep original</option>
-              <option value="video">Smaller video (480p)</option>
-              <option value="audio">Audio only (smallest)</option>
             </select>
             <button id="compressMediaButton" type="button">Compress now</button>
           </div>
-          <p class="field-help">Compressing plays the file through once, so it takes about the song's length. Do it before saving.</p>
+          <p class="field-help">For a song, <strong>Audio only</strong> is by far the smallest — a 4-minute song becomes ~2&nbsp;MB, and the play-along still shows the synced subtitles (just no picture). If your file is still large after compressing, it kept the video; switch to Audio only. Compressing plays the file through once, so it takes about the song's length. Do it before saving.</p>
         </div>
         <div class="stack-actions" id="textMediaActions" hidden>
           <button id="removeMediaButton" type="button">Remove audio/video</button>
@@ -3346,11 +3350,23 @@ function firstSupportedMime(candidates) {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
 
-// Re-encode a media file in-browser to save storage. "audio" keeps only the
-// sound (best for songs); "video" downscales to ~480p. Runs in real time (it
-// plays the file through once), reporting progress 0..1.
+// Quality profiles for compression. Low resolution + frame rate is what really
+// shrinks the file (bitrate hints aren't always honored), so these stay small
+// regardless of the encoder. "audio" drops the video entirely.
+const COMPRESS_PROFILES = {
+  audioTiny: { audio: true, audioBitrate: 48000 },
+  audio: { audio: true, audioBitrate: 64000 },
+  audioHi: { audio: true, audioBitrate: 96000 },
+  v144: { height: 144, videoBitrate: 120000, fps: 8, audioBitrate: 56000 },
+  v240: { height: 240, videoBitrate: 200000, fps: 12, audioBitrate: 64000 },
+  v360: { height: 360, videoBitrate: 400000, fps: 15, audioBitrate: 80000 },
+};
+
+// Re-encode a media file in-browser to save storage. Runs in real time (it plays
+// the file through once), reporting progress 0..1.
 async function compressMediaFile(file, mode, onProgress) {
-  if (mode !== "audio" && mode !== "video") return file;
+  const profile = COMPRESS_PROFILES[mode];
+  if (!profile) return file;
   if (typeof MediaRecorder === "undefined") throw new Error("Compression isn't supported here.");
 
   const url = URL.createObjectURL(file);
@@ -3376,19 +3392,19 @@ async function compressMediaFile(file, mode, onProgress) {
     let stream;
     let mime;
     let drawStop = () => {};
-    if (mode === "audio") {
+    if (profile.audio) {
       stream = new MediaStream(audioDest.stream.getAudioTracks());
       mime = firstSupportedMime(["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]);
     } else {
-      const maxHeight = 480;
-      const scale = video.videoHeight > maxHeight ? maxHeight / video.videoHeight : 1;
-      const width = Math.max(2, Math.round((video.videoWidth * scale) / 2) * 2);
-      const height = Math.max(2, Math.round((video.videoHeight * scale) / 2) * 2);
+      const srcHeight = video.videoHeight || profile.height;
+      const scale = srcHeight > profile.height ? profile.height / srcHeight : 1;
+      const width = Math.max(2, Math.round(((video.videoWidth || 640) * scale) / 2) * 2);
+      const height = Math.max(2, Math.round(((video.videoHeight || 360) * scale) / 2) * 2);
       const canvas = document.createElement("canvas");
-      canvas.width = width || 640;
-      canvas.height = height || 360;
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext("2d");
-      const canvasStream = canvas.captureStream(30);
+      const canvasStream = canvas.captureStream(profile.fps);
       audioDest.stream.getAudioTracks().forEach((track) => canvasStream.addTrack(track));
       stream = canvasStream;
       mime = firstSupportedMime(["video/webm;codecs=vp8,opus", "video/webm"]);
@@ -3400,14 +3416,14 @@ async function compressMediaFile(file, mode, onProgress) {
       };
       video.addEventListener("play", () => {
         window.clearInterval(timer);
-        timer = window.setInterval(draw, 1000 / 30);
+        timer = window.setInterval(draw, 1000 / profile.fps);
       });
       drawStop = () => window.clearInterval(timer);
     }
     if (!mime) throw new Error("No supported output format.");
 
-    const options = { mimeType: mime, audioBitsPerSecond: 96000 };
-    if (mode === "video") options.videoBitsPerSecond = 900000;
+    const options = { mimeType: mime, audioBitsPerSecond: profile.audioBitrate };
+    if (!profile.audio) options.videoBitsPerSecond = profile.videoBitrate;
     const recorder = new MediaRecorder(stream, options);
     const chunks = [];
     recorder.ondataavailable = (event) => {
