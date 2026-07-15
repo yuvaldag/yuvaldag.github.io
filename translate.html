@@ -2387,6 +2387,7 @@ input[type="checkbox"] {
               <option value="audio" selected>Audio only — small, best for songs (~64 kbps)</option>
               <option value="audioTiny">Audio only — tiny (~48 kbps)</option>
               <option value="audioHi">Audio only — better quality (~96 kbps)</option>
+              <option value="v480">Okay video — 480p, watchable (moderate size)</option>
               <option value="v144">Ultra-low video — 144p, 8 fps</option>
               <option value="v240">Tiny video — 240p, low frame rate</option>
               <option value="v360">Small video — 360p</option>
@@ -3360,6 +3361,7 @@ const COMPRESS_PROFILES = {
   v144: { height: 144, videoBitrate: 120000, fps: 8, audioBitrate: 56000 },
   v240: { height: 240, videoBitrate: 200000, fps: 12, audioBitrate: 64000 },
   v360: { height: 360, videoBitrate: 400000, fps: 15, audioBitrate: 80000 },
+  v480: { height: 480, videoBitrate: 900000, fps: 24, audioBitrate: 96000 },
 };
 
 // Re-encode a media file in-browser to save storage. Runs in real time (it plays
