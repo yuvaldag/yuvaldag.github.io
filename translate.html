@@ -2508,6 +2508,11 @@ input[type="checkbox"] {
           <button id="playerAutoSyncButton" type="button">✨ Auto-sync (beta)</button>
           <button id="playerResetSyncButton" type="button">Reset subtitle sync</button>
         </div>
+        <div class="player-row" id="playerImportRow" hidden>
+          <button id="playerImportSubsButton" type="button">⬇ Import WhisperX subtitles</button>
+          <button id="playerImportHelpButton" type="button" aria-label="How to make the file">How?</button>
+        </div>
+        <input id="playerImportSubsInput" type="file" accept=".srt,.vtt,.lrc,text/plain" hidden />
         <div id="playerSyncStatus" class="player-sync-status" hidden></div>
       </div>
     </div>
@@ -2817,6 +2822,10 @@ const elements = {
   playerResetSyncButton: document.querySelector("#playerResetSyncButton"),
   playerAutoSyncButton: document.querySelector("#playerAutoSyncButton"),
   playerSyncStatus: document.querySelector("#playerSyncStatus"),
+  playerImportRow: document.querySelector("#playerImportRow"),
+  playerImportSubsButton: document.querySelector("#playerImportSubsButton"),
+  playerImportHelpButton: document.querySelector("#playerImportHelpButton"),
+  playerImportSubsInput: document.querySelector("#playerImportSubsInput"),
   textTranslationLabel: document.querySelector("#textTranslationLabel"),
   textTranslationInput: document.querySelector("#textTranslationInput"),
   translateTextButton: document.querySelector("#translateTextButton"),
@@ -8427,6 +8436,84 @@ function alignLyricsToSegments(lines, segments) {
   return anchors;
 }
 
+// PC-only: import a subtitle file (WhisperX .srt/.vtt or an .lrc) and align its
+// timestamps to the known lyric lines. WhisperX (large-v3) is far stronger than
+// the in-browser model, especially for Greek.
+function isDesktopEnvironment() {
+  return !window.AndroidApp && window.matchMedia("(min-width: 820px)").matches;
+}
+
+function subtitleTimeToSeconds(value) {
+  const match = String(value).trim().match(/(?:(\d+):)?(\d{1,2}):(\d{1,2})(?:[.,](\d+))?/);
+  if (!match) return null;
+  const hours = match[1] ? Number(match[1]) : 0;
+  const minutes = Number(match[2]);
+  const seconds = Number(match[3]);
+  const frac = match[4] ? Number(`0.${match[4]}`) : 0;
+  return hours * 3600 + minutes * 60 + seconds + frac;
+}
+
+function parseSubtitleFile(content) {
+  const text = String(content || "").replace(/\r/g, "");
+  const segments = [];
+  if (/^\s*\[\d+:\d+/m.test(text) && !text.includes("-->")) {
+    // LRC: [mm:ss.xx] lyric
+    text.split("\n").forEach((line) => {
+      const match = line.match(/^\s*\[(\d+:\d+(?:[.:]\d+)?)\]\s*(.*)$/);
+      if (!match) return;
+      const start = subtitleTimeToSeconds(match[1]);
+      if (start != null && match[2].trim()) segments.push({ start, text: match[2].trim() });
+    });
+  } else {
+    // SRT / VTT: blank-line separated cues
+    text.split(/\n\s*\n/).forEach((block) => {
+      const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+      const timeIndex = lines.findIndex((line) => line.includes("-->"));
+      if (timeIndex < 0) return;
+      const start = subtitleTimeToSeconds(lines[timeIndex].split("-->")[0]);
+      const cueText = lines.slice(timeIndex + 1).join(" ").trim();
+      if (start != null && cueText) segments.push({ start, text: cueText });
+    });
+  }
+  return segments.sort((a, b) => a.start - b.start);
+}
+
+async function importSubtitleFile(file) {
+  if (!file || !player.text) return;
+  const lines = player.order.map((index) => player.text.sentences[index]);
+  if (!lines.length) return;
+  try {
+    const segments = parseSubtitleFile(await file.text());
+    if (!segments.length) {
+      setPlayerSyncStatus("Couldn't read any timed lines from that file.");
+      return;
+    }
+    const anchors = alignLyricsToSegments(lines, segments);
+    player.dirty = true;
+    player.currentPos = playerCurrentPos(elements.playerVideo.currentTime);
+    renderPlayerSubs();
+    setPlayerSyncStatus(
+      `Imported timings — matched ${anchors} of ${lines.length} lines. Play and fine-tune the rest.`,
+    );
+  } catch (error) {
+    console.warn("Subtitle import failed.", error);
+    setPlayerSyncStatus(`Could not import that file: ${error.message}`);
+  }
+}
+
+function showWhisperXHelp() {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const lang = setup.learnLanguageCode || "el";
+  window.alert(
+    "On your Mac (one-time): install with\n\n" +
+      "  pip install whisperx\n\n" +
+      "Then transcribe the song with the strong model:\n\n" +
+      `  whisperx "song.mp3" --model large-v3 --language ${lang} --output_format srt\n\n` +
+      "That makes song.srt. Tap “Import WhisperX subtitles” and pick it.\n\n" +
+      "Tip: duplicate any repeated chorus lines (⧉ in Edit) first, so repeats line up.",
+  );
+}
+
 async function autoSyncPlayer() {
   if (!player.text) return;
   const lines = player.order.map((index) => player.text.sentences[index]);
@@ -8518,6 +8605,7 @@ async function openPlayer(text) {
   elements.playerVideo.src = player.mediaUrl;
   elements.playerGloss.hidden = true;
   setPlayerSyncStatus("");
+  elements.playerImportRow.hidden = !isDesktopEnvironment();
   elements.playerOverlay.hidden = false;
   renderPlayerSubs();
   elements.playerVideo.load();
@@ -9076,6 +9164,13 @@ elements.playerResetSyncButton.addEventListener("click", () => {
   renderPlayerSubs();
 });
 elements.playerAutoSyncButton.addEventListener("click", autoSyncPlayer);
+elements.playerImportSubsButton.addEventListener("click", () => elements.playerImportSubsInput.click());
+elements.playerImportHelpButton.addEventListener("click", showWhisperXHelp);
+elements.playerImportSubsInput.addEventListener("change", () => {
+  const file = elements.playerImportSubsInput.files?.[0];
+  elements.playerImportSubsInput.value = "";
+  importSubtitleFile(file);
+});
 elements.playerOriginal.addEventListener("click", (event) => {
   const span = event.target.closest(".tap-word");
   if (span) playerGlossWord(span.textContent);
