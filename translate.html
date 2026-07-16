@@ -3655,7 +3655,21 @@ async function drivePublicDownload(fileId) {
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&key=${encodeURIComponent(key)}`,
   );
-  if (!res.ok) throw new Error(`Drive download failed (${res.status}).`);
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.error?.message || "";
+    } catch (error) {
+      /* ignore */
+    }
+    if (/blocked|API_KEY_SERVICE_BLOCKED/i.test(detail)) {
+      throw new Error(
+        "Google Drive API is blocked for this app's API key. In Google Cloud Console → Credentials → the browser API key → API restrictions, add “Google Drive API” (or don't restrict the key).",
+      );
+    }
+    throw new Error(detail || `Drive download failed (${res.status}).`);
+  }
   return res.blob();
 }
 
