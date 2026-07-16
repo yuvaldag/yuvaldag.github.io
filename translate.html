@@ -3432,12 +3432,23 @@ async function compressMediaFile(file, mode, onProgress) {
       if (event.data && event.data.size) chunks.push(event.data);
     };
 
+    console.info("[compress] start", file.type, Math.round(file.size / 1e6) + "MB",
+      "mode", mode, "dur", Math.round(duration), "src", video.videoWidth + "x" + video.videoHeight,
+      "mime", mime);
+
+    if (!profile.audio && (!video.videoWidth || !video.videoHeight)) {
+      throw new Error("This file has no readable video track on this phone (maybe an unsupported codec like HEVC/H.265). Try “Audio only”, or a different file.");
+    }
+
+    let settled = false;
+    let lastTick = Date.now();
     const finished = new Promise((resolve, reject) => {
       recorder.onstop = () => resolve(new Blob(chunks, { type: mime.split(";")[0] }));
-      recorder.onerror = () => reject(new Error("Compression failed."));
+      recorder.onerror = (event) => reject(new Error("Recorder error: " + (event?.error?.name || "unknown")));
     });
 
     video.ontimeupdate = () => {
+      lastTick = Date.now();
       if (duration) onProgress?.(Math.min(0.99, video.currentTime / duration));
     };
     video.onended = () => {
@@ -3449,12 +3460,39 @@ async function compressMediaFile(file, mode, onProgress) {
       }
     };
 
+    // Watchdog: if playback never advances, the phone can't decode this file.
+    const watchdog = new Promise((_, reject) => {
+      const iv = window.setInterval(() => {
+        if (settled) {
+          window.clearInterval(iv);
+          return;
+        }
+        if (Date.now() - lastTick > 15000) {
+          window.clearInterval(iv);
+          reject(new Error("The phone couldn't play/decode this video (often HEVC/H.265). Use “Audio only”, or convert the file first."));
+        }
+      }, 3000);
+    });
+
     recorder.start(1000);
-    await video.play();
-    const blob = await finished;
+    try {
+      await video.play();
+    } catch (error) {
+      throw new Error("Couldn't start playback on this phone: " + (error?.message || error));
+    }
+    console.info("[compress] playing…");
+    let blob;
+    try {
+      blob = await Promise.race([finished, watchdog]);
+    } finally {
+      settled = true;
+      drawStop();
+      try { recorder.stop(); } catch (error) { /* ignore */ }
+    }
     audioCtx.close().catch(() => {});
     onProgress?.(1);
-    if (!blob.size) throw new Error("Compression produced no output.");
+    console.info("[compress] done", Math.round((blob?.size || 0) / 1e6) + "MB");
+    if (!blob.size) throw new Error("Compression produced no output (unsupported codec?).");
 
     const baseName = (file.name || "media").replace(/\.[^.]+$/, "") || "media";
     return new File([blob], `${baseName}.webm`, { type: blob.type });
@@ -5048,7 +5086,12 @@ async function initializeFirebaseFromSavedConfig() {
       modules.auth.getRedirectResult(state.sync.auth)
         .then(async (result) => {
           const redirectUser = result?.user || state.sync.auth.currentUser;
+          const driveToken = result
+            ? modules.auth.GoogleAuthProvider.credentialFromResult(result)?.accessToken
+            : null;
+          if (driveToken) state.drive = { token: driveToken, expiresAt: Date.now() + 55 * 60 * 1000 };
           if (redirectUser) await finishSignedInCloudSession(redirectUser);
+          await resumePendingPlay();
         })
         .catch((error) => {
           console.warn("Could not finish redirected Google sign-in.", error);
@@ -8020,12 +8063,13 @@ function updateTextMediaInfo(hasExistingMedia) {
     elements.mediaCompressRow.hidden = false;
     return;
   }
-  elements.mediaCompressRow.hidden = true;
   if (hasExistingMedia && !state.pendingMediaRemoved) {
-    elements.textMediaInfo.textContent = "Audio/video is attached. Choose a file to replace it.";
+    elements.textMediaInfo.textContent = "Audio/video is attached. Pick a compression level and tap Compress now, or choose a file to replace it.";
     elements.textMediaActions.hidden = false;
+    elements.mediaCompressRow.hidden = false; // allow compressing the saved file
     return;
   }
+  elements.mediaCompressRow.hidden = true;
   elements.textMediaInfo.textContent = state.pendingMediaRemoved
     ? "Audio/video will be removed on save."
     : "No audio/video attached.";
@@ -8586,6 +8630,24 @@ async function autoSyncPlayer() {
   }
 }
 
+// After a full-page redirect for Drive access, re-open the song we were opening.
+async function resumePendingPlay() {
+  let id = "";
+  try {
+    id = sessionStorage.getItem("pendingPlayTextId") || "";
+  } catch (error) {
+    /* ignore */
+  }
+  if (!id) return;
+  try {
+    sessionStorage.removeItem("pendingPlayTextId");
+  } catch (error) {
+    /* ignore */
+  }
+  const text = state.setups.flatMap((setup) => setup.texts || []).find((entry) => entry.id === id);
+  if (text) openPlayer(text);
+}
+
 async function openPlayer(text) {
   let media = await getMedia(text.id).catch(() => null);
   // Not on this device? Fetch it: a shared (public) file needs no sign-in; your
@@ -8600,6 +8662,31 @@ async function openPlayer(text) {
       media = { blob, type: blob.type || type };
     } catch (error) {
       console.warn("Drive download failed.", error);
+      const code = error?.code || "";
+      const popupBlocked =
+        code === "auth/popup-blocked" ||
+        code === "auth/cancelled-popup-request" ||
+        /popup/i.test(error?.message || "");
+      // Popup blocked → do a full-page redirect for Drive access, then resume.
+      if (popupBlocked && state.sync.user && state.sync.modules?.auth?.reauthenticateWithRedirect) {
+        try {
+          sessionStorage.setItem("pendingPlayTextId", text.id);
+        } catch (storeError) {
+          /* ignore */
+        }
+        try {
+          const { GoogleAuthProvider, reauthenticateWithRedirect } = state.sync.modules.auth;
+          const provider = new GoogleAuthProvider();
+          provider.addScope(DRIVE_SCOPE);
+          await reauthenticateWithRedirect(state.sync.user, provider);
+          return;
+        } catch (redirectError) {
+          window.alert(
+            "Could not open Google Drive sign-in: " + (redirectError?.message || redirectError),
+          );
+          return;
+        }
+      }
       window.alert(`Could not download the audio/video from Google Drive: ${error.message}`);
       return;
     }
@@ -9112,9 +9199,7 @@ elements.removeMediaButton.addEventListener("click", () => {
   updateTextMediaInfo(false);
 });
 elements.compressMediaButton.addEventListener("click", async () => {
-  const original = state.pendingMediaFile;
   const mode = elements.mediaCompressSelect.value;
-  if (!original) return;
   if (mode === "none") {
     elements.textMediaInfo.textContent = "Pick a compression option first.";
     return;
@@ -9122,6 +9207,19 @@ elements.compressMediaButton.addEventListener("click", async () => {
   elements.compressMediaButton.disabled = true;
   elements.mediaCompressSelect.disabled = true;
   try {
+    // Compress the freshly-picked file, or the already-saved media if none picked.
+    let original = state.pendingMediaFile;
+    if (!original && state.editingTextId) {
+      elements.textMediaInfo.textContent = "Loading saved media…";
+      const saved = await getMedia(state.editingTextId).catch(() => null);
+      if (saved?.blob) {
+        original = new File([saved.blob], "media", { type: saved.blob.type || saved.type || "video/mp4" });
+      }
+    }
+    if (!original) {
+      elements.textMediaInfo.textContent = "Choose a file first.";
+      return;
+    }
     const compressed = await compressMediaFile(original, mode, (progress) => {
       elements.textMediaInfo.textContent = `Compressing… ${Math.round(progress * 100)}% (keep this open)`;
     });
@@ -9129,15 +9227,14 @@ elements.compressMediaButton.addEventListener("click", async () => {
       state.pendingMediaFile = compressed;
       const saved = Math.round((1 - compressed.size / original.size) * 100);
       elements.textMediaInfo.textContent =
-        `Compressed to ${formatFileSize(compressed.size)} (${saved}% smaller). Save to keep it.`;
+        `Compressed ${formatFileSize(original.size)} → ${formatFileSize(compressed.size)} (${saved}% smaller). Save to keep it.`;
     } else {
       elements.textMediaInfo.textContent =
-        "That didn't come out smaller — keeping the original file.";
+        `That didn't come out smaller (${formatFileSize(compressed?.size || 0)}) — keeping the original.`;
     }
   } catch (error) {
     console.warn("Compression failed.", error);
-    elements.textMediaInfo.textContent =
-      "Could not compress this file — the original will be used.";
+    elements.textMediaInfo.textContent = error?.message || "Could not compress this file.";
   } finally {
     elements.compressMediaButton.disabled = false;
     elements.mediaCompressSelect.disabled = false;
