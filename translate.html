@@ -7808,6 +7808,15 @@ async function syncTextMediaToDrive(text, button) {
       },
     );
     text.driveFileId = fileId;
+    // Make it link-readable so it plays on every device without each one needing
+    // Drive OAuth (private drive.file files are only visible to the app that
+    // created them, so a phone-uploaded file can't be read on the web otherwise).
+    try {
+      await driveMakePublic(fileId);
+      text.drivePublic = true;
+    } catch (publicError) {
+      console.warn("Could not make media link-readable.", publicError);
+    }
     text.updatedAt = Date.now();
     saveSetups();
     renderTexts();
@@ -7819,16 +7828,48 @@ async function syncTextMediaToDrive(text, button) {
   }
 }
 
+async function makeMediaPublic(text, button) {
+  if (!text.driveFileId) return;
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = "Sharing…";
+  try {
+    await driveMakePublic(text.driveFileId);
+    text.drivePublic = true;
+    text.updatedAt = Date.now();
+    saveSetups();
+    renderTexts();
+  } catch (error) {
+    console.warn("Make public failed.", error);
+    window.alert(
+      "Could not make it playable on other devices: " + error.message +
+      "\n\nRun this on the device the song is saved on (usually your phone).",
+    );
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
 function createMediaSyncControl(text) {
   if (!text.hasMedia) return null;
   const line = document.createElement("div");
   line.className = "media-line";
-  if (text.driveFileId) {
+  if (text.driveFileId && text.drivePublic) {
     const badge = document.createElement("span");
     badge.className = "media-badge synced";
-    badge.textContent = "☁ Synced";
-    badge.title = "Backed up to your Google Drive";
+    badge.textContent = "☁ Shared";
+    badge.title = "In your Google Drive and playable on all your devices";
     line.append(badge);
+  } else if (text.driveFileId) {
+    // Uploaded but not link-readable yet → other devices (e.g. the web) can't
+    // download it. Make it shareable from the device that uploaded it.
+    const shareBtn = document.createElement("button");
+    shareBtn.type = "button";
+    shareBtn.className = "media-badge sync-btn";
+    shareBtn.textContent = "☁ Make playable on all devices";
+    shareBtn.title = "Allow your other devices to download and play this song";
+    shareBtn.addEventListener("click", () => makeMediaPublic(text, shareBtn));
+    line.append(shareBtn);
   } else {
     const syncBtn = document.createElement("button");
     syncBtn.type = "button";
