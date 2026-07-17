@@ -8592,36 +8592,76 @@ function interpolateMissingTimes(lines) {
 }
 
 // Greedy, order-preserving alignment of lyric lines to transcript segments.
-function alignLyricsToSegments(lines, segments) {
-  const tokenize = (text) => normalizeAnswer(text).split(/\s+/).filter(Boolean);
-  const segmentTokenSets = segments.map((seg) => new Set(tokenize(seg.text)));
-  let anchors = 0;
-  let cursor = 0;
-  lines.forEach((line) => {
-    const lineTokens = tokenize(line.source);
-    line.time = null;
-    if (!lineTokens.length) return;
-    let bestIndex = -1;
-    let bestScore = 0;
-    for (let k = cursor; k < segments.length && k < cursor + 14; k += 1) {
-      let overlap = 0;
-      lineTokens.forEach((token) => {
-        if (segmentTokenSets[k].has(token)) overlap += 1;
-      });
-      const score = overlap / lineTokens.length;
-      if (score > bestScore) {
-        bestScore = score;
-        bestIndex = k;
-      }
-    }
-    if (bestIndex >= 0 && bestScore >= 0.34) {
-      line.time = segments[bestIndex].start;
-      cursor = bestIndex + 1;
-      anchors += 1;
-    }
+function alignTokenize(text) {
+  return normalizeAnswer(text).split(/\s+/).filter(Boolean);
+}
+
+// Overlap coefficient — lenient enough for imperfectly-heard song lines.
+function alignSimilarity(aSet, bSet) {
+  if (!aSet.size || !bSet.size) return 0;
+  let overlap = 0;
+  aSet.forEach((token) => {
+    if (bSet.has(token)) overlap += 1;
   });
+  return overlap / Math.min(aSet.size, bSet.size);
+}
+
+// Monotonic DTW alignment of lyric lines to transcribed/subtitle segments. It
+// uses text similarity where it exists and the temporal ORDER everywhere, so
+// every line lands on a real sung phrase — even ones the model mis-heard —
+// instead of only text-matching a few and linearly guessing the rest.
+function alignLyricsToSegments(lines, segments) {
+  const L = lines.length;
+  const S = segments.length;
+  lines.forEach((line) => { line.time = null; });
+  if (!L || !S) return { strong: 0, timed: 0 };
+
+  const lineSets = lines.map((line) => new Set(alignTokenize(line.source)));
+  const segSets = segments.map((seg) => new Set(alignTokenize(seg.text)));
+
+  const INF = 1e9;
+  const dp = Array.from({ length: L + 1 }, () => new Float64Array(S + 1).fill(INF));
+  const back = Array.from({ length: L + 1 }, () => new Uint8Array(S + 1));
+  dp[0][0] = 0;
+  for (let j = 1; j <= S; j += 1) { dp[0][j] = 0; back[0][j] = 1; } // free leading intro segments
+
+  for (let i = 1; i <= L; i += 1) {
+    for (let j = 1; j <= S; j += 1) {
+      const cost = 1 - alignSimilarity(lineSets[i - 1], segSets[j - 1]);
+      let best = dp[i - 1][j - 1]; // 0: match line i ↔ segment j
+      let move = 0;
+      if (dp[i][j - 1] < best) { best = dp[i][j - 1]; move = 1; } // skip segment j
+      if (dp[i - 1][j] < best) { best = dp[i - 1][j]; move = 2; } // two lines share segment j
+      dp[i][j] = best + cost;
+      back[i][j] = move;
+    }
+  }
+
+  const lineSeg = new Array(L).fill(-1);
+  let i = L;
+  let j = S;
+  while (i > 0 && j > 0) {
+    const move = back[i][j];
+    if (move === 0) { lineSeg[i - 1] = j - 1; i -= 1; j -= 1; }
+    else if (move === 1) { j -= 1; }
+    else { if (lineSeg[i - 1] < 0) lineSeg[i - 1] = j - 1; i -= 1; }
+  }
+
+  let strong = 0;
+  let timed = 0;
+  let last = -1;
+  for (let k = 0; k < L; k += 1) {
+    const segIndex = lineSeg[k];
+    if (segIndex < 0) continue;
+    let time = segments[segIndex].start;
+    if (time <= last) time = last + 0.25; // keep strictly increasing
+    lines[k].time = time;
+    last = time;
+    timed += 1;
+    if (alignSimilarity(lineSets[k], segSets[segIndex]) >= 0.34) strong += 1;
+  }
   interpolateMissingTimes(lines);
-  return anchors;
+  return { strong, timed };
 }
 
 // PC-only: import a subtitle file (WhisperX .srt/.vtt or an .lrc) and align its
@@ -8676,12 +8716,12 @@ async function importSubtitleFile(file) {
       setPlayerSyncStatus("Couldn't read any timed lines from that file.");
       return;
     }
-    const anchors = alignLyricsToSegments(lines, segments);
+    const { strong, timed } = alignLyricsToSegments(lines, segments);
     player.dirty = true;
     player.currentPos = playerCurrentPos(elements.playerVideo.currentTime);
     renderPlayerSubs();
     setPlayerSyncStatus(
-      `Imported timings — matched ${anchors} of ${lines.length} lines. Play and fine-tune the rest.`,
+      `Imported timings — timed ${timed} of ${lines.length} lines (${strong} confident). Play and fine-tune; use “Shift all” for a constant offset.`,
     );
   } catch (error) {
     console.warn("Subtitle import failed.", error);
@@ -8809,15 +8849,16 @@ async function autoSyncPlayer() {
       setPlayerSyncStatus(`${modelUsed} heard nothing usable — try WhisperX or an .lrc, or sync by hand.`);
       return;
     }
-    const anchors = alignLyricsToSegments(lines, segments);
+    const { strong, timed } = alignLyricsToSegments(lines, segments);
     player.dirty = true;
     player.currentPos = playerCurrentPos(elements.playerVideo.currentTime);
     renderPlayerSubs();
     setPlayerSyncStatus(
-      `Used ${modelUsed}: heard ${segments.length} phrases, matched ${anchors}/${lines.length} lines. ` +
-      (anchors < lines.length / 2
-        ? "For songs, WhisperX or an .lrc file works far better — the rest were spread out by guess."
-        : "Play it and fine-tune with the buttons."),
+      `Used ${modelUsed}: heard ${segments.length} phrases → timed ${timed}/${lines.length} lines (${strong} confident). ` +
+      "Play and fine-tune; use “Shift all” if it's off by a constant amount. " +
+      (strong < lines.length / 3
+        ? "If it's still messy, WhisperX or an .lrc file is more accurate for songs."
+        : ""),
     );
   } catch (error) {
     console.warn("Auto-sync failed.", error);
