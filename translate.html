@@ -1940,6 +1940,25 @@ input[type="checkbox"] {
   font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.7);
 }
+
+/* Auto-sync model picker in the player */
+.player-model-row {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.player-model {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 220px;
+  min-width: 200px;
+  color: #cdd6ff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+}
+.player-model select {
+  min-height: 40px;
+}
     </style>
   </head>
   <body>
@@ -2514,8 +2533,17 @@ input[type="checkbox"] {
           <button id="playerShiftBackButton" type="button" aria-label="All subtitles 0.5s earlier">−0.5s earlier</button>
           <button id="playerShiftFwdButton" type="button" aria-label="All subtitles 0.5s later">+0.5s later</button>
         </div>
-        <div class="player-row">
-          <button id="playerAutoSyncButton" type="button">✨ Auto-sync (beta)</button>
+        <div class="player-row player-model-row">
+          <label class="player-model">
+            <span>Auto-sync model</span>
+            <select id="playerSyncModelSelect" aria-label="Auto-sync model">
+              <option value="onnx-community/whisper-large-v3-turbo">Large v3 turbo — best (needs Chrome/Edge + GPU)</option>
+              <option value="onnx-community/whisper-small">Small — decent, works most places</option>
+              <option value="onnx-community/whisper-base">Base — light</option>
+              <option value="onnx-community/whisper-tiny">Tiny — fastest</option>
+            </select>
+          </label>
+          <button id="playerAutoSyncButton" type="button">✨ Auto-sync</button>
           <button id="playerResetSyncButton" type="button">Reset subtitle sync</button>
         </div>
         <div class="player-row" id="playerImportRow" hidden>
@@ -2831,6 +2859,7 @@ const elements = {
   playerNextLineButton: document.querySelector("#playerNextLineButton"),
   playerResetSyncButton: document.querySelector("#playerResetSyncButton"),
   playerAutoSyncButton: document.querySelector("#playerAutoSyncButton"),
+  playerSyncModelSelect: document.querySelector("#playerSyncModelSelect"),
   playerShiftBackButton: document.querySelector("#playerShiftBackButton"),
   playerShiftFwdButton: document.querySelector("#playerShiftFwdButton"),
   playerSyncStatus: document.querySelector("#playerSyncStatus"),
@@ -8638,27 +8667,29 @@ function showWhisperXHelp() {
   );
 }
 
-// A larger, more accurate Whisper model for subtitle auto-sync. On a desktop
-// with WebGPU it uses large-v3-turbo (downloaded once, then cached by the
-// browser). Falls back to the normal phone-friendly model otherwise.
-async function loadSyncTranscriber(onStatus) {
-  const hasGpu = Boolean(navigator.gpu);
-  const useBig = isDesktopEnvironment() && hasGpu;
-  const modelId = useBig
-    ? "onnx-community/whisper-large-v3-turbo"
-    : state.settings.speechModelId || DEFAULT_SPEECH_MODEL_ID;
-
+// Load the EXACT model the user chose for auto-sync. No silent downgrade: if the
+// chosen model can't load, we throw so it's clear which model was (not) used.
+// (webgpu↔wasm is only a backend swap for the SAME model, not a different model.)
+async function loadSyncTranscriber(modelId, onStatus) {
   if (state.speech.syncTranscriber && state.speech.syncModelId === modelId) {
     return state.speech.syncTranscriber;
   }
+  const shortName = modelId.split("/").pop();
+  const isLarge = /large/i.test(modelId);
+  const hasGpu = Boolean(navigator.gpu);
+
+  if (isLarge && !hasGpu) {
+    throw new Error(
+      `${shortName} needs a WebGPU browser (Chrome or Edge on a computer). ` +
+      `This browser has no WebGPU — pick a smaller model, or switch to Chrome.`,
+    );
+  }
 
   const { pipeline } = await import(TRANSFORMERS_CDN);
-  onStatus?.(
-    useBig
-      ? "Loading the large accuracy model… the first time downloads ~1 GB (one-time; it's cached after)."
-      : `Loading ${speechModelLabel(modelId)}…`,
-  );
-  const attempts = useBig
+  onStatus?.(`Loading ${shortName}…${isLarge ? " first time downloads ~1 GB (one-time)." : ""}`);
+
+  // Same model, just try the fast backend first. Large models only run on WebGPU.
+  const attempts = isLarge
     ? [{ device: "webgpu", dtype: "fp16" }, { device: "webgpu" }]
     : hasGpu
       ? [{ device: "webgpu" }, { device: "wasm" }]
@@ -8673,15 +8704,13 @@ async function loadSyncTranscriber(onStatus) {
       return transcriber;
     } catch (error) {
       lastError = error;
-      console.warn("Sync model load failed on", option.device, error);
+      console.warn("Model load failed on", option.device, error);
     }
   }
-  console.warn("Falling back to the standard speech model.", lastError);
-  onStatus?.("The large model didn't load — using the standard model…");
-  const fallback = await loadSpeechTranscriber();
-  state.speech.syncTranscriber = fallback;
-  state.speech.syncModelId = state.settings.speechModelId || DEFAULT_SPEECH_MODEL_ID;
-  return fallback;
+  throw new Error(
+    `Could not load ${shortName}: ${lastError?.message || "unknown error"}. ` +
+    `Try a smaller model, or use Chrome/Edge.`,
+  );
 }
 
 // Move every synced line by a constant offset (fixes a whole-song delay/lead).
@@ -8719,8 +8748,9 @@ async function autoSyncPlayer() {
   elements.playerVideo.pause();
   const url = URL.createObjectURL(media.blob);
   try {
-    const transcriber = await loadSyncTranscriber((message) => setPlayerSyncStatus(message));
-    setPlayerSyncStatus("Listening to the song… this can take a minute.");
+    const chosenModel = elements.playerSyncModelSelect.value;
+    const transcriber = await loadSyncTranscriber(chosenModel, (message) => setPlayerSyncStatus(message));
+    setPlayerSyncStatus(`Listening with ${chosenModel.split("/").pop()}… this can take a minute.`);
     const language = (currentSetup() || DEFAULT_SETUP).learnLanguageCode || undefined;
     const result = await transcriber(url, {
       language,
@@ -8737,21 +8767,19 @@ async function autoSyncPlayer() {
       .filter((seg) => Number.isFinite(seg.start));
 
     const modelUsed = (state.speech.syncModelId || "").split("/").pop() || "model";
-    const bigModel = /large/i.test(modelUsed);
     console.info("[autosync] model:", modelUsed, "| segments:", segments.length,
       "| transcript:", (result?.text || "").slice(0, 400));
 
     if (!segments.length) {
-      setPlayerSyncStatus(`Model ${modelUsed} heard nothing usable — try WhisperX or sync by hand.`);
+      setPlayerSyncStatus(`${modelUsed} heard nothing usable — try WhisperX or an .lrc, or sync by hand.`);
       return;
     }
     const anchors = alignLyricsToSegments(lines, segments);
     player.dirty = true;
     player.currentPos = playerCurrentPos(elements.playerVideo.currentTime);
     renderPlayerSubs();
-    const modelNote = bigModel ? "" : " (small model — the large one didn't load; needs a wide desktop window + a WebGPU browser like Chrome)";
     setPlayerSyncStatus(
-      `Model ${modelUsed}: heard ${segments.length} phrases, matched ${anchors}/${lines.length} lines${modelNote}. ` +
+      `Used ${modelUsed}: heard ${segments.length} phrases, matched ${anchors}/${lines.length} lines. ` +
       (anchors < lines.length / 2
         ? "For songs, WhisperX or an .lrc file works far better — the rest were spread out by guess."
         : "Play it and fine-tune with the buttons."),
@@ -9417,6 +9445,28 @@ elements.playerResetSyncButton.addEventListener("click", () => {
 elements.playerAutoSyncButton.addEventListener("click", autoSyncPlayer);
 elements.playerShiftBackButton.addEventListener("click", () => shiftAllSubtitles(-0.5));
 elements.playerShiftFwdButton.addEventListener("click", () => shiftAllSubtitles(0.5));
+
+// Remember the chosen auto-sync model across sessions.
+const SYNC_MODEL_KEY = "vocabulary-trainer.sync-model";
+try {
+  const savedSyncModel = localStorage.getItem(SYNC_MODEL_KEY);
+  if (savedSyncModel &&
+      [...elements.playerSyncModelSelect.options].some((option) => option.value === savedSyncModel)) {
+    elements.playerSyncModelSelect.value = savedSyncModel;
+  }
+} catch (error) {
+  /* ignore */
+}
+elements.playerSyncModelSelect.addEventListener("change", () => {
+  try {
+    localStorage.setItem(SYNC_MODEL_KEY, elements.playerSyncModelSelect.value);
+  } catch (error) {
+    /* ignore */
+  }
+  // Drop the cached transcriber so the next run loads the newly chosen model.
+  state.speech.syncTranscriber = null;
+  state.speech.syncModelId = null;
+});
 elements.playerImportSubsButton.addEventListener("click", () => elements.playerImportSubsInput.click());
 elements.playerImportHelpButton.addEventListener("click", showWhisperXHelp);
 elements.playerImportSubsInput.addEventListener("change", () => {
