@@ -1941,6 +1941,25 @@ input[type="checkbox"] {
   color: rgba(255, 255, 255, 0.7);
 }
 
+/* Loading state while media downloads from Drive */
+.player-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  background: rgba(8, 10, 22, 0.86);
+  color: #eaf0ff;
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.5;
+}
+.player-loading[hidden] {
+  display: none;
+}
+
 /* Auto-sync model picker in the player */
 .player-model-row {
   flex-wrap: wrap;
@@ -2511,6 +2530,7 @@ input[type="checkbox"] {
       <div id="playerStage" class="player-stage">
         <video id="playerVideo" class="player-video" playsinline></video>
         <div id="playerTapHint" class="player-tap-hint">Tap the video to play / pause</div>
+        <div id="playerLoading" class="player-loading" hidden></div>
       </div>
       <div class="player-subs">
         <div id="playerOriginal" class="player-original prompt-word prompt-sentence"></div>
@@ -2857,6 +2877,7 @@ const elements = {
   playerTime: document.querySelector("#playerTime"),
   playerPostponeButton: document.querySelector("#playerPostponeButton"),
   playerNextLineButton: document.querySelector("#playerNextLineButton"),
+  playerLoading: document.querySelector("#playerLoading"),
   playerResetSyncButton: document.querySelector("#playerResetSyncButton"),
   playerAutoSyncButton: document.querySelector("#playerAutoSyncButton"),
   playerSyncModelSelect: document.querySelector("#playerSyncModelSelect"),
@@ -3686,11 +3707,25 @@ async function driveMakePublic(fileId) {
 
 // Download a link-viewable (public) Drive file with just the project API key —
 // works for recipients who aren't signed in.
-async function drivePublicDownload(fileId) {
+async function drivePublicDownload(fileId, onProgress) {
   const key = DEFAULT_FIREBASE_CONFIG.apiKey;
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&key=${encodeURIComponent(key)}`,
   );
+  if (res.ok && res.body && onProgress) {
+    const total = Number(res.headers.get("content-length")) || 0;
+    const reader = res.body.getReader();
+    const chunks = [];
+    let loaded = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      loaded += value.length;
+      if (total) onProgress(loaded / total);
+    }
+    return new Blob(chunks, { type: res.headers.get("content-type") || "" });
+  }
   if (!res.ok) {
     let detail = "";
     try {
@@ -8812,19 +8847,38 @@ async function resumePendingPlay() {
   if (text) openPlayer(text);
 }
 
+function showPlayerLoading(message) {
+  elements.playerLoading.textContent = message;
+  elements.playerLoading.hidden = false;
+}
+
+function hidePlayerLoading() {
+  elements.playerLoading.hidden = true;
+  elements.playerLoading.textContent = "";
+}
+
 async function openPlayer(text) {
   let media = await getMedia(text.id).catch(() => null);
   // Not on this device? Fetch it: a shared (public) file needs no sign-in; your
   // own private file uses your Drive access. Cache locally after the first time.
   if (!media && text.driveFileId && (text.drivePublic || driveSyncAvailable())) {
     const type = text.mediaType || "video/webm";
+    // Show the player right away with a visible download state.
+    elements.playerTitle.textContent = textTitle(text);
+    elements.playerOverlay.hidden = false;
+    showPlayerLoading("Getting the audio/video from your Google Drive…");
+    const onProgress = (fraction) =>
+      showPlayerLoading(`Downloading from Google Drive… ${Math.round(fraction * 100)}%`);
     try {
       const blob = text.drivePublic
-        ? await drivePublicDownload(text.driveFileId)
-        : await driveDownload(text.driveFileId);
+        ? await drivePublicDownload(text.driveFileId, onProgress)
+        : await driveDownload(text.driveFileId, onProgress);
       await putMedia(text.id, blob, blob.type || type);
       media = { blob, type: blob.type || type };
+      hidePlayerLoading();
     } catch (error) {
+      hidePlayerLoading();
+      elements.playerOverlay.hidden = true;
       console.warn("Drive download failed.", error);
       const code = error?.code || "";
       const popupBlocked =
@@ -8888,6 +8942,7 @@ async function openPlayer(text) {
 }
 
 function closePlayer() {
+  hidePlayerLoading();
   elements.playerVideo.pause();
   elements.playerVideo.removeAttribute("src");
   elements.playerVideo.load();
