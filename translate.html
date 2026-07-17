@@ -2450,9 +2450,15 @@ input[type="checkbox"] {
           <button id="removeMediaButton" type="button">Remove audio/video</button>
         </div>
 
+        <label class="field lrc-load">
+          <span>Timed lyrics file (.lrc / .srt) — optional, makes a pre-synced song</span>
+          <input id="textLrcInput" type="file" accept=".lrc,.srt,.vtt,text/plain" />
+          <p class="field-help">Load a timed lyrics file: it fills the lines and their timings. Then get translations from ChatGPT below — the sentence &amp; word translations stay synced to the timings automatically, so the play-along is ready with no manual syncing.</p>
+        </label>
+
         <div class="chat-import">
           <div class="chat-import-steps">
-            <p><strong>1.</strong> Paste your song/text below and open ChatGPT (the prompt is copied for you).</p>
+            <p><strong>1.</strong> Paste your song/text below (or load an .lrc above) and open ChatGPT — the prompt is copied for you.</p>
             <p><strong>2.</strong> Send it in ChatGPT, then paste its result back into “ChatGPT result”.</p>
           </div>
           <label class="field">
@@ -2876,6 +2882,7 @@ const elements = {
   textSourceInput: document.querySelector("#textSourceInput"),
   chatResultInput: document.querySelector("#chatResultInput"),
   openChatGptButton: document.querySelector("#openChatGptButton"),
+  textLrcInput: document.querySelector("#textLrcInput"),
   textMediaInput: document.querySelector("#textMediaInput"),
   textMediaInfo: document.querySelector("#textMediaInfo"),
   textMediaActions: document.querySelector("#textMediaActions"),
@@ -8190,6 +8197,8 @@ function openTextDialog(text = null) {
   elements.textSourceInput.value = "";
   elements.textTranslationInput.value = "";
   elements.chatResultInput.value = "";
+  if (elements.textLrcInput) elements.textLrcInput.value = "";
+  state.pendingLrcTimings = null;
   elements.textDialogMessage.textContent = text ? "" : "";
   window.clearTimeout(autoTranslateTimer);
   textTranslateToken += 1; // cancel any in-flight translation from a previous open
@@ -9447,6 +9456,15 @@ function openChatGpt() {
   }
 }
 elements.openChatGptButton.addEventListener("click", openChatGpt);
+elements.textLrcInput.addEventListener("change", async () => {
+  const file = elements.textLrcInput.files?.[0];
+  if (!file) return;
+  try {
+    loadLrcIntoDialog(await file.text());
+  } catch (error) {
+    elements.textDialogMessage.textContent = `Could not read that file: ${error.message}`;
+  }
+});
 
 // Paste ChatGPT's formatted result -> sentence pairs with per-word glosses.
 function importChatGptResult() {
@@ -9456,10 +9474,39 @@ function importChatGptResult() {
       "Paste ChatGPT's result to build the sentences.";
     return;
   }
+  // If a timed lyrics file was loaded, attach its timings to these sentences so
+  // the play-along is pre-synced (matched by content + order via DTW).
+  let timedNote = "";
+  if (state.pendingLrcTimings?.length) {
+    const nonHeader = parsed.filter((sentence) => !sentence.header);
+    const { timed } = alignLyricsToSegments(nonHeader, state.pendingLrcTimings);
+    timedNote = ` Synced ${timed} lines to the timed lyrics.`;
+  }
   renderSentenceRows(parsed);
   const glossCount = parsed.reduce((sum, sentence) => sum + (sentence.glosses?.length || 0), 0);
   elements.textDialogMessage.textContent =
-    `Loaded ${parsed.filter((s) => !s.header).length} sentences and ${glossCount} word glosses. Review, then Save text.`;
+    `Loaded ${parsed.filter((s) => !s.header).length} sentences and ${glossCount} word glosses.${timedNote} Review, then Save text.`;
+}
+
+// Load a timed lyrics file (.lrc/.srt): fill the source lines + their timings so
+// the song starts out synced; translations/glosses come from ChatGPT next.
+function loadLrcIntoDialog(text) {
+  const segments = parseSubtitleFile(text || "");
+  if (!segments.length) {
+    elements.textDialogMessage.textContent = "Couldn't read any timings from that file.";
+    return;
+  }
+  state.pendingLrcTimings = segments;
+  elements.textSourceInput.value = segments.map((seg) => seg.text).join("\n");
+  renderSentenceRows(segments.map((seg) => ({
+    source: seg.text,
+    translation: "",
+    glosses: [],
+    header: false,
+    time: seg.start,
+  })));
+  elements.textDialogMessage.textContent =
+    `Loaded ${segments.length} timed lines. Now get translations from ChatGPT (button below) and paste the result — the timings stay attached. Or Save now for a timed source-only song.`;
 }
 elements.chatResultInput.addEventListener("paste", () => {
   window.setTimeout(importChatGptResult, 0);
