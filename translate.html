@@ -9577,6 +9577,10 @@ elements.playerOriginal.addEventListener("click", (event) => {
 
 window.addEventListener("beforeunload", stopSpeechStream);
 
+// Ask the browser to keep our storage (the cached speech model + downloaded
+// song media) instead of evicting it under pressure.
+if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
+
 loadAccountMode();
 loadSettings();
 loadSetups();
