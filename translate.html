@@ -2509,6 +2509,11 @@ input[type="checkbox"] {
           <button id="playerPostponeButton" type="button">Postpone current line</button>
           <button id="playerNextLineButton" class="primary" type="button">Next line starts now</button>
         </div>
+        <div class="player-row player-shift">
+          <span class="player-shift-label">Shift all subtitles:</span>
+          <button id="playerShiftBackButton" type="button" aria-label="All subtitles 0.5s earlier">−0.5s earlier</button>
+          <button id="playerShiftFwdButton" type="button" aria-label="All subtitles 0.5s later">+0.5s later</button>
+        </div>
         <div class="player-row">
           <button id="playerAutoSyncButton" type="button">✨ Auto-sync (beta)</button>
           <button id="playerResetSyncButton" type="button">Reset subtitle sync</button>
@@ -2826,6 +2831,8 @@ const elements = {
   playerNextLineButton: document.querySelector("#playerNextLineButton"),
   playerResetSyncButton: document.querySelector("#playerResetSyncButton"),
   playerAutoSyncButton: document.querySelector("#playerAutoSyncButton"),
+  playerShiftBackButton: document.querySelector("#playerShiftBackButton"),
+  playerShiftFwdButton: document.querySelector("#playerShiftFwdButton"),
   playerSyncStatus: document.querySelector("#playerSyncStatus"),
   playerImportRow: document.querySelector("#playerImportRow"),
   playerImportSubsButton: document.querySelector("#playerImportSubsButton"),
@@ -8631,6 +8638,69 @@ function showWhisperXHelp() {
   );
 }
 
+// A larger, more accurate Whisper model for subtitle auto-sync. On a desktop
+// with WebGPU it uses large-v3-turbo (downloaded once, then cached by the
+// browser). Falls back to the normal phone-friendly model otherwise.
+async function loadSyncTranscriber(onStatus) {
+  const hasGpu = Boolean(navigator.gpu);
+  const useBig = isDesktopEnvironment() && hasGpu;
+  const modelId = useBig
+    ? "onnx-community/whisper-large-v3-turbo"
+    : state.settings.speechModelId || DEFAULT_SPEECH_MODEL_ID;
+
+  if (state.speech.syncTranscriber && state.speech.syncModelId === modelId) {
+    return state.speech.syncTranscriber;
+  }
+
+  const { pipeline } = await import(TRANSFORMERS_CDN);
+  onStatus?.(
+    useBig
+      ? "Loading the large accuracy model… the first time downloads ~1 GB (one-time; it's cached after)."
+      : `Loading ${speechModelLabel(modelId)}…`,
+  );
+  const attempts = useBig
+    ? [{ device: "webgpu", dtype: "fp16" }, { device: "webgpu" }]
+    : hasGpu
+      ? [{ device: "webgpu" }, { device: "wasm" }]
+      : [{ device: "wasm" }];
+
+  let lastError = null;
+  for (const option of attempts) {
+    try {
+      const transcriber = await pipeline("automatic-speech-recognition", modelId, option);
+      state.speech.syncTranscriber = transcriber;
+      state.speech.syncModelId = modelId;
+      return transcriber;
+    } catch (error) {
+      lastError = error;
+      console.warn("Sync model load failed on", option.device, error);
+    }
+  }
+  console.warn("Falling back to the standard speech model.", lastError);
+  onStatus?.("Falling back to the standard model…");
+  return loadSpeechTranscriber();
+}
+
+// Move every synced line by a constant offset (fixes a whole-song delay/lead).
+function shiftAllSubtitles(deltaSeconds) {
+  if (!player.text) return;
+  let moved = 0;
+  (player.text.sentences || []).forEach((sentence) => {
+    if (typeof sentence.time === "number") {
+      sentence.time = Math.max(0, sentence.time + deltaSeconds);
+      moved += 1;
+    }
+  });
+  if (!moved) {
+    setPlayerSyncStatus("Nothing is synced yet to shift.");
+    return;
+  }
+  player.dirty = true;
+  player.currentPos = playerCurrentPos(elements.playerVideo.currentTime);
+  renderPlayerSubs();
+  setPlayerSyncStatus(`Shifted ${moved} lines ${deltaSeconds > 0 ? "later" : "earlier"} by ${Math.abs(deltaSeconds)}s.`);
+}
+
 async function autoSyncPlayer() {
   if (!player.text) return;
   const lines = player.order.map((index) => player.text.sentences[index]);
@@ -8646,8 +8716,7 @@ async function autoSyncPlayer() {
   elements.playerVideo.pause();
   const url = URL.createObjectURL(media.blob);
   try {
-    setPlayerSyncStatus("Loading the speech model… (first time downloads it)");
-    const transcriber = await loadSpeechTranscriber();
+    const transcriber = await loadSyncTranscriber((message) => setPlayerSyncStatus(message));
     setPlayerSyncStatus("Listening to the song… this can take a minute.");
     const language = (currentSetup() || DEFAULT_SETUP).learnLanguageCode || undefined;
     const result = await transcriber(url, {
@@ -9334,6 +9403,8 @@ elements.playerResetSyncButton.addEventListener("click", () => {
   renderPlayerSubs();
 });
 elements.playerAutoSyncButton.addEventListener("click", autoSyncPlayer);
+elements.playerShiftBackButton.addEventListener("click", () => shiftAllSubtitles(-0.5));
+elements.playerShiftFwdButton.addEventListener("click", () => shiftAllSubtitles(0.5));
 elements.playerImportSubsButton.addEventListener("click", () => elements.playerImportSubsInput.click());
 elements.playerImportHelpButton.addEventListener("click", showWhisperXHelp);
 elements.playerImportSubsInput.addEventListener("change", () => {
