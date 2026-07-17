@@ -1978,6 +1978,17 @@ input[type="checkbox"] {
 .player-model select {
   min-height: 40px;
 }
+.player-paste-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+#playerPasteInput {
+  width: 100%;
+  min-height: 110px;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
     </style>
   </head>
   <body>
@@ -2566,8 +2577,18 @@ input[type="checkbox"] {
           <button id="playerAutoSyncButton" type="button">✨ Auto-sync</button>
           <button id="playerResetSyncButton" type="button">Reset subtitle sync</button>
         </div>
+        <div class="player-row">
+          <button id="playerPasteSubsButton" type="button">📋 Paste synced lyrics (LRC / SRT)</button>
+        </div>
+        <div class="player-row player-paste-row" id="playerPasteRow" hidden>
+          <textarea id="playerPasteInput" rows="5" placeholder="Paste timed lyrics here — e.g.&#10;[00:17.54] άλι απόψε εγώ στο μπαλκόνι…&#10;[00:21.87] το κορίτσι να δω…"></textarea>
+          <div class="player-row">
+            <button id="playerPasteApplyButton" class="primary" type="button">Apply timings</button>
+            <button id="playerPasteCancelButton" type="button">Cancel</button>
+          </div>
+        </div>
         <div class="player-row" id="playerImportRow" hidden>
-          <button id="playerImportSubsButton" type="button">⬇ Import WhisperX subtitles</button>
+          <button id="playerImportSubsButton" type="button">⬇ Import subtitle file</button>
           <button id="playerImportHelpButton" type="button" aria-label="How to make the file">How?</button>
         </div>
         <input id="playerImportSubsInput" type="file" accept=".srt,.vtt,.lrc,text/plain" hidden />
@@ -2884,6 +2905,11 @@ const elements = {
   playerShiftBackButton: document.querySelector("#playerShiftBackButton"),
   playerShiftFwdButton: document.querySelector("#playerShiftFwdButton"),
   playerSyncStatus: document.querySelector("#playerSyncStatus"),
+  playerPasteSubsButton: document.querySelector("#playerPasteSubsButton"),
+  playerPasteRow: document.querySelector("#playerPasteRow"),
+  playerPasteInput: document.querySelector("#playerPasteInput"),
+  playerPasteApplyButton: document.querySelector("#playerPasteApplyButton"),
+  playerPasteCancelButton: document.querySelector("#playerPasteCancelButton"),
   playerImportRow: document.querySelector("#playerImportRow"),
   playerImportSubsButton: document.querySelector("#playerImportSubsButton"),
   playerImportHelpButton: document.querySelector("#playerImportHelpButton"),
@@ -8706,14 +8732,14 @@ function parseSubtitleFile(content) {
   return segments.sort((a, b) => a.start - b.start);
 }
 
-async function importSubtitleFile(file) {
-  if (!file || !player.text) return;
+function importSubtitleText(text) {
+  if (!player.text) return;
   const lines = player.order.map((index) => player.text.sentences[index]);
   if (!lines.length) return;
   try {
-    const segments = parseSubtitleFile(await file.text());
+    const segments = parseSubtitleFile(text || "");
     if (!segments.length) {
-      setPlayerSyncStatus("Couldn't read any timed lines from that file.");
+      setPlayerSyncStatus("Couldn't read any timed lines from that (need [mm:ss] or SRT timings).");
       return;
     }
     const { strong, timed } = alignLyricsToSegments(lines, segments);
@@ -8725,7 +8751,16 @@ async function importSubtitleFile(file) {
     );
   } catch (error) {
     console.warn("Subtitle import failed.", error);
-    setPlayerSyncStatus(`Could not import that file: ${error.message}`);
+    setPlayerSyncStatus(`Could not import: ${error.message}`);
+  }
+}
+
+async function importSubtitleFile(file) {
+  if (!file) return;
+  try {
+    importSubtitleText(await file.text());
+  } catch (error) {
+    setPlayerSyncStatus(`Could not read that file: ${error.message}`);
   }
 }
 
@@ -9541,6 +9576,22 @@ elements.playerResetSyncButton.addEventListener("click", () => {
 elements.playerAutoSyncButton.addEventListener("click", autoSyncPlayer);
 elements.playerShiftBackButton.addEventListener("click", () => shiftAllSubtitles(-0.5));
 elements.playerShiftFwdButton.addEventListener("click", () => shiftAllSubtitles(0.5));
+elements.playerPasteSubsButton.addEventListener("click", () => {
+  elements.playerPasteRow.hidden = !elements.playerPasteRow.hidden;
+  if (!elements.playerPasteRow.hidden) elements.playerPasteInput.focus();
+});
+elements.playerPasteCancelButton.addEventListener("click", () => {
+  elements.playerPasteRow.hidden = true;
+});
+elements.playerPasteApplyButton.addEventListener("click", () => {
+  const text = elements.playerPasteInput.value.trim();
+  if (!text) {
+    setPlayerSyncStatus("Paste some timed lyrics first.");
+    return;
+  }
+  importSubtitleText(text);
+  elements.playerPasteRow.hidden = true;
+});
 
 // Remember the chosen auto-sync model across sessions.
 const SYNC_MODEL_KEY = "vocabulary-trainer.sync-model";
