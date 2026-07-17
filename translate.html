@@ -8677,8 +8677,11 @@ async function loadSyncTranscriber(onStatus) {
     }
   }
   console.warn("Falling back to the standard speech model.", lastError);
-  onStatus?.("Falling back to the standard model…");
-  return loadSpeechTranscriber();
+  onStatus?.("The large model didn't load — using the standard model…");
+  const fallback = await loadSpeechTranscriber();
+  state.speech.syncTranscriber = fallback;
+  state.speech.syncModelId = state.settings.speechModelId || DEFAULT_SPEECH_MODEL_ID;
+  return fallback;
 }
 
 // Move every synced line by a constant offset (fixes a whole-song delay/lead).
@@ -8733,16 +8736,25 @@ async function autoSyncPlayer() {
       }))
       .filter((seg) => Number.isFinite(seg.start));
 
+    const modelUsed = (state.speech.syncModelId || "").split("/").pop() || "model";
+    const bigModel = /large/i.test(modelUsed);
+    console.info("[autosync] model:", modelUsed, "| segments:", segments.length,
+      "| transcript:", (result?.text || "").slice(0, 400));
+
     if (!segments.length) {
-      setPlayerSyncStatus("Couldn't make out any words — try syncing by hand.");
+      setPlayerSyncStatus(`Model ${modelUsed} heard nothing usable — try WhisperX or sync by hand.`);
       return;
     }
     const anchors = alignLyricsToSegments(lines, segments);
     player.dirty = true;
     player.currentPos = playerCurrentPos(elements.playerVideo.currentTime);
     renderPlayerSubs();
+    const modelNote = bigModel ? "" : " (small model — the large one didn't load; needs a wide desktop window + a WebGPU browser like Chrome)";
     setPlayerSyncStatus(
-      `Auto-synced ${anchors} of ${lines.length} lines. Play it and fine-tune with the buttons above.`,
+      `Model ${modelUsed}: heard ${segments.length} phrases, matched ${anchors}/${lines.length} lines${modelNote}. ` +
+      (anchors < lines.length / 2
+        ? "For songs, WhisperX or an .lrc file works far better — the rest were spread out by guess."
+        : "Play it and fine-tune with the buttons."),
     );
   } catch (error) {
     console.warn("Auto-sync failed.", error);
