@@ -1978,6 +1978,35 @@ input[type="checkbox"] {
 .player-model select {
   min-height: 40px;
 }
+.player-sync-toggle {
+  align-self: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.player-sync-toggle::after {
+  content: " ▾";
+  color: var(--muted);
+}
+.player-sync-toggle.open::after {
+  content: " ▴";
+}
+.player-sync-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.player-sync-tools[hidden] {
+  display: none;
+}
 .player-paste-row {
   flex-direction: column;
   align-items: stretch;
@@ -2561,44 +2590,47 @@ input[type="checkbox"] {
           <button id="playerForwardButton" type="button" aria-label="Forward 5 seconds">5s »</button>
           <span id="playerTime" class="player-time">0:00</span>
         </div>
-        <div class="player-row player-sync">
-          <button id="playerPostponeButton" type="button">Postpone current line</button>
-          <button id="playerNextLineButton" class="primary" type="button">Next line starts now</button>
-        </div>
-        <div class="player-row player-shift">
-          <span class="player-shift-label">Shift all subtitles:</span>
-          <button id="playerShiftBackButton" type="button" aria-label="All subtitles 0.5s earlier">−0.5s earlier</button>
-          <button id="playerShiftFwdButton" type="button" aria-label="All subtitles 0.5s later">+0.5s later</button>
-        </div>
-        <div class="player-row player-model-row">
-          <label class="player-model">
-            <span>Auto-sync model</span>
-            <select id="playerSyncModelSelect" aria-label="Auto-sync model">
-              <option value="onnx-community/whisper-large-v3-turbo">Large v3 turbo — best (needs Chrome/Edge + GPU)</option>
-              <option value="onnx-community/whisper-small">Small — decent, works most places</option>
-              <option value="onnx-community/whisper-base">Base — light</option>
-              <option value="onnx-community/whisper-tiny">Tiny — fastest</option>
-            </select>
-          </label>
-          <button id="playerAutoSyncButton" type="button">✨ Auto-sync</button>
-          <button id="playerResetSyncButton" type="button">Reset subtitle sync</button>
-        </div>
-        <div class="player-row">
-          <button id="playerPasteSubsButton" type="button">📋 Paste synced lyrics (LRC / SRT)</button>
-        </div>
-        <div class="player-row player-paste-row" id="playerPasteRow" hidden>
-          <textarea id="playerPasteInput" rows="5" placeholder="Paste timed lyrics here — e.g.&#10;[00:17.54] άλι απόψε εγώ στο μπαλκόνι…&#10;[00:21.87] το κορίτσι να δω…"></textarea>
-          <div class="player-row">
-            <button id="playerPasteApplyButton" class="primary" type="button">Apply timings</button>
-            <button id="playerPasteCancelButton" type="button">Cancel</button>
+        <button id="playerSyncToggle" class="player-sync-toggle" type="button" aria-expanded="false" aria-controls="playerSyncTools">⚙ Edit / sync subtitles</button>
+        <div id="playerSyncTools" class="player-sync-tools" hidden>
+          <div class="player-row player-sync">
+            <button id="playerPostponeButton" type="button">Postpone current line</button>
+            <button id="playerNextLineButton" class="primary" type="button">Next line starts now</button>
           </div>
+          <div class="player-row player-shift">
+            <span class="player-shift-label">Shift all subtitles:</span>
+            <button id="playerShiftBackButton" type="button" aria-label="All subtitles 0.5s earlier">−0.5s earlier</button>
+            <button id="playerShiftFwdButton" type="button" aria-label="All subtitles 0.5s later">+0.5s later</button>
+          </div>
+          <div class="player-row player-model-row">
+            <label class="player-model">
+              <span>Auto-sync model</span>
+              <select id="playerSyncModelSelect" aria-label="Auto-sync model">
+                <option value="onnx-community/whisper-large-v3-turbo">Large v3 turbo — best (needs Chrome/Edge + GPU)</option>
+                <option value="onnx-community/whisper-small">Small — decent, works most places</option>
+                <option value="onnx-community/whisper-base">Base — light</option>
+                <option value="onnx-community/whisper-tiny">Tiny — fastest</option>
+              </select>
+            </label>
+            <button id="playerAutoSyncButton" type="button">✨ Auto-sync</button>
+            <button id="playerResetSyncButton" type="button">Reset subtitle sync</button>
+          </div>
+          <div class="player-row">
+            <button id="playerPasteSubsButton" type="button">📋 Paste synced lyrics (LRC / SRT)</button>
+          </div>
+          <div class="player-row player-paste-row" id="playerPasteRow" hidden>
+            <textarea id="playerPasteInput" rows="5" placeholder="Paste timed lyrics here — e.g.&#10;[00:17.54] άλι απόψε εγώ στο μπαλκόνι…&#10;[00:21.87] το κορίτσι να δω…"></textarea>
+            <div class="player-row">
+              <button id="playerPasteApplyButton" class="primary" type="button">Apply timings</button>
+              <button id="playerPasteCancelButton" type="button">Cancel</button>
+            </div>
+          </div>
+          <div class="player-row" id="playerImportRow" hidden>
+            <button id="playerImportSubsButton" type="button">⬇ Import subtitle file</button>
+            <button id="playerImportHelpButton" type="button" aria-label="How to make the file">How?</button>
+          </div>
+          <input id="playerImportSubsInput" type="file" accept=".srt,.vtt,.lrc,text/plain" hidden />
+          <div id="playerSyncStatus" class="player-sync-status" hidden></div>
         </div>
-        <div class="player-row" id="playerImportRow" hidden>
-          <button id="playerImportSubsButton" type="button">⬇ Import subtitle file</button>
-          <button id="playerImportHelpButton" type="button" aria-label="How to make the file">How?</button>
-        </div>
-        <input id="playerImportSubsInput" type="file" accept=".srt,.vtt,.lrc,text/plain" hidden />
-        <div id="playerSyncStatus" class="player-sync-status" hidden></div>
       </div>
     </div>
 
@@ -2912,6 +2944,8 @@ const elements = {
   playerShiftBackButton: document.querySelector("#playerShiftBackButton"),
   playerShiftFwdButton: document.querySelector("#playerShiftFwdButton"),
   playerSyncStatus: document.querySelector("#playerSyncStatus"),
+  playerSyncToggle: document.querySelector("#playerSyncToggle"),
+  playerSyncTools: document.querySelector("#playerSyncTools"),
   playerPasteSubsButton: document.querySelector("#playerPasteSubsButton"),
   playerPasteRow: document.querySelector("#playerPasteRow"),
   playerPasteInput: document.querySelector("#playerPasteInput"),
@@ -8572,6 +8606,7 @@ function updatePlayPauseUI() {
 }
 
 function onPlayerTimeUpdate() {
+  if (!player.text) return; // player is closing/closed
   const time = elements.playerVideo.currentTime;
   elements.playerTime.textContent = formatPlayerTime(time);
   const pos = playerCurrentPos(time);
@@ -9014,6 +9049,11 @@ async function openPlayer(text) {
   elements.playerGloss.hidden = true;
   setPlayerSyncStatus("");
   elements.playerImportRow.hidden = !isDesktopEnvironment();
+  // Open in clean "watch" mode — sync/edit tools stay collapsed until asked for.
+  elements.playerSyncTools.hidden = true;
+  elements.playerSyncToggle.setAttribute("aria-expanded", "false");
+  elements.playerSyncToggle.classList.remove("open");
+  elements.playerPasteRow.hidden = true;
   elements.playerOverlay.hidden = false;
   renderPlayerSubs();
   elements.playerVideo.load();
@@ -9619,6 +9659,12 @@ elements.playerResetSyncButton.addEventListener("click", () => {
   player.currentPos = -1;
   setPlayerSyncStatus("");
   renderPlayerSubs();
+});
+elements.playerSyncToggle.addEventListener("click", () => {
+  const open = elements.playerSyncTools.hidden;
+  elements.playerSyncTools.hidden = !open;
+  elements.playerSyncToggle.setAttribute("aria-expanded", String(open));
+  elements.playerSyncToggle.classList.toggle("open", open);
 });
 elements.playerAutoSyncButton.addEventListener("click", autoSyncPlayer);
 elements.playerShiftBackButton.addEventListener("click", () => shiftAllSubtitles(-0.5));
