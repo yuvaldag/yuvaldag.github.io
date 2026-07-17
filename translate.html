@@ -2480,9 +2480,10 @@ input[type="checkbox"] {
         </div>
 
         <label class="field lrc-load">
-          <span>Timed lyrics file (.lrc / .srt) — optional, makes a pre-synced song</span>
-          <input id="textLrcInput" type="file" accept=".lrc,.srt,.vtt,text/plain" />
-          <p class="field-help">Load a timed lyrics file: it fills the lines and their timings. Then get translations from ChatGPT below — the sentence &amp; word translations stay synced to the timings automatically, so the play-along is ready with no manual syncing.</p>
+          <span>Timed lyrics (.lrc / .srt text) — optional, makes a pre-synced song</span>
+          <textarea id="textLrcInput" rows="4" placeholder="Paste timed lyrics here, e.g.&#10;[00:12.30] first line…&#10;[00:16.80] second line…"></textarea>
+          <p class="field-help">Paste timed lyrics: the lines and their timings fill in. Then get translations from ChatGPT below — the sentence &amp; word translations stay synced to the timings automatically, so the play-along is ready with no manual syncing.</p>
+          <div class="stack-actions"><button id="loadLrcButton" type="button">Load these timings</button></div>
         </label>
 
         <div class="chat-import">
@@ -2915,6 +2916,7 @@ const elements = {
   chatResultInput: document.querySelector("#chatResultInput"),
   openChatGptButton: document.querySelector("#openChatGptButton"),
   textLrcInput: document.querySelector("#textLrcInput"),
+  loadLrcButton: document.querySelector("#loadLrcButton"),
   textMediaInput: document.querySelector("#textMediaInput"),
   textMediaInfo: document.querySelector("#textMediaInfo"),
   textMediaActions: document.querySelector("#textMediaActions"),
@@ -9496,14 +9498,19 @@ function openChatGpt() {
   }
 }
 elements.openChatGptButton.addEventListener("click", openChatGpt);
-elements.textLrcInput.addEventListener("change", async () => {
-  const file = elements.textLrcInput.files?.[0];
-  if (!file) return;
-  try {
-    loadLrcIntoDialog(await file.text());
-  } catch (error) {
-    elements.textDialogMessage.textContent = `Could not read that file: ${error.message}`;
+elements.loadLrcButton.addEventListener("click", () => {
+  const text = elements.textLrcInput.value.trim();
+  if (!text) {
+    elements.textDialogMessage.textContent = "Paste timed lyrics first.";
+    return;
   }
+  loadLrcIntoDialog(text);
+});
+elements.textLrcInput.addEventListener("paste", () => {
+  window.setTimeout(() => {
+    const text = elements.textLrcInput.value.trim();
+    if (text) loadLrcIntoDialog(text);
+  }, 0);
 });
 
 // Paste ChatGPT's formatted result -> sentence pairs with per-word glosses.
