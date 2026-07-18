@@ -2440,6 +2440,26 @@ input[type="checkbox"] {
       </form>
     </dialog>
 
+    <dialog id="mediaCompressDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <h2>Compress this video?</h2>
+            <p id="mediaCompressPrompt">Choose how to store it before continuing.</p>
+          </div>
+        </div>
+        <div class="stack-actions" id="mediaCompressChoices">
+          <button data-mode="audio" class="primary" type="button">Audio only — smallest (~2 MB, best for songs)</button>
+          <button data-mode="v360" type="button">Okay video — 360p</button>
+          <button data-mode="v480" type="button">Better video — 480p</button>
+          <button data-mode="v144" type="button">Ultra-low video — 144p</button>
+          <button data-mode="none" type="button">Keep original (largest)</button>
+        </div>
+        <p class="field-help">Compressing plays the file through once (~the song's length) and <strong>needs the app open the whole time</strong>. Audio only still shows the synced subtitles.</p>
+        <div id="mediaCompressDialogMsg" class="parse-message"></div>
+      </form>
+    </dialog>
+
     <dialog id="textDialog">
       <form method="dialog" class="dialog-card edit-dialog-card">
         <div class="dialog-heading">
@@ -2917,6 +2937,10 @@ const elements = {
   openChatGptButton: document.querySelector("#openChatGptButton"),
   textLrcInput: document.querySelector("#textLrcInput"),
   loadLrcButton: document.querySelector("#loadLrcButton"),
+  mediaCompressDialog: document.querySelector("#mediaCompressDialog"),
+  mediaCompressPrompt: document.querySelector("#mediaCompressPrompt"),
+  mediaCompressChoices: document.querySelector("#mediaCompressChoices"),
+  mediaCompressDialogMsg: document.querySelector("#mediaCompressDialogMsg"),
   textMediaInput: document.querySelector("#textMediaInput"),
   textMediaInfo: document.querySelector("#textMediaInfo"),
   textMediaActions: document.querySelector("#textMediaActions"),
@@ -9580,6 +9604,61 @@ elements.textMediaInput.addEventListener("change", () => {
   if (file) state.pendingMediaRemoved = false;
   const editing = (currentSetup()?.texts || []).find((t) => t.id === state.editingTextId);
   updateTextMediaInfo(Boolean(editing?.hasMedia));
+  // Prompt for compression right away for video (or any big file) so nothing
+  // huge gets saved by accident.
+  const isVideo = file && /^video\//.test(file.type);
+  if (file && (isVideo || file.size > 8 * 1024 * 1024)) {
+    openMediaCompressDialog(file);
+  }
+});
+
+function openMediaCompressDialog(file) {
+  elements.mediaCompressPrompt.textContent =
+    `“${file.name}” is ${formatFileSize(file.size)}. Choose how to store it before continuing.`;
+  elements.mediaCompressDialogMsg.textContent = "";
+  [...elements.mediaCompressChoices.querySelectorAll("button")].forEach((b) => (b.disabled = false));
+  elements.mediaCompressDialog.showModal();
+}
+
+async function applyMediaCompressChoice(mode) {
+  const original = state.pendingMediaFile;
+  if (!original) {
+    elements.mediaCompressDialog.close();
+    return;
+  }
+  if (mode === "none") {
+    elements.mediaCompressDialog.close();
+    updateTextMediaInfo(false);
+    return;
+  }
+  const buttons = [...elements.mediaCompressChoices.querySelectorAll("button")];
+  buttons.forEach((b) => (b.disabled = true));
+  try {
+    const compressed = await compressMediaFile(original, mode, (progress) => {
+      elements.mediaCompressDialogMsg.textContent =
+        `Compressing… ${Math.round(progress * 100)}% — keep the app open.`;
+    });
+    if (compressed && compressed.size && compressed.size < original.size) {
+      state.pendingMediaFile = compressed;
+      elements.mediaCompressDialogMsg.textContent =
+        `Done: ${formatFileSize(original.size)} → ${formatFileSize(compressed.size)}.`;
+    } else {
+      elements.mediaCompressDialogMsg.textContent =
+        `That didn't come out smaller — keeping the original.`;
+    }
+    updateTextMediaInfo(false);
+    window.setTimeout(() => elements.mediaCompressDialog.close(), 700);
+  } catch (error) {
+    console.warn("Compression failed.", error);
+    elements.mediaCompressDialogMsg.textContent =
+      (error?.message || "Could not compress.") + " You can Keep original or try another option.";
+    buttons.forEach((b) => (b.disabled = false));
+  }
+}
+
+elements.mediaCompressChoices.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-mode]");
+  if (button) applyMediaCompressChoice(button.dataset.mode);
 });
 elements.removeMediaButton.addEventListener("click", () => {
   state.pendingMediaFile = null;
