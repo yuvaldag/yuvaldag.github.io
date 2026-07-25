@@ -6486,7 +6486,9 @@ async function shareTextAsLesson(text) {
     const mediaNote = await ensureTextMediaShared(text, (message) => {
       elements.shareLinkMessage.textContent = message;
     });
-    const link = await buildLessonLink(text);
+    const link = await buildLessonLink(text, (message) => {
+      elements.shareLinkMessage.textContent = message;
+    });
     elements.shareLinkText.value = link;
     const withMedia = Boolean(text.driveFileId && text.drivePublic);
     elements.shareLinkMessage.textContent =
@@ -6649,12 +6651,33 @@ function shareBaseUrl() {
   return `${base}?v=${Date.now().toString(36)}`;
 }
 
-function lessonLinkFromPayload(payload) {
-  const base = shareBaseUrl();
-  return encodeSharePayload(JSON.stringify(payload)).then((e) => `${base}#lesson=${e}`);
+// Long links carry the whole lesson inside the URL (self-contained, works with
+// no Drive at all). Short links park that same JSON in Drive as a link-readable
+// file and carry only its id — a ~90-character URL instead of thousands.
+async function uploadLessonToDrive(payload, onStatus) {
+  onStatus?.("Preparing a short link…");
+  const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+  const fileId = await driveUpload(blob, `LanguageTrainer-lesson-${Date.now()}.json`);
+  await driveMakePublic(fileId);
+  return fileId;
 }
 
-async function buildLessonLink(text) {
+async function lessonLinkFromPayload(payload, onStatus) {
+  const base = shareBaseUrl();
+  // Try the short form first; fall back to the self-contained long link.
+  if (driveSyncAvailable()) {
+    try {
+      const fileId = await uploadLessonToDrive(payload, onStatus);
+      return `${base}#l=${fileId}`;
+    } catch (error) {
+      console.warn("Could not make a short link; using the full one.", error);
+    }
+  }
+  const encoded = await encodeSharePayload(JSON.stringify(payload));
+  return `${base}#lesson=${encoded}`;
+}
+
+async function buildLessonLink(text, onStatus) {
   const setup = currentSetup() || DEFAULT_SETUP;
   const song = await buildLessonSong(text);
   if (!song) throw new Error("This text has no sentences to share.");
@@ -6667,7 +6690,7 @@ async function buildLessonLink(text) {
     fromCode: setup.fromLanguageCode,
     sentences: song.sentences,
     ...(song.media ? { media: song.media, mediaType: song.mediaType } : {}),
-  });
+  }, onStatus);
 }
 
 // Several songs in one link; the recipient switches between them.
@@ -6687,11 +6710,38 @@ async function buildMultiLessonLink(texts, onStatus) {
     learnCode: setup.learnLanguageCode,
     fromCode: setup.fromLanguageCode,
     songs,
-  });
+  }, onStatus);
 }
 
 // Returns true if the page was opened as a shared lesson.
+// Short link: the lesson JSON lives in the sharer's Drive as a link-readable
+// file, so anyone can fetch it with no account (drive.usercontent sends CORS).
+async function fetchLessonFromDrive(fileId) {
+  const url =
+    `https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Could not load the lesson (${res.status}).`);
+  return res.json();
+}
+
 async function detectSharedLesson() {
+  const short = String(location.hash || "").match(/[#&]l=([A-Za-z0-9_-]+)/);
+  if (short) {
+    try {
+      const payload = await fetchLessonFromDrive(short[1]);
+      const ok = (Array.isArray(payload?.sentences) && payload.sentences.length)
+        || (Array.isArray(payload?.songs) && payload.songs.length);
+      if (ok) {
+        startLesson(payload);
+        return true;
+      }
+    } catch (error) {
+      console.warn("Could not open the shared lesson link.", error);
+      window.alert("Could not load this lesson. The link may have been removed by the sender.");
+      return false;
+    }
+  }
+
   const match = String(location.hash || "").match(/[#&]lesson=([^&]+)/);
   if (!match) return false;
   try {
