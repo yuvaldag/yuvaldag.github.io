@@ -2696,6 +2696,7 @@ input[type="checkbox"] {
             <input id="shareIncludeMedia" type="checkbox" />
             <span class="field-help">Include the songs' audio/video (shared link-only from your Google Drive).</span>
           </span>
+          <p class="field-help">Sharing just <strong>one song</strong> with someone who doesn't use the app? Use <strong>🔗 Share</strong> on that song in the Words tab instead — that link opens the song directly, video included, with no account or sign-in at all.</p>
         </label>
         <textarea id="shareLinkText" rows="4" readonly class="config-textarea"></textarea>
         <div id="shareLinkMessage" class="parse-message"></div>
@@ -6545,21 +6546,44 @@ async function loadLessonMedia(payload) {
   elements.lessonPlayLineButton.hidden = true;
   if (!fileId) return;
 
+  // The file is "anyone with the link" in the sharer's Drive, so these public
+  // endpoints need NO account, NO sign-in, and NO API key. Try each in turn.
+  const id = encodeURIComponent(fileId);
+  const candidates = [
+    `https://drive.usercontent.google.com/download?id=${id}&export=download`,
+    `https://drive.google.com/uc?export=download&id=${id}`,
+  ];
+  let step = 0;
   elements.lessonMediaStatus.textContent = "Loading the audio…";
-  try {
-    const blob = await drivePublicDownload(fileId);
-    lesson.mediaUrl = URL.createObjectURL(blob);
-    elements.lessonMedia.src = lesson.mediaUrl;
-    elements.lessonMediaStatus.textContent = "";
-  } catch (error) {
-    console.warn("Drive API download failed; trying the direct link.", error);
-    elements.lessonMedia.src =
-      `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
-    elements.lessonMediaStatus.textContent = "";
-  }
-  elements.lessonMedia.onerror = () => {
+
+  const tryNext = async () => {
+    if (step < candidates.length) {
+      elements.lessonMedia.src = candidates[step];
+      step += 1;
+      return;
+    }
+    if (step === candidates.length) {
+      step += 1;
+      // Last resort: fetch the bytes via the Drive API (works if the project's
+      // API key allows it) and play from a local blob.
+      try {
+        const blob = await drivePublicDownload(fileId);
+        lesson.mediaUrl = URL.createObjectURL(blob);
+        elements.lessonMedia.src = lesson.mediaUrl;
+        return;
+      } catch (error) {
+        console.warn("All media sources failed.", error);
+      }
+    }
+    elements.lessonMedia.onerror = null;
     elements.lessonMediaStatus.textContent = "The audio couldn't load — the text still works.";
   };
+
+  elements.lessonMedia.onerror = tryNext;
+  elements.lessonMedia.onloadeddata = () => {
+    elements.lessonMediaStatus.textContent = "";
+  };
+  tryNext();
   updateLessonPlayLineButton();
 }
 
