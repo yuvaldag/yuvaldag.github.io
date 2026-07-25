@@ -2070,21 +2070,16 @@ input[type="checkbox"] {
 .lesson-answer[hidden] {
   display: none;
 }
-.lesson-actions,
-.lesson-grade {
+.lesson-actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
-.lesson-actions button,
-.lesson-grade button {
+.lesson-actions button {
   flex: 1;
   min-width: 140px;
   min-height: 52px;
   font-size: 1rem;
-}
-.lesson-grade[hidden] {
-  display: none;
 }
 .lesson-foot {
   margin: 0;
@@ -2536,15 +2531,14 @@ input[type="checkbox"] {
         </div>
         <p id="lessonHint" class="lesson-hint">Read it, then check yourself.</p>
         <div id="lessonSource" class="lesson-source prompt-word prompt-sentence"></div>
+        <button id="lessonSpeakSourceButton" class="replay-button" type="button" aria-label="Hear the sentence aloud">🔊 Hear it</button>
         <div id="lessonGloss" class="word-gloss" aria-live="polite" hidden></div>
         <div id="lessonAnswer" class="lesson-answer" hidden></div>
+        <button id="lessonSpeakAnswerButton" class="replay-button" type="button" aria-label="Hear the translation aloud" hidden>🔊 Hear translation</button>
         <div class="lesson-actions">
           <button id="lessonRevealButton" class="primary" type="button">Show translation</button>
+          <button id="lessonNextButton" class="primary" type="button" hidden>Next →</button>
           <button id="lessonAgainButton" type="button" hidden>Study again</button>
-        </div>
-        <div id="lessonGrade" class="lesson-grade" hidden>
-          <button id="lessonRightButton" type="button">✓ I knew it</button>
-          <button id="lessonWrongButton" type="button">✗ Not yet</button>
         </div>
         <p class="lesson-foot">Tap any word to see what it means.</p>
       </div>
@@ -3052,13 +3046,13 @@ const elements = {
   lessonProgress: document.querySelector("#lessonProgress"),
   lessonHint: document.querySelector("#lessonHint"),
   lessonSource: document.querySelector("#lessonSource"),
+  lessonSpeakSourceButton: document.querySelector("#lessonSpeakSourceButton"),
   lessonGloss: document.querySelector("#lessonGloss"),
   lessonAnswer: document.querySelector("#lessonAnswer"),
+  lessonSpeakAnswerButton: document.querySelector("#lessonSpeakAnswerButton"),
   lessonRevealButton: document.querySelector("#lessonRevealButton"),
+  lessonNextButton: document.querySelector("#lessonNextButton"),
   lessonAgainButton: document.querySelector("#lessonAgainButton"),
-  lessonGrade: document.querySelector("#lessonGrade"),
-  lessonRightButton: document.querySelector("#lessonRightButton"),
-  lessonWrongButton: document.querySelector("#lessonWrongButton"),
   mediaCompressDialog: document.querySelector("#mediaCompressDialog"),
   mediaCompressPrompt: document.querySelector("#mediaCompressPrompt"),
   mediaCompressChoices: document.querySelector("#mediaCompressChoices"),
@@ -6377,7 +6371,7 @@ function clearShareHash() {
 // starts learning — no account, no setup, nothing to explain.
 // ---------------------------------------------------------------------------
 
-const lesson = { text: null, index: 0, revealed: false, right: 0, wrong: 0, codes: null };
+const lesson = { text: null, index: 0, revealed: false, codes: null, spokenIndex: -1 };
 
 async function buildLessonLink(text) {
   const setup = currentSetup() || DEFAULT_SETUP;
@@ -6424,8 +6418,7 @@ function startLesson(payload) {
   lesson.text = payload;
   lesson.index = 0;
   lesson.revealed = false;
-  lesson.right = 0;
-  lesson.wrong = 0;
+  lesson.spokenIndex = -1;
   lesson.codes = { learn: payload.learnCode || "", from: payload.fromCode || "" };
   document.querySelector(".app-shell").hidden = true;
   elements.lessonOverlay.hidden = false;
@@ -6439,13 +6432,15 @@ function renderLesson() {
   elements.lessonGloss.hidden = true;
 
   if (done) {
-    elements.lessonProgress.textContent = `✓ ${lesson.right} · ✗ ${lesson.wrong}`;
+    elements.lessonProgress.textContent = `${sentences.length} / ${sentences.length}`;
     elements.lessonHint.textContent = "Finished — nice work!";
     elements.lessonSource.textContent = "🎉";
     elements.lessonAnswer.hidden = true;
     elements.lessonRevealButton.hidden = true;
-    elements.lessonGrade.hidden = true;
+    elements.lessonNextButton.hidden = true;
     elements.lessonAgainButton.hidden = false;
+    elements.lessonSpeakSourceButton.hidden = true;
+    elements.lessonSpeakAnswerButton.hidden = true;
     return;
   }
 
@@ -6453,24 +6448,43 @@ function renderLesson() {
   elements.lessonProgress.textContent = `${lesson.index + 1} / ${sentences.length}`;
   renderTappableInto(elements.lessonSource, current.s || "");
   elements.lessonAgainButton.hidden = true;
+  elements.lessonSpeakSourceButton.hidden = !current.s;
 
   if (lesson.revealed) {
-    elements.lessonHint.textContent = "Did you get it?";
+    elements.lessonHint.textContent = "";
     elements.lessonAnswer.textContent = current.t || "—";
     elements.lessonAnswer.hidden = false;
+    elements.lessonSpeakAnswerButton.hidden = !current.t;
     elements.lessonRevealButton.hidden = true;
-    elements.lessonGrade.hidden = false;
+    elements.lessonNextButton.hidden = false;
+    elements.lessonNextButton.textContent =
+      lesson.index === sentences.length - 1 ? "Finish" : "Next →";
   } else {
     elements.lessonHint.textContent = `Say or think the ${lesson.text.from || "translation"}, then check.`;
     elements.lessonAnswer.hidden = true;
+    elements.lessonSpeakAnswerButton.hidden = true;
     elements.lessonRevealButton.hidden = false;
-    elements.lessonGrade.hidden = true;
+    elements.lessonNextButton.hidden = true;
+  }
+
+  // Read each new sentence aloud once, as the normal study screen does.
+  if (lesson.spokenIndex !== lesson.index) {
+    lesson.spokenIndex = lesson.index;
+    speakLessonSource();
   }
 }
 
-function lessonGrade(correct) {
-  if (correct) lesson.right += 1;
-  else lesson.wrong += 1;
+function speakLessonSource() {
+  const current = lesson.text?.sentences?.[lesson.index];
+  if (current?.s) speakText(current.s, lesson.codes?.learn || "", true);
+}
+
+function speakLessonAnswer() {
+  const current = lesson.text?.sentences?.[lesson.index];
+  if (current?.t) speakText(current.t, lesson.codes?.from || "", true);
+}
+
+function lessonNext() {
   lesson.index += 1;
   lesson.revealed = false;
   renderLesson();
@@ -10027,15 +10041,15 @@ elements.lessonRevealButton.addEventListener("click", () => {
   lesson.revealed = true;
   renderLesson();
 });
-elements.lessonRightButton.addEventListener("click", () => lessonGrade(true));
-elements.lessonWrongButton.addEventListener("click", () => lessonGrade(false));
+elements.lessonNextButton.addEventListener("click", lessonNext);
 elements.lessonAgainButton.addEventListener("click", () => {
   lesson.index = 0;
   lesson.revealed = false;
-  lesson.right = 0;
-  lesson.wrong = 0;
+  lesson.spokenIndex = -1;
   renderLesson();
 });
+elements.lessonSpeakSourceButton.addEventListener("click", speakLessonSource);
+elements.lessonSpeakAnswerButton.addEventListener("click", speakLessonAnswer);
 elements.lessonSource.addEventListener("click", (event) => {
   const span = event.target.closest(".tap-word");
   if (span) lessonGlossWord(span.textContent);
