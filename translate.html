@@ -2007,6 +2007,92 @@ input[type="checkbox"] {
 .player-sync-tools[hidden] {
   display: none;
 }
+/* Shared-lesson mode (recipient view) */
+.lesson-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  padding: clamp(14px, 4vw, 32px);
+  background:
+    radial-gradient(1100px 620px at 12% -8%, var(--bg-grad-1), transparent 60%),
+    radial-gradient(1000px 560px at 100% 0%, var(--bg-grad-2), transparent 55%),
+    var(--bg);
+  overflow: auto;
+}
+.lesson-overlay[hidden] {
+  display: none;
+}
+.lesson-card {
+  width: min(760px, 100%);
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: clamp(18px, 4vw, 32px);
+}
+.lesson-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lesson-title {
+  font-size: 1.05rem;
+}
+.lesson-progress {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.lesson-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.lesson-source {
+  min-height: 0;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.lesson-answer {
+  font-size: clamp(1.5rem, 5.5vw, 2.5rem);
+  font-weight: 750;
+  line-height: 1.35;
+  color: var(--good);
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  animation: fadeIn 0.15s ease;
+}
+.lesson-answer[hidden] {
+  display: none;
+}
+.lesson-actions,
+.lesson-grade {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.lesson-actions button,
+.lesson-grade button {
+  flex: 1;
+  min-width: 140px;
+  min-height: 52px;
+  font-size: 1rem;
+}
+.lesson-grade[hidden] {
+  display: none;
+}
+.lesson-foot {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
 .player-paste-row {
   flex-direction: column;
   align-items: stretch;
@@ -2439,6 +2525,30 @@ input[type="checkbox"] {
         </div>
       </form>
     </dialog>
+
+    <!-- Shared-lesson mode: a link recipient sees only this — one song, sentence
+         by sentence, reveal-only. No tabs, no setup, no account. -->
+    <div id="lessonOverlay" class="lesson-overlay" hidden>
+      <div class="lesson-card">
+        <div class="lesson-head">
+          <strong id="lessonTitle" class="lesson-title"></strong>
+          <span id="lessonProgress" class="lesson-progress"></span>
+        </div>
+        <p id="lessonHint" class="lesson-hint">Read it, then check yourself.</p>
+        <div id="lessonSource" class="lesson-source prompt-word prompt-sentence"></div>
+        <div id="lessonGloss" class="word-gloss" aria-live="polite" hidden></div>
+        <div id="lessonAnswer" class="lesson-answer" hidden></div>
+        <div class="lesson-actions">
+          <button id="lessonRevealButton" class="primary" type="button">Show translation</button>
+          <button id="lessonAgainButton" type="button" hidden>Study again</button>
+        </div>
+        <div id="lessonGrade" class="lesson-grade" hidden>
+          <button id="lessonRightButton" type="button">✓ I knew it</button>
+          <button id="lessonWrongButton" type="button">✗ Not yet</button>
+        </div>
+        <p class="lesson-foot">Tap any word to see what it means.</p>
+      </div>
+    </div>
 
     <dialog id="mediaCompressDialog">
       <form method="dialog" class="dialog-card">
@@ -2937,6 +3047,18 @@ const elements = {
   openChatGptButton: document.querySelector("#openChatGptButton"),
   textLrcInput: document.querySelector("#textLrcInput"),
   loadLrcButton: document.querySelector("#loadLrcButton"),
+  lessonOverlay: document.querySelector("#lessonOverlay"),
+  lessonTitle: document.querySelector("#lessonTitle"),
+  lessonProgress: document.querySelector("#lessonProgress"),
+  lessonHint: document.querySelector("#lessonHint"),
+  lessonSource: document.querySelector("#lessonSource"),
+  lessonGloss: document.querySelector("#lessonGloss"),
+  lessonAnswer: document.querySelector("#lessonAnswer"),
+  lessonRevealButton: document.querySelector("#lessonRevealButton"),
+  lessonAgainButton: document.querySelector("#lessonAgainButton"),
+  lessonGrade: document.querySelector("#lessonGrade"),
+  lessonRightButton: document.querySelector("#lessonRightButton"),
+  lessonWrongButton: document.querySelector("#lessonWrongButton"),
   mediaCompressDialog: document.querySelector("#mediaCompressDialog"),
   mediaCompressPrompt: document.querySelector("#mediaCompressPrompt"),
   mediaCompressChoices: document.querySelector("#mediaCompressChoices"),
@@ -6175,6 +6297,28 @@ async function refreshShareLink(includeMedia) {
   }
 }
 
+// Share one text as a self-contained, reveal-only lesson link.
+async function shareTextAsLesson(text) {
+  elements.shareIncludeMediaRow.hidden = true;
+  const bridge = typeof window !== "undefined" ? window.AndroidApp : null;
+  elements.shareLinkNativeButton.hidden = !(bridge && typeof bridge.shareText === "function");
+  elements.shareLinkText.value = "";
+  elements.shareLinkMessage.textContent = "Building lesson link…";
+  elements.shareLinkDialog.showModal();
+  try {
+    const link = await buildLessonLink(text);
+    elements.shareLinkText.value = link;
+    elements.shareLinkMessage.textContent =
+      link.length > 8000
+        ? "Link copied. It's long — email works better than chat apps."
+        : "Link copied. Whoever opens it just sees this text, sentence by sentence.";
+    copyShareLink();
+  } catch (error) {
+    console.warn("Could not build lesson link.", error);
+    elements.shareLinkMessage.textContent = `Could not build the link: ${error.message}`;
+  }
+}
+
 async function shareCurrentSetup() {
   syncActiveSetupWords();
   const setup = currentSetup();
@@ -6224,6 +6368,126 @@ function clearShareHash() {
   } catch (error) {
     /* ignore */
   }
+}
+
+// ---------------------------------------------------------------------------
+// Shared lesson: one song/text, sentence by sentence, reveal-only.
+//
+// The whole lesson travels inside the link, so a recipient just opens it and
+// starts learning — no account, no setup, nothing to explain.
+// ---------------------------------------------------------------------------
+
+const lesson = { text: null, index: 0, revealed: false, right: 0, wrong: 0, codes: null };
+
+async function buildLessonLink(text) {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const sentences = (text.sentences || [])
+    .filter((sentence) => !sentence.header && (sentence.source || sentence.translation))
+    .map((sentence) => ({
+      s: sentence.source,
+      t: sentence.translation,
+      g: (sentence.glosses || []).map((gloss) => [gloss.w, gloss.t]),
+    }));
+  if (!sentences.length) throw new Error("This text has no sentences to share.");
+  const payload = {
+    v: 1,
+    title: textTitle(text),
+    learn: setup.learnLanguage,
+    from: setup.fromLanguage,
+    learnCode: setup.learnLanguageCode,
+    fromCode: setup.fromLanguageCode,
+    sentences,
+  };
+  const encoded = await encodeSharePayload(JSON.stringify(payload));
+  const base = /^https?:$/.test(location.protocol)
+    ? `${location.origin}${location.pathname}`
+    : PUBLIC_APP_URL;
+  return `${base}#lesson=${encoded}`;
+}
+
+// Returns true if the page was opened as a shared lesson.
+async function detectSharedLesson() {
+  const match = String(location.hash || "").match(/[#&]lesson=([^&]+)/);
+  if (!match) return false;
+  try {
+    const payload = JSON.parse(await decodeSharePayload(match[1]));
+    if (!Array.isArray(payload?.sentences) || !payload.sentences.length) return false;
+    startLesson(payload);
+    return true;
+  } catch (error) {
+    console.warn("Could not read the shared lesson link.", error);
+    return false;
+  }
+}
+
+function startLesson(payload) {
+  lesson.text = payload;
+  lesson.index = 0;
+  lesson.revealed = false;
+  lesson.right = 0;
+  lesson.wrong = 0;
+  lesson.codes = { learn: payload.learnCode || "", from: payload.fromCode || "" };
+  document.querySelector(".app-shell").hidden = true;
+  elements.lessonOverlay.hidden = false;
+  elements.lessonTitle.textContent = payload.title || "Lesson";
+  renderLesson();
+}
+
+function renderLesson() {
+  const sentences = lesson.text?.sentences || [];
+  const done = lesson.index >= sentences.length;
+  elements.lessonGloss.hidden = true;
+
+  if (done) {
+    elements.lessonProgress.textContent = `✓ ${lesson.right} · ✗ ${lesson.wrong}`;
+    elements.lessonHint.textContent = "Finished — nice work!";
+    elements.lessonSource.textContent = "🎉";
+    elements.lessonAnswer.hidden = true;
+    elements.lessonRevealButton.hidden = true;
+    elements.lessonGrade.hidden = true;
+    elements.lessonAgainButton.hidden = false;
+    return;
+  }
+
+  const current = sentences[lesson.index];
+  elements.lessonProgress.textContent = `${lesson.index + 1} / ${sentences.length}`;
+  renderTappableInto(elements.lessonSource, current.s || "");
+  elements.lessonAgainButton.hidden = true;
+
+  if (lesson.revealed) {
+    elements.lessonHint.textContent = "Did you get it?";
+    elements.lessonAnswer.textContent = current.t || "—";
+    elements.lessonAnswer.hidden = false;
+    elements.lessonRevealButton.hidden = true;
+    elements.lessonGrade.hidden = false;
+  } else {
+    elements.lessonHint.textContent = `Say or think the ${lesson.text.from || "translation"}, then check.`;
+    elements.lessonAnswer.hidden = true;
+    elements.lessonRevealButton.hidden = false;
+    elements.lessonGrade.hidden = true;
+  }
+}
+
+function lessonGrade(correct) {
+  if (correct) lesson.right += 1;
+  else lesson.wrong += 1;
+  lesson.index += 1;
+  lesson.revealed = false;
+  renderLesson();
+}
+
+async function lessonGlossWord(rawWord) {
+  const word = String(rawWord || "").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "").trim();
+  if (!word) return;
+  const current = lesson.text?.sentences?.[lesson.index];
+  const glosses = (current?.g || []).map(([w, t]) => ({ w, t }));
+  const translation = await resolveGloss(
+    word, glosses, lesson.codes?.learn, lesson.codes?.from,
+  );
+  const strong = document.createElement("strong");
+  strong.textContent = word;
+  elements.lessonGloss.replaceChildren(strong, "  →  ", translation || "(no translation)");
+  elements.lessonGloss.hidden = false;
 }
 
 function acceptSharedSetup() {
@@ -8146,6 +8410,12 @@ function renderTexts() {
       playBtn.addEventListener("click", () => openPlayer(text));
       actions.append(playBtn);
     }
+    const shareBtn = document.createElement("button");
+    shareBtn.type = "button";
+    shareBtn.textContent = "🔗 Share";
+    shareBtn.title = "Send a link that opens this text as a simple lesson";
+    shareBtn.disabled = !text.sentences.length;
+    shareBtn.addEventListener("click", () => shareTextAsLesson(text));
     const editBtn = document.createElement("button");
     editBtn.type = "button";
     editBtn.textContent = "Edit";
@@ -8156,7 +8426,7 @@ function renderTexts() {
     delBtn.setAttribute("aria-label", "Delete text");
     delBtn.textContent = "×";
     delBtn.addEventListener("click", () => deleteText(text.id));
-    actions.append(editBtn, delBtn);
+    actions.append(shareBtn, editBtn, delBtn);
 
     row.append(info, actions);
     if (mediaControl) row.append(mediaControl);
@@ -9746,6 +10016,31 @@ elements.playerResetSyncButton.addEventListener("click", () => {
   setPlayerSyncStatus("");
   renderPlayerSubs();
 });
+// ---- Shared-lesson controls ----
+// Also catch a lesson link pasted into an already-open tab.
+window.addEventListener("hashchange", () => {
+  if (elements.lessonOverlay.hidden && /[#&]lesson=/.test(location.hash)) {
+    detectSharedLesson();
+  }
+});
+elements.lessonRevealButton.addEventListener("click", () => {
+  lesson.revealed = true;
+  renderLesson();
+});
+elements.lessonRightButton.addEventListener("click", () => lessonGrade(true));
+elements.lessonWrongButton.addEventListener("click", () => lessonGrade(false));
+elements.lessonAgainButton.addEventListener("click", () => {
+  lesson.index = 0;
+  lesson.revealed = false;
+  lesson.right = 0;
+  lesson.wrong = 0;
+  renderLesson();
+});
+elements.lessonSource.addEventListener("click", (event) => {
+  const span = event.target.closest(".tap-word");
+  if (span) lessonGlossWord(span.textContent);
+});
+
 elements.playerSyncToggle.addEventListener("click", () => {
   const open = elements.playerSyncTools.hidden;
   elements.playerSyncTools.hidden = !open;
@@ -9822,6 +10117,10 @@ initTranslateFeature();
 render();
 
 (async function boot() {
+  // A shared LESSON link takes over the whole page: the recipient only sees the
+  // reveal-only lesson, so there's nothing else to set up or explain.
+  if (await detectSharedLesson()) return;
+
   // Decode a shared-setup link (if any) BEFORE deciding what dialog to show, so
   // the "add shared setup" prompt appears at the right moment.
   await detectSharedSetup();
