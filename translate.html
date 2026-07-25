@@ -2070,6 +2070,33 @@ input[type="checkbox"] {
 .lesson-answer[hidden] {
   display: none;
 }
+.lesson-picker[hidden] {
+  display: none;
+}
+.lesson-picker select {
+  min-height: 44px;
+}
+.share-many-list {
+  display: grid;
+  gap: 8px;
+  max-height: 46vh;
+  overflow: auto;
+}
+.share-many-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 12px 14px;
+  cursor: pointer;
+}
+.share-many-list .sm-meta {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
 .lesson-media {
   display: grid;
   gap: 8px;
@@ -2236,6 +2263,7 @@ input[type="checkbox"] {
                 <p class="screen-sub">Paragraphs you study in order, sentence by sentence.</p>
               </div>
               <button id="addTextButton" class="primary" type="button">Add text</button>
+              <button id="shareManyButton" type="button">🔗 Share several…</button>
             </div>
             <p id="textsStorage" class="texts-storage" hidden></p>
             <div id="textsList" class="texts-list"></div>
@@ -2552,6 +2580,10 @@ input[type="checkbox"] {
           <strong id="lessonTitle" class="lesson-title"></strong>
           <span id="lessonProgress" class="lesson-progress"></span>
         </div>
+        <label class="field lesson-picker" id="lessonPickerRow" hidden>
+          <span>Song</span>
+          <select id="lessonPicker" aria-label="Choose a song"></select>
+        </label>
         <p id="lessonHint" class="lesson-hint">Read it, then check yourself.</p>
         <div id="lessonMediaWrap" class="lesson-media" hidden>
           <video id="lessonMedia" class="lesson-media-el" playsinline controls></video>
@@ -2574,6 +2606,23 @@ input[type="checkbox"] {
         <p class="lesson-foot">Tap any word to see what it means.</p>
       </div>
     </div>
+
+    <dialog id="shareManyDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <h2>Share several songs</h2>
+            <p>Pick the songs to put in one link. Whoever opens it can switch between them — no account needed.</p>
+          </div>
+          <button id="closeShareManyButton" class="icon-button" type="button" aria-label="Close">×</button>
+        </div>
+        <div id="shareManyList" class="share-many-list"></div>
+        <div id="shareManyMessage" class="parse-message"></div>
+        <div class="dialog-actions">
+          <button id="shareManyCreateButton" class="primary" type="button">Create link</button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog id="mediaCompressDialog">
       <form method="dialog" class="dialog-card">
@@ -3078,6 +3127,14 @@ const elements = {
   lessonTitle: document.querySelector("#lessonTitle"),
   lessonProgress: document.querySelector("#lessonProgress"),
   lessonHint: document.querySelector("#lessonHint"),
+  lessonPickerRow: document.querySelector("#lessonPickerRow"),
+  lessonPicker: document.querySelector("#lessonPicker"),
+  shareManyButton: document.querySelector("#shareManyButton"),
+  shareManyDialog: document.querySelector("#shareManyDialog"),
+  shareManyList: document.querySelector("#shareManyList"),
+  shareManyMessage: document.querySelector("#shareManyMessage"),
+  shareManyCreateButton: document.querySelector("#shareManyCreateButton"),
+  closeShareManyButton: document.querySelector("#closeShareManyButton"),
   lessonMediaWrap: document.querySelector("#lessonMediaWrap"),
   lessonMedia: document.querySelector("#lessonMedia"),
   lessonFollowButton: document.querySelector("#lessonFollowButton"),
@@ -6481,6 +6538,7 @@ function clearShareHash() {
 const lesson = {
   text: null, index: 0, revealed: false, codes: null,
   spokenIndex: -1, spokenAnswerIndex: -1, mediaUrl: null, follow: false,
+  songs: [], songIndex: 0,
 };
 
 // True when the shared song has audio AND per-line timings, so the lines can
@@ -6512,8 +6570,9 @@ function onLessonMediaTime() {
   }
 }
 
-async function buildLessonLink(text) {
-  const setup = currentSetup() || DEFAULT_SETUP;
+// One song, packed for a lesson link: its lines, translations, per-word glosses,
+// timings, and (when possible) its audio/video.
+async function buildLessonSong(text) {
   const sentences = (text.sentences || [])
     .filter((sentence) => !sentence.header && (sentence.source || sentence.translation))
     .map((sentence) => {
@@ -6525,16 +6584,8 @@ async function buildLessonLink(text) {
       if (Number.isFinite(sentence.time)) entry.at = Math.round(sentence.time * 100) / 100;
       return entry;
     });
-  if (!sentences.length) throw new Error("This text has no sentences to share.");
-  const payload = {
-    v: 1,
-    title: textTitle(text),
-    learn: setup.learnLanguage,
-    from: setup.fromLanguage,
-    learnCode: setup.learnLanguageCode,
-    fromCode: setup.fromLanguageCode,
-    sentences,
-  };
+  if (!sentences.length) return null;
+  const song = { title: textTitle(text), sentences };
 
   // Carry the song's audio/video too, so the lesson is self-contained. The file
   // lives in the sharer's Drive; make it link-readable so any recipient can play
@@ -6542,25 +6593,64 @@ async function buildLessonLink(text) {
   if (text.driveFileId) {
     if (text.drivePublic) {
       // Already link-readable — no Drive call, so no sign-in needed.
-      payload.media = text.driveFileId;
-      payload.mediaType = text.mediaType || "";
+      song.media = text.driveFileId;
+      song.mediaType = text.mediaType || "";
     } else {
       try {
         await driveMakePublic(text.driveFileId);
         text.drivePublic = true;
         saveSetups();
-        payload.media = text.driveFileId;
-        payload.mediaType = text.mediaType || "";
+        song.media = text.driveFileId;
+        song.mediaType = text.mediaType || "";
       } catch (error) {
         console.warn("Could not share this song's media.", error);
       }
     }
   }
-  const encoded = await encodeSharePayload(JSON.stringify(payload));
+  return song;
+}
+
+function lessonLinkFromPayload(payload) {
   const base = /^https?:$/.test(location.protocol)
     ? `${location.origin}${location.pathname}`
     : PUBLIC_APP_URL;
-  return `${base}#lesson=${encoded}`;
+  return encodeSharePayload(JSON.stringify(payload)).then((e) => `${base}#lesson=${e}`);
+}
+
+async function buildLessonLink(text) {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const song = await buildLessonSong(text);
+  if (!song) throw new Error("This text has no sentences to share.");
+  return lessonLinkFromPayload({
+    v: 1,
+    title: song.title,
+    learn: setup.learnLanguage,
+    from: setup.fromLanguage,
+    learnCode: setup.learnLanguageCode,
+    fromCode: setup.fromLanguageCode,
+    sentences: song.sentences,
+    ...(song.media ? { media: song.media, mediaType: song.mediaType } : {}),
+  });
+}
+
+// Several songs in one link; the recipient switches between them.
+async function buildMultiLessonLink(texts, onStatus) {
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const songs = [];
+  for (let i = 0; i < texts.length; i += 1) {
+    onStatus?.(`Packing “${textTitle(texts[i])}” (${i + 1}/${texts.length})…`);
+    const song = await buildLessonSong(texts[i]);
+    if (song) songs.push(song);
+  }
+  if (!songs.length) throw new Error("None of those songs have sentences to share.");
+  return lessonLinkFromPayload({
+    v: 2,
+    learn: setup.learnLanguage,
+    from: setup.fromLanguage,
+    learnCode: setup.learnLanguageCode,
+    fromCode: setup.fromLanguageCode,
+    songs,
+  });
 }
 
 // Returns true if the page was opened as a shared lesson.
@@ -6579,16 +6669,50 @@ async function detectSharedLesson() {
 }
 
 function startLesson(payload) {
-  lesson.text = payload;
+  // A link holds either one song (v1) or several (v2) — normalise to a list.
+  const songs = Array.isArray(payload.songs) && payload.songs.length
+    ? payload.songs
+    : [{
+        title: payload.title,
+        sentences: payload.sentences,
+        media: payload.media,
+        mediaType: payload.mediaType,
+      }];
+  lesson.songs = songs.map((song) => ({ ...song, from: payload.from, learn: payload.learn }));
+  lesson.codes = { learn: payload.learnCode || "", from: payload.fromCode || "" };
+  document.querySelector(".app-shell").hidden = true;
+  elements.lessonOverlay.hidden = false;
+
+  // Song picker only when there's more than one.
+  elements.lessonPickerRow.hidden = lesson.songs.length < 2;
+  elements.lessonPicker.innerHTML = "";
+  lesson.songs.forEach((song, i) => {
+    const option = document.createElement("option");
+    option.value = String(i);
+    option.textContent = song.title || `Song ${i + 1}`;
+    elements.lessonPicker.append(option);
+  });
+
+  selectLessonSong(0);
+}
+
+function selectLessonSong(songIndex) {
+  const song = lesson.songs[songIndex];
+  if (!song) return;
+  lesson.songIndex = songIndex;
+  lesson.text = song;
   lesson.index = 0;
   lesson.revealed = false;
   lesson.spokenIndex = -1;
   lesson.spokenAnswerIndex = -1;
-  lesson.codes = { learn: payload.learnCode || "", from: payload.fromCode || "" };
-  document.querySelector(".app-shell").hidden = true;
-  elements.lessonOverlay.hidden = false;
-  elements.lessonTitle.textContent = payload.title || "Lesson";
-  loadLessonMedia(payload);
+  elements.lessonPicker.value = String(songIndex);
+  elements.lessonTitle.textContent = song.title || "Lesson";
+  document.title = song.title || "Lesson";
+  if (lesson.mediaUrl) {
+    URL.revokeObjectURL(lesson.mediaUrl);
+    lesson.mediaUrl = null;
+  }
+  loadLessonMedia(song);
   renderLesson();
 }
 
@@ -10032,6 +10156,77 @@ function renderTextQuiz() {
 }
 
 elements.addTextButton.addEventListener("click", () => openTextDialog());
+
+// ---- Share several songs in one link ----
+function openShareManyDialog() {
+  const texts = (currentSetup()?.texts || []).filter((text) => text.sentences?.length);
+  elements.shareManyList.innerHTML = "";
+  elements.shareManyMessage.textContent = "";
+  if (!texts.length) {
+    elements.shareManyMessage.textContent = "No songs to share yet.";
+  }
+  texts.forEach((text) => {
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = text.id;
+    const name = document.createElement("span");
+    name.textContent = textTitle(text);
+    const meta = document.createElement("span");
+    meta.className = "sm-meta";
+    const bits = [`${text.sentences.length} lines`];
+    if (text.driveFileId) bits.push("♪ audio");
+    meta.textContent = bits.join(" · ");
+    label.append(box, name, meta);
+    elements.shareManyList.append(label);
+  });
+  elements.shareManyDialog.showModal();
+}
+
+async function createManyLessonLink() {
+  const ids = [...elements.shareManyList.querySelectorAll("input:checked")].map((b) => b.value);
+  if (!ids.length) {
+    elements.shareManyMessage.textContent = "Pick at least one song.";
+    return;
+  }
+  const all = currentSetup()?.texts || [];
+  const chosen = ids.map((id) => all.find((t) => t.id === id)).filter(Boolean);
+  elements.shareManyCreateButton.disabled = true;
+  try {
+    // Upload any songs whose audio isn't shareable yet, so the link is complete.
+    for (const text of chosen) {
+      const note = await ensureTextMediaShared(text, (m) => {
+        elements.shareManyMessage.textContent = m;
+      });
+      if (note) console.warn(note);
+    }
+    const link = await buildMultiLessonLink(chosen, (m) => {
+      elements.shareManyMessage.textContent = m;
+    });
+    elements.shareManyDialog.close();
+    state.shareMode = "lesson";
+    elements.shareLinkTitle.textContent = `Share ${chosen.length} songs`;
+    elements.shareIncludeMediaRow.hidden = true;
+    const bridge = typeof window !== "undefined" ? window.AndroidApp : null;
+    elements.shareLinkNativeButton.hidden = !(bridge && typeof bridge.shareText === "function");
+    elements.shareLinkText.value = link;
+    elements.shareLinkMessage.textContent =
+      link.length > 8000
+        ? `Link copied with ${chosen.length} songs — it's long, so email works better than chat apps.`
+        : `Link copied — ${chosen.length} songs. The recipient can switch between them.`;
+    elements.shareLinkDialog.showModal();
+    copyShareLink();
+  } catch (error) {
+    console.warn("Could not build the multi-song link.", error);
+    elements.shareManyMessage.textContent = `Could not build the link: ${error.message}`;
+  } finally {
+    elements.shareManyCreateButton.disabled = false;
+  }
+}
+
+elements.shareManyButton.addEventListener("click", openShareManyDialog);
+elements.shareManyCreateButton.addEventListener("click", createManyLessonLink);
+elements.closeShareManyButton.addEventListener("click", () => elements.shareManyDialog.close());
 elements.translateTextButton.addEventListener("click", translateTextSource);
 
 // ChatGPT import: copy the prompt (with the song) and open ChatGPT.
@@ -10317,6 +10512,9 @@ elements.lessonAgainButton.addEventListener("click", () => {
   lesson.spokenIndex = -1;
   lesson.spokenAnswerIndex = -1;
   renderLesson();
+});
+elements.lessonPicker.addEventListener("change", () => {
+  selectLessonSong(Number(elements.lessonPicker.value) || 0);
 });
 elements.lessonMedia.addEventListener("timeupdate", onLessonMediaTime);
 elements.lessonFollowButton.addEventListener("click", () => {
