@@ -6334,10 +6334,7 @@ async function buildShareLink(setup, includeMedia) {
   const payload = await shareableSetupPayload(setup, includeMedia);
   if (!payload) throw new Error("No setup to share.");
   const encoded = await encodeSharePayload(JSON.stringify(payload));
-  const base = /^https?:$/.test(location.protocol)
-    ? `${location.origin}${location.pathname}`
-    : PUBLIC_APP_URL;
-  return `${base}#setup=${encoded}`;
+  return `${shareBaseUrl()}#setup=${encoded}`;
 }
 
 function setupHasDriveMedia(setup) {
@@ -6610,10 +6607,20 @@ async function buildLessonSong(text) {
   return song;
 }
 
-function lessonLinkFromPayload(payload) {
+// Shared links carry a version stamp. GitHub Pages caches the page for ~10
+// minutes and the "#..." part never reaches the server, so without this a
+// recipient (or you) can get an old cached build that doesn't know about
+// lesson links at all — which is what makes it fall through to the sign-in
+// screen. A unique query string guarantees a fresh copy.
+function shareBaseUrl() {
   const base = /^https?:$/.test(location.protocol)
     ? `${location.origin}${location.pathname}`
     : PUBLIC_APP_URL;
+  return `${base}?v=${Date.now().toString(36)}`;
+}
+
+function lessonLinkFromPayload(payload) {
+  const base = shareBaseUrl();
   return encodeSharePayload(JSON.stringify(payload)).then((e) => `${base}#lesson=${e}`);
 }
 
