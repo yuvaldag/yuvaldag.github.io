@@ -6326,6 +6326,54 @@ async function refreshShareLink(includeMedia) {
 }
 
 // Share one text as a self-contained, reveal-only lesson link.
+// Make sure the song's media is in Drive and link-readable so a lesson link can
+// carry it. Uploads automatically if it only exists on this device. Returns a
+// human note when the media can't be included (the link still works, text-only).
+async function ensureTextMediaShared(text, onStatus) {
+  if (text.driveFileId) {
+    try {
+      await driveMakePublic(text.driveFileId);
+      text.drivePublic = true;
+      saveSetups();
+      return "";
+    } catch (error) {
+      console.warn("Could not make existing media link-readable.", error);
+      return "The song's audio couldn't be made shareable — the link is text-only.";
+    }
+  }
+  if (!text.hasMedia) return "";
+
+  const media = await getMedia(text.id).catch(() => null);
+  if (!media?.blob) {
+    return "The audio/video isn't on this device, so the link is text-only.";
+  }
+  if (!driveSyncAvailable()) {
+    return "Sign in with Google (Settings → Cloud sync) to include the audio — this link is text-only.";
+  }
+  try {
+    onStatus?.("Uploading the song so the link can include it… 0%");
+    const fileId = await driveUpload(
+      media.blob,
+      `LanguageTrainer-${text.id}.webm`,
+      (progress) => onStatus?.(`Uploading the song so the link can include it… ${Math.round(progress * 100)}%`),
+    );
+    text.driveFileId = fileId;
+    try {
+      await driveMakePublic(fileId);
+      text.drivePublic = true;
+    } catch (publicError) {
+      console.warn("Uploaded but could not make link-readable.", publicError);
+    }
+    text.updatedAt = Date.now();
+    saveSetups();
+    renderTexts();
+    return text.drivePublic ? "" : "Uploaded, but sharing permission failed — the link may be text-only.";
+  } catch (error) {
+    console.warn("Could not upload media for sharing.", error);
+    return "The audio couldn't be uploaded — the link is text-only.";
+  }
+}
+
 async function shareTextAsLesson(text) {
   elements.shareIncludeMediaRow.hidden = true;
   const bridge = typeof window !== "undefined" ? window.AndroidApp : null;
@@ -6334,12 +6382,18 @@ async function shareTextAsLesson(text) {
   elements.shareLinkMessage.textContent = "Building lesson link…";
   elements.shareLinkDialog.showModal();
   try {
+    // Include the song's audio/video automatically — upload it if needed.
+    const mediaNote = await ensureTextMediaShared(text, (message) => {
+      elements.shareLinkMessage.textContent = message;
+    });
     const link = await buildLessonLink(text);
     elements.shareLinkText.value = link;
+    const withMedia = Boolean(text.driveFileId && text.drivePublic);
     elements.shareLinkMessage.textContent =
-      link.length > 8000
-        ? "Link copied. It's long — email works better than chat apps."
-        : "Link copied. Whoever opens it just sees this text, sentence by sentence.";
+      mediaNote ||
+      (withMedia
+        ? "Link copied — includes the song's audio. The recipient just opens it, nothing to set up."
+        : "Link copied. Whoever opens it just sees this text, sentence by sentence.");
     copyShareLink();
   } catch (error) {
     console.warn("Could not build lesson link.", error);
