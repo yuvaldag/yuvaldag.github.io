@@ -2070,6 +2070,29 @@ input[type="checkbox"] {
 .lesson-answer[hidden] {
   display: none;
 }
+.lesson-media {
+  display: grid;
+  gap: 8px;
+}
+.lesson-media[hidden] {
+  display: none;
+}
+.lesson-media-el {
+  width: 100%;
+  max-height: 34vh;
+  border-radius: var(--radius);
+  background: #000;
+}
+.lesson-media-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.lesson-media-status {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
 .lesson-actions {
   display: flex;
   gap: 10px;
@@ -2530,6 +2553,13 @@ input[type="checkbox"] {
           <span id="lessonProgress" class="lesson-progress"></span>
         </div>
         <p id="lessonHint" class="lesson-hint">Read it, then check yourself.</p>
+        <div id="lessonMediaWrap" class="lesson-media" hidden>
+          <video id="lessonMedia" class="lesson-media-el" playsinline controls></video>
+          <div class="lesson-media-actions">
+            <button id="lessonPlayLineButton" type="button" hidden>▶ Play this line</button>
+            <span id="lessonMediaStatus" class="lesson-media-status"></span>
+          </div>
+        </div>
         <div id="lessonSource" class="lesson-source prompt-word prompt-sentence"></div>
         <button id="lessonSpeakSourceButton" class="replay-button" type="button" aria-label="Hear the sentence aloud">🔊 Hear it</button>
         <div id="lessonGloss" class="word-gloss" aria-live="polite" hidden></div>
@@ -3045,6 +3075,10 @@ const elements = {
   lessonTitle: document.querySelector("#lessonTitle"),
   lessonProgress: document.querySelector("#lessonProgress"),
   lessonHint: document.querySelector("#lessonHint"),
+  lessonMediaWrap: document.querySelector("#lessonMediaWrap"),
+  lessonMedia: document.querySelector("#lessonMedia"),
+  lessonPlayLineButton: document.querySelector("#lessonPlayLineButton"),
+  lessonMediaStatus: document.querySelector("#lessonMediaStatus"),
   lessonSource: document.querySelector("#lessonSource"),
   lessonSpeakSourceButton: document.querySelector("#lessonSpeakSourceButton"),
   lessonGloss: document.querySelector("#lessonGloss"),
@@ -6372,18 +6406,23 @@ function clearShareHash() {
 // ---------------------------------------------------------------------------
 
 const lesson = {
-  text: null, index: 0, revealed: false, codes: null, spokenIndex: -1, spokenAnswerIndex: -1,
+  text: null, index: 0, revealed: false, codes: null,
+  spokenIndex: -1, spokenAnswerIndex: -1, mediaUrl: null,
 };
 
 async function buildLessonLink(text) {
   const setup = currentSetup() || DEFAULT_SETUP;
   const sentences = (text.sentences || [])
     .filter((sentence) => !sentence.header && (sentence.source || sentence.translation))
-    .map((sentence) => ({
-      s: sentence.source,
-      t: sentence.translation,
-      g: (sentence.glosses || []).map((gloss) => [gloss.w, gloss.t]),
-    }));
+    .map((sentence) => {
+      const entry = {
+        s: sentence.source,
+        t: sentence.translation,
+        g: (sentence.glosses || []).map((gloss) => [gloss.w, gloss.t]),
+      };
+      if (Number.isFinite(sentence.time)) entry.at = Math.round(sentence.time * 100) / 100;
+      return entry;
+    });
   if (!sentences.length) throw new Error("This text has no sentences to share.");
   const payload = {
     v: 1,
@@ -6394,6 +6433,19 @@ async function buildLessonLink(text) {
     fromCode: setup.fromLanguageCode,
     sentences,
   };
+
+  // Carry the song's audio/video too, so the lesson is self-contained. The file
+  // lives in the sharer's Drive; make it link-readable so any recipient can play
+  // it without signing in.
+  if (text.driveFileId) {
+    try {
+      await driveMakePublic(text.driveFileId);
+      payload.media = text.driveFileId;
+      payload.mediaType = text.mediaType || "";
+    } catch (error) {
+      console.warn("Could not share this song's media.", error);
+    }
+  }
   const encoded = await encodeSharePayload(JSON.stringify(payload));
   const base = /^https?:$/.test(location.protocol)
     ? `${location.origin}${location.pathname}`
@@ -6426,7 +6478,52 @@ function startLesson(payload) {
   document.querySelector(".app-shell").hidden = true;
   elements.lessonOverlay.hidden = false;
   elements.lessonTitle.textContent = payload.title || "Lesson";
+  loadLessonMedia(payload);
   renderLesson();
+}
+
+// The shared song's audio/video (a link-readable file in the sharer's Drive).
+// Try the API-key download first, then fall back to Drive's direct URL so it
+// still plays if the project's API key isn't allowed to call the Drive API.
+async function loadLessonMedia(payload) {
+  const fileId = payload?.media;
+  elements.lessonMediaWrap.hidden = !fileId;
+  elements.lessonPlayLineButton.hidden = true;
+  if (!fileId) return;
+
+  elements.lessonMediaStatus.textContent = "Loading the audio…";
+  try {
+    const blob = await drivePublicDownload(fileId);
+    lesson.mediaUrl = URL.createObjectURL(blob);
+    elements.lessonMedia.src = lesson.mediaUrl;
+    elements.lessonMediaStatus.textContent = "";
+  } catch (error) {
+    console.warn("Drive API download failed; trying the direct link.", error);
+    elements.lessonMedia.src =
+      `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
+    elements.lessonMediaStatus.textContent = "";
+  }
+  elements.lessonMedia.onerror = () => {
+    elements.lessonMediaStatus.textContent = "The audio couldn't load — the text still works.";
+  };
+  updateLessonPlayLineButton();
+}
+
+function updateLessonPlayLineButton() {
+  const current = lesson.text?.sentences?.[lesson.index];
+  const hasMedia = Boolean(lesson.text?.media);
+  elements.lessonPlayLineButton.hidden = !(hasMedia && Number.isFinite(current?.at));
+}
+
+function playLessonLine() {
+  const current = lesson.text?.sentences?.[lesson.index];
+  if (!Number.isFinite(current?.at)) return;
+  try {
+    elements.lessonMedia.currentTime = current.at;
+    elements.lessonMedia.play().catch(() => {});
+  } catch (error) {
+    /* ignore */
+  }
 }
 
 function renderLesson() {
@@ -6444,6 +6541,7 @@ function renderLesson() {
     elements.lessonAgainButton.hidden = false;
     elements.lessonSpeakSourceButton.hidden = true;
     elements.lessonSpeakAnswerButton.hidden = true;
+    elements.lessonPlayLineButton.hidden = true;
     return;
   }
 
@@ -6452,6 +6550,7 @@ function renderLesson() {
   renderTappableInto(elements.lessonSource, current.s || "");
   elements.lessonAgainButton.hidden = true;
   elements.lessonSpeakSourceButton.hidden = !current.s;
+  updateLessonPlayLineButton();
 
   if (lesson.revealed) {
     elements.lessonHint.textContent = "";
@@ -10058,6 +10157,7 @@ elements.lessonAgainButton.addEventListener("click", () => {
   lesson.spokenAnswerIndex = -1;
   renderLesson();
 });
+elements.lessonPlayLineButton.addEventListener("click", playLessonLine);
 elements.lessonSpeakSourceButton.addEventListener("click", speakLessonSource);
 elements.lessonSpeakAnswerButton.addEventListener("click", speakLessonAnswer);
 elements.lessonSource.addEventListener("click", (event) => {
