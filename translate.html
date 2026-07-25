@@ -9181,6 +9181,9 @@ async function saveText() {
   let hasMedia = Boolean(existing?.hasMedia);
   let mediaType = existing?.mediaType || "";
   let driveFileId = existing?.driveFileId || "";
+  // Keep the "anyone with the link" flag, or editing a title would silently make
+  // the next share ask for Drive permission all over again.
+  let drivePublic = Boolean(existing?.drivePublic);
 
   if (state.pendingMediaFile) {
     try {
@@ -9193,6 +9196,7 @@ async function saveText() {
     }
     // Sync the media to the user's Google Drive so other devices can get it.
     driveFileId = "";
+    drivePublic = false; // a brand-new file isn't shared yet
     if (driveSyncAvailable()) {
       try {
         driveFileId = await driveUpload(
@@ -9218,6 +9222,7 @@ async function saveText() {
     hasMedia = false;
     mediaType = "";
     driveFileId = "";
+    drivePublic = false;
   }
 
   const normalized = normalizeText({
@@ -9227,6 +9232,7 @@ async function saveText() {
     hasMedia,
     mediaType,
     driveFileId,
+    drivePublic,
     updatedAt: Date.now(),
   });
   setup.texts = setup.texts || [];
