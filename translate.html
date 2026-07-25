@@ -6666,7 +6666,11 @@ async function detectSharedLesson() {
   if (!match) return false;
   try {
     const payload = JSON.parse(await decodeSharePayload(match[1]));
-    if (!Array.isArray(payload?.sentences) || !payload.sentences.length) return false;
+    // v1 = one song (`sentences`), v2 = several songs (`songs`).
+    const hasOne = Array.isArray(payload?.sentences) && payload.sentences.length;
+    const hasMany = Array.isArray(payload?.songs)
+      && payload.songs.some((song) => Array.isArray(song?.sentences) && song.sentences.length);
+    if (!hasOne && !hasMany) return false;
     startLesson(payload);
     return true;
   } catch (error) {
