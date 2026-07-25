@@ -6662,10 +6662,16 @@ async function uploadLessonToDrive(payload, onStatus) {
   return fileId;
 }
 
+// Short links are DISABLED. Google serves drive.usercontent files to curl and to
+// <video> tags, but blocks a browser's fetch() of them ("Failed to fetch"), so a
+// recipient could never read the lesson back. Long links are self-contained and
+// always work. (The #l= reader below stays, so short links still open if we ever
+// host the lesson somewhere fetchable, e.g. Firestore.)
+const SHORT_LINKS_ENABLED = false;
+
 async function lessonLinkFromPayload(payload, onStatus) {
   const base = shareBaseUrl();
-  // Try the short form first; fall back to the self-contained long link.
-  if (driveSyncAvailable()) {
+  if (SHORT_LINKS_ENABLED && driveSyncAvailable()) {
     try {
       const fileId = await uploadLessonToDrive(payload, onStatus);
       return `${base}#l=${fileId}`;
