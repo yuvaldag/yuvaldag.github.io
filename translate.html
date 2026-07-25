@@ -6371,7 +6371,9 @@ function clearShareHash() {
 // starts learning — no account, no setup, nothing to explain.
 // ---------------------------------------------------------------------------
 
-const lesson = { text: null, index: 0, revealed: false, codes: null, spokenIndex: -1 };
+const lesson = {
+  text: null, index: 0, revealed: false, codes: null, spokenIndex: -1, spokenAnswerIndex: -1,
+};
 
 async function buildLessonLink(text) {
   const setup = currentSetup() || DEFAULT_SETUP;
@@ -6419,6 +6421,7 @@ function startLesson(payload) {
   lesson.index = 0;
   lesson.revealed = false;
   lesson.spokenIndex = -1;
+  lesson.spokenAnswerIndex = -1;
   lesson.codes = { learn: payload.learnCode || "", from: payload.fromCode || "" };
   document.querySelector(".app-shell").hidden = true;
   elements.lessonOverlay.hidden = false;
@@ -6467,8 +6470,14 @@ function renderLesson() {
     elements.lessonNextButton.hidden = true;
   }
 
-  // Read each new sentence aloud once, as the normal study screen does.
-  if (lesson.spokenIndex !== lesson.index) {
+  // Read each new sentence aloud once, as the normal study screen does, and the
+  // translation once when it's revealed.
+  if (lesson.revealed) {
+    if (lesson.spokenAnswerIndex !== lesson.index) {
+      lesson.spokenAnswerIndex = lesson.index;
+      speakLessonAnswer();
+    }
+  } else if (lesson.spokenIndex !== lesson.index) {
     lesson.spokenIndex = lesson.index;
     speakLessonSource();
   }
@@ -10046,6 +10055,7 @@ elements.lessonAgainButton.addEventListener("click", () => {
   lesson.index = 0;
   lesson.revealed = false;
   lesson.spokenIndex = -1;
+  lesson.spokenAnswerIndex = -1;
   renderLesson();
 });
 elements.lessonSpeakSourceButton.addEventListener("click", speakLessonSource);
