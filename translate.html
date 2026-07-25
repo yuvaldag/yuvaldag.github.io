@@ -6230,7 +6230,8 @@ async function shareableSetupPayload(setup, includeMedia) {
     const base = { id: text.id, title: text.title, sentences: text.sentences };
     if (includeMedia && text.driveFileId) {
       try {
-        await driveMakePublic(text.driveFileId);
+        // Already link-readable? Then no Drive call — and no sign-in prompt.
+        if (!text.drivePublic) await driveMakePublic(text.driveFileId);
         texts.push({
           ...base,
           hasMedia: true,
@@ -6422,11 +6423,12 @@ async function shareCurrentSetup() {
   elements.shareLinkTitle.textContent = "Share setup";
   const canIncludeMedia = setupHasDriveMedia(setup);
   elements.shareIncludeMediaRow.hidden = !canIncludeMedia;
-  elements.shareIncludeMedia.checked = false;
+  // Include the songs' audio/video by default — that's almost always wanted.
+  elements.shareIncludeMedia.checked = canIncludeMedia;
   const bridge = typeof window !== "undefined" ? window.AndroidApp : null;
   elements.shareLinkNativeButton.hidden = !(bridge && typeof bridge.shareText === "function");
   elements.shareLinkDialog.showModal();
-  await refreshShareLink(false);
+  await refreshShareLink(canIncludeMedia);
 }
 
 async function detectSharedSetup() {
