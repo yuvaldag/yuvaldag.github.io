@@ -2556,6 +2556,7 @@ input[type="checkbox"] {
         <div id="lessonMediaWrap" class="lesson-media" hidden>
           <video id="lessonMedia" class="lesson-media-el" playsinline controls></video>
           <div class="lesson-media-actions">
+            <button id="lessonFollowButton" type="button" hidden>✋ Practice line by line</button>
             <button id="lessonPlayLineButton" type="button" hidden>▶ Play this line</button>
             <span id="lessonMediaStatus" class="lesson-media-status"></span>
           </div>
@@ -3079,6 +3080,7 @@ const elements = {
   lessonHint: document.querySelector("#lessonHint"),
   lessonMediaWrap: document.querySelector("#lessonMediaWrap"),
   lessonMedia: document.querySelector("#lessonMedia"),
+  lessonFollowButton: document.querySelector("#lessonFollowButton"),
   lessonPlayLineButton: document.querySelector("#lessonPlayLineButton"),
   lessonMediaStatus: document.querySelector("#lessonMediaStatus"),
   lessonSource: document.querySelector("#lessonSource"),
@@ -6478,8 +6480,37 @@ function clearShareHash() {
 
 const lesson = {
   text: null, index: 0, revealed: false, codes: null,
-  spokenIndex: -1, spokenAnswerIndex: -1, mediaUrl: null,
+  spokenIndex: -1, spokenAnswerIndex: -1, mediaUrl: null, follow: false,
 };
+
+// True when the shared song has audio AND per-line timings, so the lines can
+// roll along with the music like the karaoke player.
+function lessonCanFollow() {
+  const sentences = lesson.text?.sentences || [];
+  return Boolean(lesson.text?.media) && sentences.some((s) => Number.isFinite(s.at));
+}
+
+// Which line the song is currently on.
+function lessonPosFromTime(time) {
+  const sentences = lesson.text?.sentences || [];
+  let pos = -1;
+  for (let i = 0; i < sentences.length; i += 1) {
+    const at = sentences[i].at;
+    if (Number.isFinite(at) && at <= time + 0.02) pos = i;
+    else if (Number.isFinite(at)) break;
+  }
+  return pos;
+}
+
+function onLessonMediaTime() {
+  if (!lesson.follow || !lesson.text) return;
+  const pos = lessonPosFromTime(elements.lessonMedia.currentTime);
+  if (pos >= 0 && pos !== lesson.index) {
+    lesson.index = pos;
+    lesson.revealed = true; // in follow mode both lines are always visible
+    renderLesson();
+  }
+}
 
 async function buildLessonLink(text) {
   const setup = currentSetup() || DEFAULT_SETUP;
@@ -6568,6 +6599,10 @@ async function loadLessonMedia(payload) {
   const fileId = payload?.media;
   elements.lessonMediaWrap.hidden = !fileId;
   elements.lessonPlayLineButton.hidden = true;
+  // With audio + timings, default to rolling along with the song.
+  lesson.follow = lessonCanFollow();
+  if (lesson.follow) lesson.revealed = true;
+  updateLessonFollowButton();
   if (!fileId) return;
 
   // The file is "anyone with the link" in the sharer's Drive, so these public
@@ -6609,6 +6644,14 @@ async function loadLessonMedia(payload) {
   };
   tryNext();
   updateLessonPlayLineButton();
+}
+
+function updateLessonFollowButton() {
+  const canFollow = lessonCanFollow();
+  elements.lessonFollowButton.hidden = !canFollow;
+  elements.lessonFollowButton.textContent = lesson.follow
+    ? "✋ Practice line by line"
+    : "🎵 Follow the song";
 }
 
 function updateLessonPlayLineButton() {
@@ -6653,6 +6696,19 @@ function renderLesson() {
   elements.lessonAgainButton.hidden = true;
   elements.lessonSpeakSourceButton.hidden = !current.s;
   updateLessonPlayLineButton();
+
+  // Following the song: both lines stay on screen and change with the music.
+  if (lesson.follow) {
+    elements.lessonHint.textContent = "Playing along with the song.";
+    elements.lessonAnswer.textContent = current.t || "—";
+    elements.lessonAnswer.hidden = false;
+    elements.lessonRevealButton.hidden = true;
+    elements.lessonNextButton.hidden = true;
+    elements.lessonSpeakSourceButton.hidden = true;   // the song is the audio
+    elements.lessonSpeakAnswerButton.hidden = true;
+    elements.lessonPlayLineButton.hidden = true;
+    return;
+  }
 
   if (lesson.revealed) {
     elements.lessonHint.textContent = "";
@@ -10260,6 +10316,23 @@ elements.lessonAgainButton.addEventListener("click", () => {
   lesson.revealed = false;
   lesson.spokenIndex = -1;
   lesson.spokenAnswerIndex = -1;
+  renderLesson();
+});
+elements.lessonMedia.addEventListener("timeupdate", onLessonMediaTime);
+elements.lessonFollowButton.addEventListener("click", () => {
+  lesson.follow = !lesson.follow;
+  if (lesson.follow) {
+    // Jump the words to wherever the song already is.
+    const pos = lessonPosFromTime(elements.lessonMedia.currentTime);
+    lesson.index = pos >= 0 ? pos : 0;
+    lesson.revealed = true;
+  } else {
+    elements.lessonMedia.pause();     // practising: don't talk over the song
+    lesson.revealed = false;
+    lesson.spokenIndex = -1;
+    lesson.spokenAnswerIndex = -1;
+  }
+  updateLessonFollowButton();
   renderLesson();
 });
 elements.lessonPlayLineButton.addEventListener("click", playLessonLine);
