@@ -1192,6 +1192,36 @@ input[type="checkbox"] {
 
 .text-row-info { grid-area: info; }
 .text-row-actions { grid-area: actions; }
+
+/* On a phone the four buttons squeeze the title to nothing, so stack the row:
+   title first, then the buttons, then the storage line. */
+@media (max-width: 700px) {
+  .text-row {
+    grid-template-columns: 1fr;
+    grid-template-areas: "info" "actions" "media";
+    align-items: stretch;
+  }
+  .text-row-info strong {
+    white-space: normal;      /* let long song names wrap instead of clipping */
+    overflow: visible;
+  }
+  .text-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  /* Two or three per line instead of one huge stack. */
+  .text-row-actions button {
+    flex: 1 1 30%;
+    min-width: 84px;
+    padding: 0 10px;
+  }
+  .text-row-actions .delete-word {
+    flex: 0 0 auto;
+    width: 46px;
+    min-width: 46px;
+  }
+}
 .media-line {
   grid-area: media;
   display: flex;
