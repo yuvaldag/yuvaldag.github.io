@@ -5241,6 +5241,12 @@ async function mergeCloudDataAndPush(data, message = "Merged local and cloud pro
 
 function maybeShowAccountModeDialog() {
   if (state.accountMode || elements.accountModeDialog.open) return;
+  // Someone opening a shared link is a guest, not a new owner — never make them
+  // pick an account or sign in. Start them local; they can sign in later.
+  if (state.pendingSharedSetup) {
+    saveAccountMode("local");
+    return;
+  }
   elements.accountModeMessage.textContent = "";
   elements.accountModeDialog.showModal();
 }
