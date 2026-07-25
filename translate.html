@@ -2686,7 +2686,7 @@ input[type="checkbox"] {
       <form method="dialog" class="dialog-card">
         <div class="dialog-heading">
           <div>
-            <h2>Share setup</h2>
+            <h2 id="shareLinkTitle">Share setup</h2>
             <p>Send this link. Whoever opens it can add this setup to their own account.</p>
           </div>
           <button id="closeShareLinkDialogButton" class="icon-button" type="button" aria-label="Close">×</button>
@@ -3020,6 +3020,7 @@ const elements = {
   shareLinkDialog: document.querySelector("#shareLinkDialog"),
   shareLinkText: document.querySelector("#shareLinkText"),
   shareLinkMessage: document.querySelector("#shareLinkMessage"),
+  shareLinkTitle: document.querySelector("#shareLinkTitle"),
   shareIncludeMediaRow: document.querySelector("#shareIncludeMediaRow"),
   shareIncludeMedia: document.querySelector("#shareIncludeMedia"),
   copyShareLinkButton: document.querySelector("#copyShareLinkButton"),
@@ -6337,6 +6338,8 @@ async function refreshShareLink(includeMedia) {
 // carry it. Uploads automatically if it only exists on this device. Returns a
 // human note when the media can't be included (the link still works, text-only).
 async function ensureTextMediaShared(text, onStatus) {
+  // Already uploaded AND link-readable: nothing to do, and nothing to sign in for.
+  if (text.driveFileId && text.drivePublic) return "";
   if (text.driveFileId) {
     try {
       await driveMakePublic(text.driveFileId);
@@ -6382,7 +6385,10 @@ async function ensureTextMediaShared(text, onStatus) {
 }
 
 async function shareTextAsLesson(text) {
+  state.shareMode = "lesson";
+  elements.shareLinkTitle.textContent = "Share this song";
   elements.shareIncludeMediaRow.hidden = true;
+  elements.shareIncludeMedia.checked = false;
   const bridge = typeof window !== "undefined" ? window.AndroidApp : null;
   elements.shareLinkNativeButton.hidden = !(bridge && typeof bridge.shareText === "function");
   elements.shareLinkText.value = "";
@@ -6412,6 +6418,8 @@ async function shareCurrentSetup() {
   syncActiveSetupWords();
   const setup = currentSetup();
   if (!setup) return;
+  state.shareMode = "setup";
+  elements.shareLinkTitle.textContent = "Share setup";
   const canIncludeMedia = setupHasDriveMedia(setup);
   elements.shareIncludeMediaRow.hidden = !canIncludeMedia;
   elements.shareIncludeMedia.checked = false;
@@ -6499,12 +6507,20 @@ async function buildLessonLink(text) {
   // lives in the sharer's Drive; make it link-readable so any recipient can play
   // it without signing in.
   if (text.driveFileId) {
-    try {
-      await driveMakePublic(text.driveFileId);
+    if (text.drivePublic) {
+      // Already link-readable — no Drive call, so no sign-in needed.
       payload.media = text.driveFileId;
       payload.mediaType = text.mediaType || "";
-    } catch (error) {
-      console.warn("Could not share this song's media.", error);
+    } else {
+      try {
+        await driveMakePublic(text.driveFileId);
+        text.drivePublic = true;
+        saveSetups();
+        payload.media = text.driveFileId;
+        payload.mediaType = text.mediaType || "";
+      } catch (error) {
+        console.warn("Could not share this song's media.", error);
+      }
     }
   }
   const encoded = await encodeSharePayload(JSON.stringify(payload));
@@ -8012,6 +8028,9 @@ elements.deleteSetupButton.addEventListener("click", deleteCurrentSetup);
 elements.shareSetupButton.addEventListener("click", shareCurrentSetup);
 elements.copyShareLinkButton.addEventListener("click", copyShareLink);
 elements.shareIncludeMedia.addEventListener("change", () => {
+  // This checkbox only belongs to the whole-setup share. It must never turn a
+  // single-song (lesson) link into a setup link.
+  if (state.shareMode !== "setup") return;
   refreshShareLink(elements.shareIncludeMedia.checked);
 });
 elements.closeShareLinkDialogButton.addEventListener("click", () => elements.shareLinkDialog.close());
