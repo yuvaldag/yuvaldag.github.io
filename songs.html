@@ -252,6 +252,9 @@ video {
 }
 .how-list { margin: 0 0 14px; padding-left: 1.25em; color: var(--ink-soft); font-size: 0.95rem; line-height: 1.7; }
 .muted-note { color: var(--muted); font-size: 0.87rem; }
+/* "or" rule separating the two ways of getting lyrics */
+.or-split { display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.or-split::before, .or-split::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .opt { color: var(--muted); font-weight: 400; }
 .field { display: grid; gap: 6px; margin-bottom: 14px; color: var(--ink-soft); font-size: 0.9rem; font-weight: 600; }
 .field[hidden] { display: none; }
@@ -329,8 +332,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
           </div>
           <div id="stepBar" class="step-bar"></div>
 
-          <!-- 1. name -->
-          <div class="step" data-step="0">
+          <!-- name -->
+          <div class="step" data-step="name">
             <p class="how">Start with the basics. The language decides which of your setups the song is filed under, and the name is what you'll see in your list.</p>
             <label class="field"><span>Language</span>
               <select id="addLang"></select>
@@ -343,8 +346,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             </label>
           </div>
 
-          <!-- 2. find lyrics -->
-          <div class="step" data-step="1">
+          <!-- find lyrics -->
+          <div class="step" data-step="find">
             <p class="how"><strong>Now find timed lyrics.</strong> These are lyrics with a time on every line, so the words can follow the music. The file type is called <strong>LRC</strong>.</p>
             <ol class="how-list">
               <li>Tap the button below — it searches Google for your song on lyric sites.</li>
@@ -355,18 +358,41 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             <div class="stack">
               <button id="searchLyricsButton" class="primary" type="button">🔎 Search for timed lyrics</button>
             </div>
-            <p class="how muted-note">No timed lyrics anywhere? You can still paste plain lyrics in the next step — one line each. The song just won't scroll by itself.</p>
+            <p class="how muted-note">You can also just paste plain lyrics in the next step — one line each. The song won't scroll by itself, but you still get the line-by-line practice.</p>
+            <div class="or-split"><span>or</span></div>
+            <p class="how"><strong>Nothing online?</strong> Let ChatGPT listen to the song and write the times itself. You'll need the audio file for that — the next steps walk you through it.</p>
+            <div class="stack">
+              <button id="aiLyricsButton" type="button">🤖 Let AI create the LRC file</button>
+            </div>
           </div>
 
-          <!-- 3. paste lrc -->
-          <div class="step" data-step="2">
-            <p class="how"><strong>Paste the lyrics you copied.</strong> Timed lines look like <code>[00:17.54] first line…</code>. Plain lines (no times) are fine too.</p>
+          <!-- ask AI to write the LRC (only on the AI path) -->
+          <div class="step" data-step="ailrc">
+            <p class="how"><strong>Now ask ChatGPT to listen and write the times.</strong> It plays through the song and prints an LRC file for you.</p>
+            <ol class="how-list">
+              <li>Tap <strong>Open ChatGPT</strong> — the request is copied for you.</li>
+              <li>In ChatGPT, tap the <strong>＋</strong> (or paperclip) and attach <strong>the same song file</strong> you just added.</li>
+              <li>Paste the request next to it, and send.</li>
+              <li>It answers with a box of <code>[00:17.54] …</code> lines — tap <strong>Copy</strong> on that box.</li>
+              <li>Come back and paste it in the next step.</li>
+            </ol>
+            <div class="stack">
+              <button id="openLrcChatButton" class="primary" type="button">💬 Open ChatGPT</button>
+              <button id="copyLrcPromptButton" type="button">📋 Just copy the request</button>
+            </div>
+            <p id="aiLrcInfo" class="status"></p>
+            <p class="how muted-note">Give it a moment — listening to a whole song takes ChatGPT a minute or two. If it says it can't listen to audio, start a new chat and attach the file first.</p>
+          </div>
+
+          <!-- paste lrc -->
+          <div class="step" data-step="lyrics">
+            <p id="lyricsHow" class="how"></p>
             <textarea id="addLrc" rows="9" placeholder="[00:17.54] first line of the song&#10;[00:21.87] second line…"></textarea>
             <p id="lrcInfo" class="status"></p>
           </div>
 
-          <!-- 4. translate -->
-          <div class="step" data-step="3">
+          <!-- translate -->
+          <div class="step" data-step="translate">
             <p class="how"><strong>Now get the translation from ChatGPT.</strong> It writes the translation of every line plus the meaning of each individual word, which is what lets you tap a word later.</p>
             <ol class="how-list">
               <li>Tap <strong>Open ChatGPT</strong> — the request is copied for you.</li>
@@ -381,16 +407,16 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             <p id="chatInfo" class="status"></p>
           </div>
 
-          <!-- 5. paste translation -->
-          <div class="step" data-step="4">
+          <!-- paste translation -->
+          <div class="step" data-step="translation">
             <p class="how"><strong>Paste ChatGPT's whole answer here.</strong> Don't tidy it up — the layout is what the app reads.</p>
             <textarea id="addChat" rows="10" placeholder="original line&#10;its translation&#10;word | meaning | word | meaning&#10;&#10;next line…"></textarea>
             <p id="chatResultInfo" class="status"></p>
           </div>
 
-          <!-- 6. audio -->
-          <div class="step" data-step="5">
-            <p class="how"><strong>Add the song's audio or video</strong> so you can listen while you read. This step is optional — skip it and you'll still get the line-by-line practice.</p>
+          <!-- audio -->
+          <div class="step" data-step="audio">
+            <p id="audioHow" class="how"></p>
             <p id="lengthHint" class="hint-box"></p>
             <label class="field"><span>Audio or video file</span>
               <input id="addMedia" type="file" accept="audio/*,video/*" />
@@ -410,8 +436,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             <p id="mediaInfo" class="status"></p>
           </div>
 
-          <!-- 7. finish -->
-          <div class="step" data-step="6">
+          <!-- finish -->
+          <div class="step" data-step="finish">
             <p class="how"><strong>That's everything — here's what will be saved.</strong></p>
             <div id="summary" class="summary"></div>
             <div class="stack">
@@ -1174,18 +1200,37 @@ window.addEventListener("beforeunload", releaseMediaUrl);
 // Add a song — one step at a time
 // ---------------------------------------------------------------------------
 
-const STEP_TITLES = [
-  "Name the song",
-  "Find the lyrics",
-  "Paste the lyrics",
-  "Get the translation",
-  "Paste the translation",
-  "Add the audio",
-  "Finish",
-];
-const STEPS = STEP_TITLES.length;
+const STEP_TITLES = {
+  name: "Name the song",
+  find: "Find the lyrics",
+  audio: "Add the audio",
+  ailrc: "Ask AI for the times",
+  lyrics: "Paste the lyrics",
+  translate: "Get the translation",
+  translation: "Paste the translation",
+  finish: "Finish",
+};
 
-const wiz = { step: 0, lrc: [], sentences: [], media: null, mediaSource: null, mediaFrom: "" };
+// Two ways through the wizard. When the lyrics come from a lyrics site the
+// audio is an optional extra at the end; when ChatGPT has to write the times
+// itself it needs the song first, so the audio step moves up front.
+const FLOWS = {
+  online: ["name", "find", "lyrics", "translate", "translation", "audio", "finish"],
+  ai: ["name", "find", "audio", "ailrc", "lyrics", "translate", "translation", "finish"],
+};
+
+const wiz = {
+  step: 0,
+  source: "online",   // "online" = found the LRC, "ai" = ChatGPT writes it
+  lrc: [],
+  sentences: [],
+  media: null,
+  mediaSource: null,
+  mediaFrom: "",
+};
+
+const flow = () => FLOWS[wiz.source] || FLOWS.online;
+const stepId = () => flow()[wiz.step];
 
 const add = {
   screen: el("addScreen"),
@@ -1197,6 +1242,12 @@ const add = {
   name: el("addName"),
   artist: el("addArtist"),
   search: el("searchLyricsButton"),
+  aiLyrics: el("aiLyricsButton"),
+  openLrcChat: el("openLrcChatButton"),
+  copyLrcPrompt: el("copyLrcPromptButton"),
+  aiLrcInfo: el("aiLrcInfo"),
+  lyricsHow: el("lyricsHow"),
+  audioHow: el("audioHow"),
   lrc: el("addLrc"),
   lrcInfo: el("lrcInfo"),
   openChat: el("openChatButton"),
@@ -1338,57 +1389,106 @@ The song (in ${lang?.learn || "the original language"}) is:
 ${lyrics}`;
 }
 
+// Asks ChatGPT to listen to the attached song and write a synced LRC file.
+function buildLrcPrompt() {
+  const lang = currentLang();
+  const name = add.name.value.trim();
+  const artist = add.artist.value.trim();
+  const song = name ? `"${name}"${artist ? ` by ${artist}` : ""}` : "this song";
+  return `I have attached the audio of ${song}${
+    lang?.learn ? `, which is in ${lang.learn}` : ""
+  }. Listen to it and write a synchronized LRC file of its lyrics.
+
+Rules:
+- Transcribe the lyrics in the original language (${lang?.learn || "the language that is sung"}). Do not translate them.
+- Start every line with its own timestamp in the form [mm:ss.xx], the moment those words start being sung.
+- One line of lyrics per timestamp, in the order they are sung. Repeat a repeated chorus rather than writing "x2".
+- Do not add [ar:] / [ti:] tags, headings, comments, or blank lines.
+- Times must match this exact recording, and must increase down the file.
+
+Print the finished LRC in a single copyable code block, and nothing else outside it. It should look like:
+
+[00:12.50]first line of the song
+[00:17.54]second line of the song`;
+}
+
 // --- steps -------------------------------------------------------------------
 
 function renderStep() {
-  add.title.textContent = STEP_TITLES[wiz.step];
-  add.count.textContent = `Step ${wiz.step + 1} of ${STEPS}`;
+  const steps = flow();
+  const id = stepId();
+  add.title.textContent = STEP_TITLES[id];
+  add.count.textContent = `Step ${wiz.step + 1} of ${steps.length}`;
   add.bar.innerHTML = "";
-  for (let i = 0; i < STEPS; i += 1) {
+  steps.forEach((_, i) => {
     const dot = document.createElement("span");
     if (i <= wiz.step) dot.className = "done";
     add.bar.append(dot);
-  }
+  });
   add.screen.querySelectorAll(".step").forEach((node) => {
-    node.classList.toggle("active", Number(node.dataset.step) === wiz.step);
+    node.classList.toggle("active", node.dataset.step === id);
   });
   add.prev.disabled = wiz.step === 0;
-  add.next.hidden = wiz.step === STEPS - 1;
+  add.next.hidden = wiz.step === steps.length - 1;
 
-  if (wiz.step === 2) describeLyrics();
-  if (wiz.step === 3) add.chatInfo.textContent = wiz.lrc.length
+  if (id === "audio") describeAudioStep();
+  if (id === "ailrc") add.aiLrcInfo.textContent = wiz.media
+    ? `Attach the file you just added${wiz.media.name ? ` (${wiz.media.name})` : ""}.`
+    : "";
+  if (id === "lyrics") {
+    add.lyricsHow.innerHTML = wiz.source === "ai"
+      ? "<strong>Paste the LRC ChatGPT gave you.</strong> Copy the whole box, times and all — lines look like <code>[00:17.54] first line…</code>."
+      : "<strong>Paste the lyrics you copied.</strong> Timed lines look like <code>[00:17.54] first line…</code>. Plain lines (no times) are fine too.";
+    describeLyrics();
+  }
+  if (id === "translate") add.chatInfo.textContent = wiz.lrc.length
     ? `The request already contains your ${wiz.lrc.length} lines.` : "";
-  if (wiz.step === 4) describeTranslation();
-  if (wiz.step === 5) showLengthHint();
-  if (wiz.step === 6) renderSummary();
+  if (id === "translation") describeTranslation();
+  if (id === "finish") renderSummary();
 }
 
+// Where a step's complaint should appear, so it lands next to what's wrong.
+const STEP_STATUS = {
+  name: () => add.lrcInfo,
+  lyrics: () => add.lrcInfo,
+  translate: () => add.chatInfo,
+  translation: () => add.chatResultInfo,
+  audio: () => add.mediaInfo,
+  ailrc: () => add.aiLrcInfo,
+};
+
 function goStep(next) {
+  const steps = flow();
   if (next > wiz.step) {
-    const problem = validateStep(wiz.step);
+    const problem = validateStep(stepId());
     if (problem) {
-      const box = [add.lrcInfo, add.lrcInfo, add.lrcInfo, add.chatInfo, add.chatResultInfo, add.mediaInfo][wiz.step]
-        || add.lrcInfo;
+      const box = (STEP_STATUS[stepId()] || (() => add.lrcInfo))();
       box.textContent = problem;
       box.className = "status warn";
       return;
     }
   }
-  wiz.step = Math.max(0, Math.min(STEPS - 1, next));
+  wiz.step = Math.max(0, Math.min(steps.length - 1, next));
+  // Back on the "find the lyrics" step both routes are open again, so undo an
+  // earlier AI choice — otherwise Next would silently keep the AI path.
+  if (flow()[wiz.step] === "find") wiz.source = "online";
   renderStep();
   window.scrollTo(0, 0);
 }
 
-function validateStep(step) {
-  if (step === 0) {
+function validateStep(id) {
+  if (id === "name") {
     if (!currentLang()) return "Choose a language first.";
     if (!add.name.value.trim()) return "Give the song a name.";
   }
-  if (step === 2) {
+  if (id === "audio" && wiz.source === "ai" && !wiz.media) {
+    return "Add the song file — ChatGPT needs to listen to it to write the times.";
+  }
+  if (id === "lyrics") {
     wiz.lrc = parseLyrics(add.lrc.value);
     if (!wiz.lrc.length) return "Paste the song's lyrics before continuing.";
   }
-  if (step === 4) {
+  if (id === "translation") {
     const parsed = parseTranslation(add.chat.value);
     if (!parsed.length) return "Paste ChatGPT's answer before continuing.";
     wiz.sentences = mergeTiming(parsed, wiz.lrc);
@@ -1418,6 +1518,27 @@ function describeTranslation() {
     `Read ${body.length} lines, ${withT} translated, ${words} word meanings.`
     + (wiz.lrc.filter((l) => Number.isFinite(l.time)).length && body.length !== wiz.lrc.filter((l) => Number.isFinite(l.time)).length
       ? " (Line count differs from the lyrics — times will be matched by the words.)" : "");
+}
+
+// The audio step reads differently on the two paths: coming from a lyrics site
+// it is an optional extra that has to match the timings we already have; on the
+// AI path it is the thing ChatGPT will listen to, so it is required and comes
+// before there are any timings to match.
+function describeAudioStep() {
+  if (wiz.source === "ai") {
+    add.audioHow.innerHTML =
+      "<strong>Add the song's audio or video.</strong> This is the file ChatGPT will listen to, "
+      + "so it has to be the exact recording you want to sing along to.";
+    add.lengthHint.hidden = false;
+    add.lengthHint.textContent =
+      "Shrink it before sending — ChatGPT rejects very large files, and “Audio only” "
+      + "is both the smallest and the easiest for it to listen to.";
+    return;
+  }
+  add.audioHow.innerHTML =
+    "<strong>Add the song's audio or video</strong> so you can listen while you read. "
+    + "This step is optional — skip it and you'll still get the line-by-line practice.";
+  showLengthHint();
 }
 
 function showLengthHint() {
@@ -1634,6 +1755,7 @@ async function saveSong() {
 
 function resetWizard() {
   wiz.step = 0;
+  wiz.source = "online";
   wiz.lrc = [];
   wiz.sentences = [];
   wiz.media = null;
@@ -1699,6 +1821,40 @@ add.search.addEventListener("click", () => {
   const query = `lyricsify ${add.name.value.trim()} ${add.artist.value.trim()}`.trim();
   openLink(`https://www.google.com/search?q=${encodeURIComponent(query)}`);
 });
+
+// Switch to the path where ChatGPT writes the timings, and move on to the
+// audio step it needs. Both flows share these first two steps, so the index
+// stays valid across the switch.
+add.aiLyrics.addEventListener("click", () => {
+  wiz.source = "ai";
+  goStep(wiz.step + 1);
+});
+
+// Opening ChatGPT with a file cannot be automated — it has to be attached by
+// hand — so these only carry the request over.
+async function sendLrcPrompt(openIt) {
+  const prompt = buildLrcPrompt();
+  add.aiLrcInfo.className = "status";
+  if (openIt) {
+    const bridge = nativeApp();
+    if (bridge && typeof bridge.openChatGpt === "function") {
+      try {
+        bridge.openChatGpt(prompt);
+        add.aiLrcInfo.textContent =
+          "ChatGPT opened with the request filled in — attach the song file, then send.";
+        return;
+      } catch (error) { /* fall through to the browser route */ }
+    }
+  }
+  const ok = await copyText(prompt);
+  if (openIt) openLink("https://chatgpt.com/");
+  add.aiLrcInfo.textContent = ok
+    ? "Request copied. Attach the song file in ChatGPT, paste the request, and send."
+    : "Could not copy automatically — write the request in ChatGPT yourself.";
+}
+
+add.openLrcChat.addEventListener("click", () => sendLrcPrompt(true));
+add.copyLrcPrompt.addEventListener("click", () => sendLrcPrompt(false));
 
 async function copyText(text) {
   const bridge = nativeApp();
