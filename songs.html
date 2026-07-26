@@ -600,25 +600,28 @@ async function initFirebase() {
   return modules;
 }
 
+// Popup only. The redirect flow needs storage shared with the Firebase auth
+// domain, which Safari (and Chrome with third-party cookies blocked) partitions
+// away — that produces "missing initial state" and never signs you in.
 async function signIn() {
   ui.signInButton.disabled = true;
   ui.signinStatus.textContent = "Opening Google sign-in…";
   try {
     const modules = await initFirebase();
     const provider = new modules.auth.GoogleAuthProvider();
-    try {
-      await modules.auth.signInWithPopup(app.auth, provider);
-    } catch (error) {
-      // Popup blocked? Use a full-page redirect instead.
-      if (/popup/i.test(error?.code || error?.message || "")) {
-        await modules.auth.signInWithRedirect(app.auth, provider);
-        return;
-      }
-      throw error;
-    }
+    await modules.auth.signInWithPopup(app.auth, provider);
+    ui.signinStatus.textContent = "";
   } catch (error) {
+    const code = String(error?.code || "");
     console.warn("Sign-in failed.", error);
-    ui.signinStatus.textContent = `Could not sign in: ${error?.message || error}`;
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+      ui.signinStatus.textContent = "Sign-in was cancelled.";
+    } else if (code === "auth/popup-blocked") {
+      ui.signinStatus.textContent =
+        "Your browser blocked the sign-in window. Allow pop-ups for this site, then tap the button again.";
+    } else {
+      ui.signinStatus.textContent = `Could not sign in: ${error?.message || error}`;
+    }
   } finally {
     ui.signInButton.disabled = false;
   }
@@ -930,8 +933,6 @@ window.addEventListener("beforeunload", releaseMediaUrl);
 (async function boot() {
   try {
     const modules = await initFirebase();
-    // Finish a redirect sign-in if we came back from one.
-    modules.auth.getRedirectResult(app.auth).catch(() => {});
     modules.auth.onAuthStateChanged(app.auth, async (user) => {
       app.user = user || null;
       if (user) {
