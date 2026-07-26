@@ -538,12 +538,36 @@ const app = {
 // Small helpers
 // ---------------------------------------------------------------------------
 
+let currentScreen = "signin";
+
 function showScreen(name) {
+  currentScreen = name;
   Object.entries(ui.screens).forEach(([key, node]) => {
     node.classList.toggle("active", key === name);
   });
   window.scrollTo(0, 0);
 }
+
+// Android's Back button asks here first (see MainActivity.onBackPressed). We
+// have no browser history to go back through, so without this Back would shut
+// the app instead of leaving a song or stepping back through the wizard.
+// Returning false lets Android close the app as usual.
+window.AppBack = function AppBack() {
+  if (currentScreen === "song") {
+    leaveSong();
+    return true;
+  }
+  if (currentScreen === "add") {
+    if (wiz.step > 0) {
+      goStep(wiz.step - 1);
+    } else {
+      resetWizard();
+      showScreen("library");
+    }
+    return true;
+  }
+  return false;
+};
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (c) => (
@@ -760,14 +784,71 @@ async function initFirebase() {
   return modules;
 }
 
-// Popup only. The redirect flow needs storage shared with the Firebase auth
-// domain, which Safari (and Chrome with third-party cookies blocked) partitions
-// away — that produces "missing initial state" and never signs you in.
+// Google refuses its OAuth flow inside an embedded WebView, so the Android
+// shell injects `window.AndroidAuth`: it runs native Google Sign-In and hands
+// back an ID token, which we swap for a Firebase credential. On the web this
+// bridge is absent and we use the popup below.
+function nativeAuthBridge() {
+  return typeof window !== "undefined" &&
+    window.AndroidAuth &&
+    typeof window.AndroidAuth.signInWithGoogle === "function"
+    ? window.AndroidAuth
+    : null;
+}
+
+let nativeAuthResolvers = null;
+
+window.NativeAuth = {
+  onGoogleIdToken(idToken) {
+    const r = nativeAuthResolvers;
+    nativeAuthResolvers = null;
+    if (r) r.resolve(String(idToken || ""));
+  },
+  onError(message) {
+    const r = nativeAuthResolvers;
+    nativeAuthResolvers = null;
+    if (r) r.reject(new Error(String(message || "cancelled")));
+  },
+};
+
+function requestNativeGoogleIdToken(bridge) {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      nativeAuthResolvers = null;
+      reject(new Error("Google sign-in timed out."));
+    }, 60000);
+    const done = (fn) => (value) => { window.clearTimeout(timer); fn(value); };
+    nativeAuthResolvers = { resolve: done(resolve), reject: done(reject) };
+    try {
+      bridge.signInWithGoogle();
+    } catch (error) {
+      window.clearTimeout(timer);
+      nativeAuthResolvers = null;
+      reject(error);
+    }
+  });
+}
+
+// Popup on the web. The redirect flow needs storage shared with the Firebase
+// auth domain, which Safari (and Chrome with third-party cookies blocked)
+// partitions away — that produces "missing initial state" and never signs in.
 async function signIn() {
   ui.signInButton.disabled = true;
   ui.signinStatus.textContent = "Opening Google sign-in…";
   try {
     const modules = await initFirebase();
+    const bridge = nativeAuthBridge();
+    if (bridge) {
+      const idToken = await requestNativeGoogleIdToken(bridge);
+      if (!idToken) {
+        ui.signinStatus.textContent = "Sign-in was cancelled.";
+        return;
+      }
+      const credential = modules.auth.GoogleAuthProvider.credential(idToken);
+      await modules.auth.signInWithCredential(app.auth, credential);
+      ui.signinStatus.textContent = "";
+      return;
+    }
     const provider = new modules.auth.GoogleAuthProvider();
     await modules.auth.signInWithPopup(app.auth, provider);
     ui.signinStatus.textContent = "";
