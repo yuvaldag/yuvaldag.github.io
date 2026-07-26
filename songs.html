@@ -240,6 +240,50 @@ video {
 
 .status { color: var(--muted); font-size: 0.9rem; min-height: 1.2em; margin: 10px 0 0; }
 .back-btn { margin-bottom: 14px; }
+
+/* ---------- add-song wizard ---------- */
+.step { display: none; }
+.step.active { display: block; animation: fade 0.18s ease; }
+.how { margin: 0 0 12px; color: var(--ink-soft); font-size: 0.95rem; line-height: 1.55; }
+.how code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 6px; padding: 1px 6px; font-size: 0.88em;
+}
+.how-list { margin: 0 0 14px; padding-left: 1.25em; color: var(--ink-soft); font-size: 0.95rem; line-height: 1.7; }
+.muted-note { color: var(--muted); font-size: 0.87rem; }
+.opt { color: var(--muted); font-weight: 400; }
+.field { display: grid; gap: 6px; margin-bottom: 14px; color: var(--ink-soft); font-size: 0.9rem; font-weight: 600; }
+.field[hidden] { display: none; }
+input[type="text"], select, textarea, input[type="file"] {
+  width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink); padding: 10px 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+input[type="text"], select { min-height: 48px; }
+textarea { min-height: 150px; resize: vertical; line-height: 1.5; font-family: inherit; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
+.stack { display: grid; gap: 10px; margin-bottom: 8px; }
+.hint-box {
+  margin: 0 0 14px; padding: 12px 14px; border-radius: var(--radius);
+  background: var(--accent-soft); color: var(--accent-soft-ink);
+  font-size: 0.92rem; font-weight: 600;
+}
+.hint-box[hidden] { display: none; }
+.step-bar { display: flex; gap: 5px; margin-bottom: 18px; }
+.step-bar span { flex: 1; height: 4px; border-radius: 999px; background: var(--line); }
+.step-bar span.done { background: var(--accent); }
+.wizard-nav { display: flex; gap: 10px; margin-top: 22px; }
+.wizard-nav button { flex: 1; min-height: 50px; }
+.summary {
+  display: grid; gap: 8px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel-2); padding: 14px 16px; margin-bottom: 14px;
+}
+.summary div { display: flex; justify-content: space-between; gap: 12px; font-size: 0.95rem; }
+.summary span:first-child { color: var(--muted); }
+.summary span:last-child { font-weight: 650; text-align: right; }
+.ok { color: var(--good); }
+.warn { color: var(--bad); }
     </style>
   </head>
   <body>
@@ -268,9 +312,118 @@ video {
           </div>
         </div>
         <div class="panel">
+          <div class="stack"><button id="addSongButton" class="primary" type="button">＋ Add a song</button></div>
           <div id="langs" class="langs"></div>
           <div id="songList" class="song-list"></div>
           <p id="libraryStatus" class="status"></p>
+        </div>
+      </section>
+
+      <!-- ============ ADD A SONG (one step at a time) ============ -->
+      <section id="addScreen" class="screen">
+        <button id="addCancelButton" class="back-btn" type="button">← Cancel</button>
+        <div class="panel">
+          <div class="song-head">
+            <h2 id="stepTitle" class="song-title"></h2>
+            <span id="stepCount" class="progress"></span>
+          </div>
+          <div id="stepBar" class="step-bar"></div>
+
+          <!-- 1. name -->
+          <div class="step" data-step="0">
+            <p class="how">Start with the basics. The language decides which of your setups the song is filed under, and the name is what you'll see in your list.</p>
+            <label class="field"><span>Language</span>
+              <select id="addLang"></select>
+            </label>
+            <label class="field"><span>Song name</span>
+              <input id="addName" type="text" placeholder="e.g. Τσάι με λεμόνι" />
+            </label>
+            <label class="field"><span>Singer / band <span class="opt">(optional, helps find the lyrics)</span></span>
+              <input id="addArtist" type="text" placeholder="e.g. Dakis" />
+            </label>
+          </div>
+
+          <!-- 2. find lyrics -->
+          <div class="step" data-step="1">
+            <p class="how"><strong>Now find timed lyrics.</strong> These are lyrics with a time on every line, so the words can follow the music. The file type is called <strong>LRC</strong>.</p>
+            <ol class="how-list">
+              <li>Tap the button below — it searches Google for your song on lyric sites.</li>
+              <li>Open a result and look for lyrics that start with times like <code>[00:17.54]</code>.</li>
+              <li>Select them all and copy.</li>
+              <li>Come back here and continue to the next step.</li>
+            </ol>
+            <div class="stack">
+              <button id="searchLyricsButton" class="primary" type="button">🔎 Search for timed lyrics</button>
+            </div>
+            <p class="how muted-note">No timed lyrics anywhere? You can still paste plain lyrics in the next step — one line each. The song just won't scroll by itself.</p>
+          </div>
+
+          <!-- 3. paste lrc -->
+          <div class="step" data-step="2">
+            <p class="how"><strong>Paste the lyrics you copied.</strong> Timed lines look like <code>[00:17.54] first line…</code>. Plain lines (no times) are fine too.</p>
+            <textarea id="addLrc" rows="9" placeholder="[00:17.54] first line of the song&#10;[00:21.87] second line…"></textarea>
+            <p id="lrcInfo" class="status"></p>
+          </div>
+
+          <!-- 4. translate -->
+          <div class="step" data-step="3">
+            <p class="how"><strong>Now get the translation from ChatGPT.</strong> It writes the translation of every line plus the meaning of each individual word, which is what lets you tap a word later.</p>
+            <ol class="how-list">
+              <li>Tap <strong>Open ChatGPT</strong> — the request is copied for you.</li>
+              <li>In ChatGPT: paste, and send.</li>
+              <li>When it finishes, copy its whole answer.</li>
+              <li>Come back and paste it in the next step.</li>
+            </ol>
+            <div class="stack">
+              <button id="openChatButton" class="primary" type="button">💬 Open ChatGPT</button>
+              <button id="copyPromptButton" type="button">📋 Just copy the request</button>
+            </div>
+            <p id="chatInfo" class="status"></p>
+          </div>
+
+          <!-- 5. paste translation -->
+          <div class="step" data-step="4">
+            <p class="how"><strong>Paste ChatGPT's whole answer here.</strong> Don't tidy it up — the layout is what the app reads.</p>
+            <textarea id="addChat" rows="10" placeholder="original line&#10;its translation&#10;word | meaning | word | meaning&#10;&#10;next line…"></textarea>
+            <p id="chatResultInfo" class="status"></p>
+          </div>
+
+          <!-- 6. audio -->
+          <div class="step" data-step="5">
+            <p class="how"><strong>Add the song's audio or video</strong> so you can listen while you read. This step is optional — skip it and you'll still get the line-by-line practice.</p>
+            <p id="lengthHint" class="hint-box"></p>
+            <label class="field"><span>Audio or video file</span>
+              <input id="addMedia" type="file" accept="audio/*,video/*" />
+            </label>
+            <div id="compressRow" class="field" hidden>
+              <span>Make it smaller</span>
+              <select id="addCompress">
+                <option value="audio">Audio only — smallest, best for songs (~2 MB)</option>
+                <option value="audioTiny">Audio only — tiny</option>
+                <option value="v360">Keep video — 360p</option>
+                <option value="v480">Keep video — 480p</option>
+                <option value="none">Keep the file exactly as it is</option>
+              </select>
+              <div class="stack"><button id="compressButton" type="button">Shrink it now</button></div>
+              <p class="how muted-note">Shrinking plays the song through once, so it takes about the length of the song. Keep this screen open while it runs.</p>
+            </div>
+            <p id="mediaInfo" class="status"></p>
+          </div>
+
+          <!-- 7. finish -->
+          <div class="step" data-step="6">
+            <p class="how"><strong>That's everything — here's what will be saved.</strong></p>
+            <div id="summary" class="summary"></div>
+            <div class="stack">
+              <button id="saveSongButton" class="primary" type="button">✓ Add this song</button>
+            </div>
+            <p id="saveInfo" class="status"></p>
+          </div>
+
+          <div class="wizard-nav">
+            <button id="prevStepButton" type="button">← Back</button>
+            <button id="nextStepButton" class="primary" type="button">Next →</button>
+          </div>
         </div>
       </section>
 
@@ -335,6 +488,7 @@ const ui = {
   screens: {
     signin: el("signinScreen"),
     library: el("libraryScreen"),
+    add: el("addScreen"),
     song: el("songScreen"),
   },
   signInButton: el("signInButton"),
@@ -452,7 +606,13 @@ function buildLibrary(appState) {
         songs,
       };
     })
-    .filter((lang) => lang.songs.length);
+    .filter((lang) => lang.id);
+}
+
+// Every setup can receive a new song; only the ones holding songs get listed.
+function setLibrary(appState) {
+  app.allLanguages = buildLibrary(appState);
+  app.languages = app.allLanguages.filter((lang) => lang.songs.length);
 }
 
 function songTitle(song) {
@@ -648,11 +808,12 @@ async function loadLibrary() {
     const snapshot = await firestore.getDoc(ref);
     if (!snapshot.exists()) {
       app.languages = [];
+      app.allLanguages = [];
       ui.libraryStatus.textContent = "No data found for this account yet.";
       renderLibrary();
       return;
     }
-    app.languages = buildLibrary(readAppState(snapshot.data()));
+    setLibrary(readAppState(snapshot.data()));
     ui.libraryStatus.textContent = "";
     app.langIndex = 0;
     renderLibrary();
@@ -668,7 +829,9 @@ function renderLibrary() {
   ui.songList.innerHTML = "";
 
   if (!app.languages.length) {
-    ui.songList.innerHTML = '<p class="empty">No songs yet. Add them in the Language Trainer and they will appear here.</p>';
+    ui.songList.innerHTML = (app.allLanguages || []).length
+      ? '<p class="empty">No songs yet. Tap “＋ Add a song” above to add your first one.</p>'
+      : '<p class="empty">No songs yet. Create a language setup in the Language Trainer, then add songs here.</p>';
     return;
   }
 
@@ -925,6 +1088,624 @@ ui.media.addEventListener("timeupdate", () => {
 });
 
 window.addEventListener("beforeunload", releaseMediaUrl);
+
+// ---------------------------------------------------------------------------
+// Add a song — one step at a time
+// ---------------------------------------------------------------------------
+
+const STEP_TITLES = [
+  "Name the song",
+  "Find the lyrics",
+  "Paste the lyrics",
+  "Get the translation",
+  "Paste the translation",
+  "Add the audio",
+  "Finish",
+];
+const STEPS = STEP_TITLES.length;
+
+const wiz = { step: 0, lrc: [], sentences: [], media: null, mediaSource: null, mediaFrom: "" };
+
+const add = {
+  screen: el("addScreen"),
+  cancel: el("addCancelButton"),
+  title: el("stepTitle"),
+  count: el("stepCount"),
+  bar: el("stepBar"),
+  lang: el("addLang"),
+  name: el("addName"),
+  artist: el("addArtist"),
+  search: el("searchLyricsButton"),
+  lrc: el("addLrc"),
+  lrcInfo: el("lrcInfo"),
+  openChat: el("openChatButton"),
+  copyPrompt: el("copyPromptButton"),
+  chatInfo: el("chatInfo"),
+  chat: el("addChat"),
+  chatResultInfo: el("chatResultInfo"),
+  lengthHint: el("lengthHint"),
+  media: el("addMedia"),
+  compressRow: el("compressRow"),
+  compress: el("addCompress"),
+  compressButton: el("compressButton"),
+  mediaInfo: el("mediaInfo"),
+  summary: el("summary"),
+  save: el("saveSongButton"),
+  saveInfo: el("saveInfo"),
+  prev: el("prevStepButton"),
+  next: el("nextStepButton"),
+};
+
+function currentLang() {
+  return (app.allLanguages || [])[Number(add.lang.value) || 0] || null;
+}
+
+function formatClock(seconds) {
+  const total = Math.max(0, Math.round(seconds || 0));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function formatSize(bytes) {
+  if (!bytes) return "0 MB";
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+// --- parsing -----------------------------------------------------------------
+
+// Accepts LRC ([mm:ss.xx]) lines, SRT-ish timing, or plain lyrics.
+function parseLyrics(raw) {
+  const out = [];
+  String(raw || "").replace(/\r\n?/g, "\n").split("\n").forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    // One line can carry several stamps when the words repeat: [00:10.00][01:10.00]chorus
+    const stamps = [];
+    let rest = trimmed;
+    let m;
+    while ((m = rest.match(/^\[(\d+):(\d+)(?:[.:](\d+))?\]\s*/))) {
+      const frac = m[3] ? Number(`0.${m[3]}`) : 0;
+      stamps.push(Number(m[1]) * 60 + Number(m[2]) + frac);
+      rest = rest.slice(m[0].length);
+    }
+    if (stamps.length) {
+      const text = rest.trim();
+      if (!text) return;                       // [00:00.00] with nothing on it
+      stamps.forEach((time) => out.push({ text, time }));
+    } else if (!/^\[[a-z]+:/i.test(trimmed)) { // skip [ar: ...] style tags
+      out.push({ text: trimmed, time: null });
+    }
+  });
+  // Repeated choruses arrive out of order; put everything back in singing order.
+  if (out.length && out.every((l) => Number.isFinite(l.time))) {
+    out.sort((a, b) => a.time - b.time);
+  }
+  return out;
+}
+
+// ChatGPT's answer: original line / translation / word | meaning | word | meaning
+function parseTranslation(raw) {
+  const blocks = String(raw || "").replace(/\r\n?/g, "\n").trim().split(/\n\s*\n+/);
+  const out = [];
+  blocks.forEach((block) => {
+    const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) return;
+    const gi = lines.findIndex((l) => l.includes("|"));
+    let glosses = [];
+    let texts = lines;
+    if (gi !== -1) {
+      const parts = lines[gi].split("|").map((p) => p.trim());
+      for (let i = 0; i + 1 < parts.length; i += 2) {
+        if (parts[i]) glosses.push({ w: parts[i], t: parts[i + 1] || "" });
+      }
+      texts = lines.filter((_, i) => i !== gi);
+    }
+    const source = texts[0] || "";
+    const translation = texts[1] || "";
+    const header = /^\[.*\]$/.test(source) && /^\[.*\]$/.test(translation);
+    if (source || translation) {
+      out.push({
+        source: header ? source.replace(/^\[|\]$/g, "").trim() : source,
+        translation: header ? translation.replace(/^\[|\]$/g, "").trim() : translation,
+        glosses,
+        header,
+      });
+    }
+  });
+  return out;
+}
+
+const normalizeText = (s) => String(s || "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
+
+// Put the timings from the lyrics onto the translated lines.
+function mergeTiming(translated, lyrics) {
+  const timed = lyrics.filter((l) => Number.isFinite(l.time));
+  if (!timed.length) return translated;
+  const body = translated.filter((s) => !s.header);
+
+  // Same number of lines? Then they line up one-to-one.
+  if (body.length === timed.length) {
+    body.forEach((s, i) => { s.time = timed[i].time; });
+    return translated;
+  }
+  // Otherwise match on the words, keeping the order.
+  let cursor = 0;
+  body.forEach((s) => {
+    const want = normalizeText(s.source);
+    for (let k = cursor; k < timed.length; k += 1) {
+      if (normalizeText(timed[k].text) === want) {
+        s.time = timed[k].time;
+        cursor = k + 1;
+        return;
+      }
+    }
+  });
+  return translated;
+}
+
+function buildPrompt() {
+  const lang = currentLang();
+  const lyrics = wiz.lrc.map((l) => l.text).join("\n");
+  return `Translate to ${lang?.from || "English"}. Make the format as follow:
+original song line 1
+line 1 translation
+word 1 in original song | word 1 translation within the context of original song | word 2 in original song | ......
+original song line 2
+.......
+
+The song (in ${lang?.learn || "the original language"}) is:
+${lyrics}`;
+}
+
+// --- steps -------------------------------------------------------------------
+
+function renderStep() {
+  add.title.textContent = STEP_TITLES[wiz.step];
+  add.count.textContent = `Step ${wiz.step + 1} of ${STEPS}`;
+  add.bar.innerHTML = "";
+  for (let i = 0; i < STEPS; i += 1) {
+    const dot = document.createElement("span");
+    if (i <= wiz.step) dot.className = "done";
+    add.bar.append(dot);
+  }
+  add.screen.querySelectorAll(".step").forEach((node) => {
+    node.classList.toggle("active", Number(node.dataset.step) === wiz.step);
+  });
+  add.prev.disabled = wiz.step === 0;
+  add.next.hidden = wiz.step === STEPS - 1;
+
+  if (wiz.step === 2) describeLyrics();
+  if (wiz.step === 3) add.chatInfo.textContent = wiz.lrc.length
+    ? `The request already contains your ${wiz.lrc.length} lines.` : "";
+  if (wiz.step === 4) describeTranslation();
+  if (wiz.step === 5) showLengthHint();
+  if (wiz.step === 6) renderSummary();
+}
+
+function goStep(next) {
+  if (next > wiz.step) {
+    const problem = validateStep(wiz.step);
+    if (problem) {
+      const box = [add.lrcInfo, add.lrcInfo, add.lrcInfo, add.chatInfo, add.chatResultInfo, add.mediaInfo][wiz.step]
+        || add.lrcInfo;
+      box.textContent = problem;
+      box.className = "status warn";
+      return;
+    }
+  }
+  wiz.step = Math.max(0, Math.min(STEPS - 1, next));
+  renderStep();
+  window.scrollTo(0, 0);
+}
+
+function validateStep(step) {
+  if (step === 0) {
+    if (!currentLang()) return "Choose a language first.";
+    if (!add.name.value.trim()) return "Give the song a name.";
+  }
+  if (step === 2) {
+    wiz.lrc = parseLyrics(add.lrc.value);
+    if (!wiz.lrc.length) return "Paste the song's lyrics before continuing.";
+  }
+  if (step === 4) {
+    const parsed = parseTranslation(add.chat.value);
+    if (!parsed.length) return "Paste ChatGPT's answer before continuing.";
+    wiz.sentences = mergeTiming(parsed, wiz.lrc);
+  }
+  return "";
+}
+
+function describeLyrics() {
+  wiz.lrc = parseLyrics(add.lrc.value);
+  if (!wiz.lrc.length) { add.lrcInfo.textContent = ""; return; }
+  const timed = wiz.lrc.filter((l) => Number.isFinite(l.time));
+  add.lrcInfo.className = "status";
+  add.lrcInfo.textContent = timed.length
+    ? `Found ${wiz.lrc.length} lines — ${timed.length} with times, ending around ${formatClock(timed[timed.length - 1].time)}. `
+      + "The words will follow the music."
+    : `Found ${wiz.lrc.length} lines, but no times. You'll still get line-by-line practice.`;
+}
+
+function describeTranslation() {
+  const parsed = parseTranslation(add.chat.value);
+  if (!parsed.length) { add.chatResultInfo.textContent = ""; return; }
+  const body = parsed.filter((s) => !s.header);
+  const withT = body.filter((s) => s.translation).length;
+  const words = body.reduce((n, s) => n + s.glosses.length, 0);
+  add.chatResultInfo.className = "status";
+  add.chatResultInfo.textContent =
+    `Read ${body.length} lines, ${withT} translated, ${words} word meanings.`
+    + (wiz.lrc.filter((l) => Number.isFinite(l.time)).length && body.length !== wiz.lrc.filter((l) => Number.isFinite(l.time)).length
+      ? " (Line count differs from the lyrics — times will be matched by the words.)" : "");
+}
+
+function showLengthHint() {
+  const timed = wiz.lrc.filter((l) => Number.isFinite(l.time));
+  if (!timed.length) { add.lengthHint.hidden = true; return; }
+  const last = timed[timed.length - 1].time;
+  add.lengthHint.hidden = false;
+  add.lengthHint.textContent =
+    `Use the same recording the lyrics came from. Its last line starts at ${formatClock(last)}, `
+    + `so the song should run a bit longer than that — roughly ${formatClock(last + 15)} or more. `
+    + `A different version will drift out of time.`;
+}
+
+function renderSummary() {
+  const lang = currentLang();
+  const body = wiz.sentences.filter((s) => !s.header);
+  const timed = body.filter((s) => Number.isFinite(s.time)).length;
+  const words = body.reduce((n, s) => n + s.glosses.length, 0);
+  const rows = [
+    ["Song", add.name.value.trim() + (add.artist.value.trim() ? ` — ${add.artist.value.trim()}` : "")],
+    ["Language", lang ? `${lang.learn} → ${lang.from}` : "—"],
+    ["Lines", String(body.length)],
+    ["Follows the music", timed ? `yes (${timed} timed)` : "no times"],
+    ["Word meanings", String(words)],
+    ["Audio", wiz.media ? `${formatSize(wiz.media.size)}${wiz.mediaFrom ? ` (${wiz.mediaFrom})` : ""}` : "none"],
+  ];
+  add.summary.innerHTML = "";
+  rows.forEach(([k, v]) => {
+    const row = document.createElement("div");
+    const a = document.createElement("span"); a.textContent = k;
+    const b = document.createElement("span"); b.textContent = v;
+    row.append(a, b);
+    add.summary.append(row);
+  });
+}
+
+// --- media -------------------------------------------------------------------
+
+const COMPRESS_PROFILES = {
+  audioTiny: { audio: true, audioBitrate: 48000 },
+  audio: { audio: true, audioBitrate: 64000 },
+  v360: { height: 360, videoBitrate: 650000, fps: 24, audioBitrate: 96000 },
+  v480: { height: 480, videoBitrate: 900000, fps: 24, audioBitrate: 96000 },
+};
+
+function firstSupportedMime(list) {
+  if (typeof MediaRecorder === "undefined") return "";
+  return list.find((t) => MediaRecorder.isTypeSupported(t)) || "";
+}
+
+// Re-encodes by playing the file through once, in real time.
+async function shrinkMedia(file, mode, onProgress) {
+  const profile = COMPRESS_PROFILES[mode];
+  if (!profile) return file;
+  if (typeof MediaRecorder === "undefined") throw new Error("This browser can't shrink files.");
+  const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.src = url;
+  video.playsInline = true;
+  video.preload = "auto";
+  try {
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = resolve;
+      video.onerror = () => reject(new Error("Could not read this file."));
+    });
+    const duration = video.duration || 0;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new Ctx();
+    if (audioCtx.state === "suspended") await audioCtx.resume().catch(() => {});
+    const source = audioCtx.createMediaElementSource(video);
+    const dest = audioCtx.createMediaStreamDestination();
+    source.connect(dest);                       // recorded, but kept silent
+
+    let stream, mime, stopDraw = () => {};
+    if (profile.audio) {
+      stream = new MediaStream(dest.stream.getAudioTracks());
+      mime = firstSupportedMime(["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]);
+    } else {
+      if (!video.videoWidth) throw new Error("No video track this phone can read — try “Audio only”.");
+      const scale = video.videoHeight > profile.height ? profile.height / video.videoHeight : 1;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(2, Math.round((video.videoWidth * scale) / 2) * 2);
+      canvas.height = Math.max(2, Math.round((video.videoHeight * scale) / 2) * 2);
+      const ctx = canvas.getContext("2d");
+      const cstream = canvas.captureStream(profile.fps);
+      dest.stream.getAudioTracks().forEach((t) => cstream.addTrack(t));
+      stream = cstream;
+      mime = firstSupportedMime(["video/webm;codecs=vp8,opus", "video/webm"]);
+      let timer = 0;
+      video.addEventListener("play", () => {
+        window.clearInterval(timer);
+        timer = window.setInterval(() => {
+          if (video.readyState >= 2) ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        }, 1000 / profile.fps);
+      });
+      stopDraw = () => window.clearInterval(timer);
+    }
+    if (!mime) throw new Error("This browser has no format to save in.");
+
+    const options = { mimeType: mime, audioBitsPerSecond: profile.audioBitrate };
+    if (!profile.audio) options.videoBitsPerSecond = profile.videoBitrate;
+    const recorder = new MediaRecorder(stream, options);
+    const chunks = [];
+    recorder.ondataavailable = (e) => { if (e.data?.size) chunks.push(e.data); };
+    const finished = new Promise((resolve, reject) => {
+      recorder.onstop = () => resolve(new Blob(chunks, { type: mime.split(";")[0] }));
+      recorder.onerror = () => reject(new Error("Shrinking failed."));
+    });
+    video.ontimeupdate = () => { if (duration) onProgress?.(Math.min(0.99, video.currentTime / duration)); };
+    video.onended = () => { stopDraw(); try { recorder.stop(); } catch (e) { /* ignore */ } };
+    recorder.start(1000);
+    await video.play();
+    const blob = await finished;
+    audioCtx.close().catch(() => {});
+    onProgress?.(1);
+    if (!blob.size) throw new Error("Nothing came out — try “Audio only”.");
+    const base = (file.name || "song").replace(/\.[^.]+$/, "") || "song";
+    return new File([blob], `${base}.webm`, { type: blob.type });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function putLocalMedia(id, blob, type) {
+  const db = await openMediaDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MEDIA_STORE, "readwrite");
+    tx.objectStore(MEDIA_STORE).put({ id, blob, type: type || blob.type || "" });
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// --- saving ------------------------------------------------------------------
+
+function newTextId() {
+  return `text-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+async function saveSong() {
+  const lang = currentLang();
+  const body = wiz.sentences.filter((s) => s.source || s.translation);
+  if (!lang || !body.length) {
+    add.saveInfo.className = "status warn";
+    add.saveInfo.textContent = "Something is missing — go back and check the earlier steps.";
+    return;
+  }
+  add.save.disabled = true;
+  add.saveInfo.className = "status";
+  add.saveInfo.textContent = "Saving…";
+  try {
+    const { firestore } = app.modules;
+    const ref = firestore.doc(app.db, "users", app.user.uid, "trainer", "state");
+    const snapshot = await firestore.getDoc(ref);
+    const appState = snapshot.exists() ? readAppState(snapshot.data()) : {};
+    if (!Array.isArray(appState.setups)) appState.setups = [];
+    const setup = appState.setups.find((s) => String(s?.id || "") === lang.id);
+    if (!setup) throw new Error("That language setup no longer exists.");
+
+    const id = newTextId();
+    if (wiz.media) {
+      add.saveInfo.textContent = "Storing the audio on this device…";
+      await putLocalMedia(id, wiz.media, wiz.media.type);
+    }
+
+    const title = add.name.value.trim()
+      + (add.artist.value.trim() ? ` — ${add.artist.value.trim()}` : "");
+    const text = {
+      id,
+      title,
+      sentences: body.map((s) => ({
+        source: s.source || "",
+        translation: s.translation || "",
+        glosses: (s.glosses || []).map((g) => ({ w: g.w, t: g.t })),
+        header: Boolean(s.header),
+        time: Number.isFinite(s.time) ? s.time : null,
+      })),
+      hasMedia: Boolean(wiz.media),
+      mediaType: wiz.media?.type || "",
+      driveFileId: "",
+      drivePublic: false,
+      updatedAt: Date.now(),
+    };
+    setup.texts = Array.isArray(setup.texts) ? setup.texts : [];
+    setup.texts.push(text);
+
+    add.saveInfo.textContent = "Saving to your account…";
+    await firestore.setDoc(ref, {
+      stateJson: JSON.stringify(appState),
+      updatedAtMillis: Date.now(),
+    }, { merge: true });
+
+    add.saveInfo.className = "status ok";
+    add.saveInfo.textContent = wiz.media
+      ? "Added. The audio is saved on this device — open it in the Language Trainer to sync it to your other devices."
+      : "Added.";
+    const savedInto = lang.id;
+    window.setTimeout(async () => {
+      resetWizard();
+      showScreen("library");
+      await loadLibrary();
+      // Land on the language we just added to, so the new song is in view.
+      const i = app.languages.findIndex((l) => l.id === savedInto);
+      if (i > 0) { app.langIndex = i; renderLibrary(); }
+    }, 1200);
+  } catch (error) {
+    console.warn("Could not save the song.", error);
+    add.saveInfo.className = "status warn";
+    add.saveInfo.textContent = `Could not save: ${error?.message || error}`;
+  } finally {
+    add.save.disabled = false;
+  }
+}
+
+function resetWizard() {
+  wiz.step = 0;
+  wiz.lrc = [];
+  wiz.sentences = [];
+  wiz.media = null;
+  wiz.mediaSource = null;
+  wiz.mediaFrom = "";
+  add.name.value = "";
+  add.artist.value = "";
+  add.lrc.value = "";
+  add.chat.value = "";
+  add.media.value = "";
+  add.compressRow.hidden = true;
+  [add.lrcInfo, add.chatInfo, add.chatResultInfo, add.mediaInfo, add.saveInfo].forEach((n) => {
+    n.textContent = "";
+    n.className = "status";
+  });
+}
+
+function openWizard() {
+  const langs = app.allLanguages || [];
+  if (!langs.length) {
+    ui.libraryStatus.textContent =
+      "Create a language setup in the Language Trainer first, then you can add songs here.";
+    return;
+  }
+  resetWizard();
+  add.lang.innerHTML = "";
+  langs.forEach((lang, i) => {
+    const option = document.createElement("option");
+    option.value = String(i);
+    option.textContent = `${lang.learn} → ${lang.from}`;
+    add.lang.append(option);
+  });
+  // Preselect whichever language the library is showing right now.
+  const viewing = app.languages[app.langIndex];
+  const preselect = viewing ? langs.findIndex((l) => l.id === viewing.id) : 0;
+  add.lang.value = String(preselect >= 0 ? preselect : 0);
+  renderStep();
+  showScreen("add");
+}
+
+// --- wiring ------------------------------------------------------------------
+
+el("addSongButton").addEventListener("click", openWizard);
+add.cancel.addEventListener("click", () => { resetWizard(); showScreen("library"); });
+add.prev.addEventListener("click", () => goStep(wiz.step - 1));
+add.next.addEventListener("click", () => goStep(wiz.step + 1));
+add.lrc.addEventListener("input", describeLyrics);
+add.chat.addEventListener("input", describeTranslation);
+
+// Inside the Android app the WebView can't open tabs or reach the clipboard,
+// so hand these off to the app itself when it is there.
+const nativeApp = () => (typeof window !== "undefined" ? window.AndroidApp : null);
+
+function openLink(url) {
+  const bridge = nativeApp();
+  if (bridge && typeof bridge.openUrl === "function") {
+    try { bridge.openUrl(url); return; } catch (error) { /* fall through */ }
+  }
+  window.open(url, "_blank", "noopener");
+}
+
+add.search.addEventListener("click", () => {
+  const query = `lyricsify ${add.name.value.trim()} ${add.artist.value.trim()}`.trim();
+  openLink(`https://www.google.com/search?q=${encodeURIComponent(query)}`);
+});
+
+async function copyText(text) {
+  const bridge = nativeApp();
+  if (bridge && typeof bridge.copyText === "function") {
+    try { bridge.copyText(text); return true; } catch (error) { /* fall through */ }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+add.copyPrompt.addEventListener("click", async () => {
+  const ok = await copyText(buildPrompt());
+  add.chatInfo.className = "status";
+  add.chatInfo.textContent = ok
+    ? "Request copied. Paste it into ChatGPT."
+    : "Could not copy automatically — select the lyrics and copy them by hand.";
+});
+
+add.openChat.addEventListener("click", async () => {
+  const prompt = buildPrompt();
+  const bridge = nativeApp();
+  add.chatInfo.className = "status";
+  // The app opens ChatGPT with the request already typed in, ready to send.
+  if (bridge && typeof bridge.openChatGpt === "function") {
+    try {
+      bridge.openChatGpt(prompt);
+      add.chatInfo.textContent = "ChatGPT opened with the request filled in — send it, then copy the answer.";
+      return;
+    } catch (error) { /* fall through to the browser route */ }
+  }
+  const ok = await copyText(prompt);
+  openLink("https://chatgpt.com/");
+  add.chatInfo.textContent = ok
+    ? "Request copied — paste it in ChatGPT, send, then copy the answer."
+    : "ChatGPT opened. Copy the request with the other button.";
+});
+
+add.media.addEventListener("change", () => {
+  const file = add.media.files?.[0] || null;
+  wiz.media = file;
+  wiz.mediaSource = file;                    // shrink always starts from this
+  wiz.mediaFrom = file ? "original" : "";
+  add.compressRow.hidden = !file;
+  add.mediaInfo.className = "status";
+  add.mediaInfo.textContent = file
+    ? `Chosen: ${file.name} — ${formatSize(file.size)}. Shrink it below if it's large.`
+    : "";
+});
+
+add.compressButton.addEventListener("click", async () => {
+  const original = wiz.mediaSource || wiz.media;
+  if (!original) return;
+  const mode = add.compress.value;
+  if (mode === "none") {
+    add.mediaInfo.textContent = `Keeping the file as it is — ${formatSize(original.size)}.`;
+    return;
+  }
+  add.compressButton.disabled = true;
+  add.next.disabled = true;
+  try {
+    const smaller = await shrinkMedia(original, mode, (p) => {
+      add.mediaInfo.className = "status";
+      add.mediaInfo.textContent = `Shrinking… ${Math.round(p * 100)}% — keep this screen open.`;
+    });
+    if (smaller && smaller.size && smaller.size < original.size) {
+      wiz.media = smaller;
+      wiz.mediaFrom = "shrunk";
+      add.mediaInfo.className = "status ok";
+      add.mediaInfo.textContent = `Done: ${formatSize(original.size)} → ${formatSize(smaller.size)}.`;
+    } else {
+      add.mediaInfo.className = "status";
+      add.mediaInfo.textContent = "That didn't come out smaller — keeping the original.";
+    }
+  } catch (error) {
+    console.warn("Shrink failed.", error);
+    add.mediaInfo.className = "status warn";
+    add.mediaInfo.textContent = error?.message || "Could not shrink this file.";
+  } finally {
+    add.compressButton.disabled = false;
+    add.next.disabled = false;
+  }
+});
+
+add.save.addEventListener("click", saveSong);
 
 // ---------------------------------------------------------------------------
 // Boot
