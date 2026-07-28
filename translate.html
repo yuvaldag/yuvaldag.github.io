@@ -176,10 +176,15 @@ summary:focus-visible {
   box-shadow: none;
 }
 
+/* The Android shell measures the status/gesture bars and sets these, because
+   from Android 15 the app is laid out edge to edge and the page would
+   otherwise run underneath them. Zero everywhere else. */
+:root { --safe-top: 0px; --safe-bottom: 0px; }
+
 .app-shell {
   width: min(1120px, calc(100vw - 28px));
   margin: 0 auto;
-  padding: clamp(18px, 4vw, 40px) 0 56px;
+  padding: calc(clamp(18px, 4vw, 40px) + var(--safe-top)) 0 56px;
 }
 
 /* ---------- Top bar ---------- */
@@ -1374,7 +1379,7 @@ input[type="checkbox"] {
    ============================================================ */
 
 .app-shell {
-  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  padding-bottom: calc(96px + env(safe-area-inset-bottom) + var(--safe-bottom));
 }
 
 .app-topbar {
@@ -1636,7 +1641,7 @@ input[type="checkbox"] {
   display: flex;
   align-items: stretch;
   gap: 4px;
-  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom) + var(--safe-bottom));
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--line);
@@ -1717,6 +1722,16 @@ input[type="checkbox"] {
 .tap-word:active {
   background: var(--accent-soft);
   color: var(--accent-strong);
+}
+
+/* Several words sharing one meaning stay one piece, but a long phrase may
+   wrap rather than overflow. */
+.tap-phrase { white-space: normal; }
+
+.tap-word.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 800;
 }
 
 .word-gloss {
@@ -6913,7 +6928,8 @@ function renderLesson() {
 
   const current = sentences[lesson.index];
   elements.lessonProgress.textContent = `${lesson.index + 1} / ${sentences.length}`;
-  renderTappableInto(elements.lessonSource, current.s || "");
+  renderTappableInto(elements.lessonSource, current.s || "",
+    (current.g || []).map(([w, t]) => ({ w, t })));
   elements.lessonAgainButton.hidden = true;
   elements.lessonSpeakSourceButton.hidden = !current.s;
   updateLessonPlayLineButton();
@@ -8545,7 +8561,13 @@ elements.replayAnswerButton.addEventListener("click", () => {
 // Tap any word in a text sentence to see its translation.
 elements.promptWord.addEventListener("click", (event) => {
   const span = event.target.closest(".tap-word");
-  if (span) glossWord(span.textContent);
+  if (!span) return;
+  markTapped(elements.promptWord, span);
+  if (span.dataset.meaning) {
+    showWordGloss(span.textContent, span.dataset.meaning);
+    return;
+  }
+  glossWord(span.textContent);
 });
 
 document.addEventListener("keydown", (event) => {
@@ -9331,30 +9353,95 @@ function playerCurrentPos(time) {
   return pos;
 }
 
-function renderTappableInto(container, text) {
-  const frag = document.createDocumentFragment();
-  String(text || "").split(/(\s+)/).forEach((token) => {
-    if (!token) return;
-    if (/^\s+$/.test(token)) {
-      frag.append(token);
+const bareWord = (s) => String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+
+/**
+ * Splits a sentence into tappable pieces using the word-by-word data rather
+ * than the spaces, because a meaning often covers several words at once
+ * ("θα πάω | I will go"). Those words become one piece, so tapping any of them
+ * highlights the whole phrase and shows the meaning they share.
+ *
+ * `glosses` must already be oriented so `w` is the side being displayed.
+ * Returns [{ text, gloss, space }].
+ */
+function splitByGlosses(text, glosses) {
+  const tokens = String(text || "").split(/(\s+)/).filter(Boolean);
+  const isWord = (t) => !/^\s+$/.test(t);
+  const wordAt = [];
+  tokens.forEach((t, i) => { if (isWord(t)) wordAt.push(i); });
+
+  const owner = new Array(wordAt.length).fill(null);
+  let cursor = 0;
+  (glosses || []).forEach((gloss) => {
+    const parts = String(gloss?.w || "").split(/\s+/).map(bareWord).filter(Boolean);
+    if (!parts.length) return;
+    // Search forward from the last match so a repeated word gets its own
+    // meaning instead of the first one every time.
+    for (let start = cursor; start + parts.length <= wordAt.length; start += 1) {
+      const fits = parts.every((p, k) => bareWord(tokens[wordAt[start + k]]) === p);
+      if (!fits) continue;
+      for (let k = 0; k < parts.length; k += 1) owner[start + k] = gloss;
+      cursor = start + parts.length;
       return;
     }
+  });
+
+  owner.forEach((g, i) => {
+    if (g) return;
+    const bare = bareWord(tokens[wordAt[i]]);
+    owner[i] = (glosses || []).find((x) => bareWord(x.w) === bare) || null;
+  });
+
+  const pieces = [];
+  let w = 0;
+  for (let i = 0; i < tokens.length; i += 1) {
+    if (!isWord(tokens[i])) { pieces.push({ text: tokens[i], gloss: null, space: true }); continue; }
+    const gloss = owner[w];
+    let end = i;
+    let last = w;
+    while (gloss && last + 1 < owner.length && owner[last + 1] === gloss) {
+      last += 1;
+      end = wordAt[last];
+    }
+    pieces.push({ text: tokens.slice(i, end + 1).join(""), gloss, space: false });
+    w = last + 1;
+    i = end;
+  }
+  return pieces;
+}
+
+function buildTappable(text, glosses) {
+  const frag = document.createDocumentFragment();
+  splitByGlosses(text, glosses).forEach((piece) => {
+    if (piece.space) { frag.append(piece.text); return; }
     const span = document.createElement("span");
-    span.className = "tap-word";
-    span.textContent = token;
+    span.className = /\s/.test(piece.text) ? "tap-word tap-phrase" : "tap-word";
+    span.textContent = piece.text;
+    if (piece.gloss?.t) span.dataset.meaning = piece.gloss.t;
     frag.append(span);
   });
-  container.replaceChildren(frag);
+  return frag;
+}
+
+// Mark the tapped words so it is clear which ones the meaning belongs to.
+function markTapped(container, span) {
+  container.querySelectorAll(".tap-word.active").forEach((n) => n.classList.remove("active"));
+  if (span) span.classList.add("active");
+}
+
+function renderTappableInto(container, text, glosses) {
+  container.replaceChildren(buildTappable(text, glosses));
 }
 
 function renderPlayerSubs() {
   const sentence = playerSentenceAt(player.currentPos);
   if (!sentence) {
-    renderTappableInto(elements.playerOriginal, playerSentenceAt(0)?.source || "");
+    renderTappableInto(elements.playerOriginal, playerSentenceAt(0)?.source || "",
+      playerSentenceAt(0)?.glosses);
     elements.playerTranslation.textContent = "Tap “Next line starts now” when the first line begins.";
     return;
   }
-  renderTappableInto(elements.playerOriginal, sentence.source);
+  renderTappableInto(elements.playerOriginal, sentence.source, sentence.glosses);
   elements.playerTranslation.textContent = sentence.translation || "";
 }
 
@@ -10088,21 +10175,24 @@ async function gradeSelfAnswer(correct) {
 // (Android) and cache the result so repeats are instant.
 // ---------------------------------------------------------------------------
 
-function renderTappablePrompt(text) {
-  const frag = document.createDocumentFragment();
-  String(text).split(/(\s+)/).forEach((token) => {
-    if (!token) return;
-    if (/^\s+$/.test(token)) {
-      frag.append(token);
-      return;
-    }
-    const span = document.createElement("span");
-    span.className = "tap-word";
-    span.textContent = token;
-    frag.append(span);
-  });
+function renderTappablePrompt(text, glosses) {
   elements.promptWord.classList.add("prompt-sentence");
-  elements.promptWord.replaceChildren(frag);
+  elements.promptWord.replaceChildren(buildTappable(text, glosses));
+}
+
+/**
+ * The prompt shows either the learn side or the from side, so orient the
+ * word-by-word data to whichever is on screen before matching against it.
+ */
+function promptGlosses() {
+  const glosses = state.currentCard?.glosses;
+  if (!Array.isArray(glosses) || !glosses.length) return [];
+  const setup = currentSetup() || DEFAULT_SETUP;
+  const promptIsLearn = promptLanguageCodeForCurrentCard() === setup.learnLanguageCode;
+  return glosses
+    .filter((g) => g && typeof g === "object")
+    .map((g) => (promptIsLearn ? { w: g.w, t: g.t } : { w: g.t, t: g.w }))
+    .filter((g) => g.w);
 }
 
 function hideWordGloss() {
@@ -10244,7 +10334,7 @@ function renderTextQuiz() {
     state.currentCard.direction === "el-en"
       ? `${setup.learnLanguage} to ${setup.fromLanguage}`
       : `${setup.fromLanguage} to ${setup.learnLanguage}`;
-  renderTappablePrompt(state.currentCard.prompt);
+  renderTappablePrompt(state.currentCard.prompt, promptGlosses());
   hideWordGloss();
   updateReplayPromptButton();
 
@@ -10641,7 +10731,17 @@ elements.lessonSpeakSourceButton.addEventListener("click", speakLessonSource);
 elements.lessonSpeakAnswerButton.addEventListener("click", speakLessonAnswer);
 elements.lessonSource.addEventListener("click", (event) => {
   const span = event.target.closest(".tap-word");
-  if (span) lessonGlossWord(span.textContent);
+  if (!span) return;
+  markTapped(elements.lessonSource, span);
+  // A phrase the word-by-word data already covers needs no lookup.
+  if (span.dataset.meaning) {
+    const strong = document.createElement("strong");
+    strong.textContent = span.textContent;
+    elements.lessonGloss.replaceChildren(strong, "  →  ", span.dataset.meaning);
+    elements.lessonGloss.hidden = false;
+    return;
+  }
+  lessonGlossWord(span.textContent);
 });
 
 elements.playerSyncToggle.addEventListener("click", () => {
@@ -10700,7 +10800,16 @@ elements.playerImportSubsInput.addEventListener("change", () => {
 });
 elements.playerOriginal.addEventListener("click", (event) => {
   const span = event.target.closest(".tap-word");
-  if (span) playerGlossWord(span.textContent);
+  if (!span) return;
+  markTapped(elements.playerOriginal, span);
+  if (span.dataset.meaning) {
+    const strong = document.createElement("strong");
+    strong.textContent = span.textContent;
+    elements.playerGloss.replaceChildren(strong, "  →  ", span.dataset.meaning);
+    elements.playerGloss.hidden = false;
+    return;
+  }
+  playerGlossWord(span.textContent);
 });
 
 window.addEventListener("beforeunload", stopSpeechStream);
