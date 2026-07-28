@@ -111,10 +111,15 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
 }
 .primary:hover { color: var(--accent-ink); filter: brightness(1.05); border-color: transparent; }
 
+/* The Android shell measures the status/gesture bars and sets these, because
+   from Android 15 the app is laid out edge to edge and the page would
+   otherwise run underneath them. Zero everywhere else. */
+:root { --safe-top: 0px; --safe-bottom: 0px; }
+
 .shell {
   width: min(900px, calc(100vw - 28px));
   margin: 0 auto;
-  padding: clamp(18px, 4vw, 40px) 0 56px;
+  padding: calc(clamp(18px, 4vw, 40px) + var(--safe-top)) 0 calc(56px + var(--safe-bottom));
 }
 
 .topbar {
@@ -145,6 +150,10 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4.5vw, 2.4rem); font-weight: 800; lette
 .screen { display: none; }
 .screen.active { display: block; animation: fade 0.18s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { width: 30px; height: 30px; margin: 26px auto 6px; border-radius: 50%;
+  border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 0.8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
 
 /* ---------- sign in ---------- */
 .signin { text-align: center; display: grid; gap: 16px; place-items: center; padding: 32px 16px; }
@@ -219,6 +228,9 @@ video {
 
 .tap-word { cursor: pointer; border-radius: 6px; padding: 0 0.06em; white-space: nowrap; transition: background 0.12s ease, color 0.12s ease; }
 .tap-word:hover, .tap-word:active { background: var(--accent-soft); color: var(--accent-strong); }
+/* A meaning covering several words stays one piece, but may wrap if it is long. */
+.tap-phrase { white-space: normal; }
+.tap-word.active { background: var(--accent-soft); color: var(--accent-strong); font-weight: 700; }
 
 .gloss {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px;
@@ -297,7 +309,16 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
   <body>
     <main class="shell">
       <!-- ============ SIGN IN ============ -->
-      <section id="signinScreen" class="screen active">
+      <!-- Shown until we know whether there is a session, so the sign-in
+           screen never flashes at someone who is already signed in. -->
+      <section id="loadingScreen" class="screen active">
+        <div class="panel signin">
+          <p class="eyebrow">Songs</p>
+          <div class="spinner" aria-label="Loading"></div>
+        </div>
+      </section>
+
+      <section id="signinScreen" class="screen">
         <div class="panel signin">
           <p class="eyebrow">Songs</p>
           <h1>Your songs</h1>
@@ -545,6 +566,7 @@ const TTS_RATE = 0.9;
 const el = (id) => document.getElementById(id);
 const ui = {
   screens: {
+    loading: el("loadingScreen"),
     signin: el("signinScreen"),
     library: el("libraryScreen"),
     add: el("addScreen"),
@@ -609,7 +631,7 @@ const app = {
 // Small helpers
 // ---------------------------------------------------------------------------
 
-let currentScreen = "signin";
+let currentScreen = "loading";
 
 function showScreen(name) {
   currentScreen = name;
@@ -994,7 +1016,14 @@ async function signOut() {
   try {
     await app.modules.auth.signOut(app.auth);
   } catch (error) { /* ignore */ }
+  // Also drop the account Play Services is holding, or the silent resume on
+  // the next launch would quietly sign you straight back in.
+  const bridge = nativeAuthBridge();
+  if (bridge && typeof bridge.signOutGoogle === "function") {
+    try { bridge.signOutGoogle(); } catch (error) { /* ignore */ }
+  }
   app.languages = [];
+  app.allLanguages = [];
   showScreen("signin");
   ui.signinStatus.textContent = "";
 }
@@ -1149,14 +1178,73 @@ function lineAtTime(time) {
   return pos;
 }
 
-function renderTappable(container, text) {
+const bareWord = (s) => String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+
+/**
+ * Splits a line into tappable pieces using the word-by-word data rather than
+ * the spaces, because a meaning often covers several words at once ("θα πάω |
+ * I will go"). Those words become a single piece, so tapping any of them
+ * highlights the whole phrase and shows the one meaning they share.
+ *
+ * Returns [{ text, gloss }], where gloss is the matching entry or null.
+ */
+function splitByGlosses(text, glosses) {
+  const tokens = String(text || "").split(/(\s+)/).filter(Boolean);
+  const isWord = (t) => !/^\s+$/.test(t);
+  const wordAt = [];                       // token indexes that hold words
+  tokens.forEach((t, i) => { if (isWord(t)) wordAt.push(i); });
+
+  // Which gloss each word belongs to; several words may share one.
+  const owner = new Array(wordAt.length).fill(null);
+  let cursor = 0;
+  (glosses || []).forEach((gloss) => {
+    const parts = String(gloss?.w || "").split(/\s+/).map(bareWord).filter(Boolean);
+    if (!parts.length) return;
+    // Look forward from where the last match ended, so a repeated word lands
+    // on its own meaning instead of the first one every time.
+    for (let start = cursor; start + parts.length <= wordAt.length; start += 1) {
+      const fits = parts.every((p, k) => bareWord(tokens[wordAt[start + k]]) === p);
+      if (!fits) continue;
+      for (let k = 0; k < parts.length; k += 1) owner[start + k] = gloss;
+      cursor = start + parts.length;
+      return;
+    }
+  });
+
+  // Anything the data did not cover still reacts to a tap, matching on its own.
+  owner.forEach((g, i) => {
+    if (g) return;
+    const bare = bareWord(tokens[wordAt[i]]);
+    owner[i] = (glosses || []).find((x) => bareWord(x.w) === bare) || null;
+  });
+
+  // Glue neighbouring words that share one meaning back into a single piece.
+  const pieces = [];
+  let w = 0;
+  for (let i = 0; i < tokens.length; i += 1) {
+    if (!isWord(tokens[i])) { pieces.push({ text: tokens[i], gloss: null, space: true }); continue; }
+    const gloss = owner[w];
+    let end = i;
+    let last = w;
+    while (gloss && last + 1 < owner.length && owner[last + 1] === gloss) {
+      last += 1;
+      end = wordAt[last];
+    }
+    pieces.push({ text: tokens.slice(i, end + 1).join(""), gloss, space: false });
+    w = last + 1;
+    i = end;
+  }
+  return pieces;
+}
+
+function renderTappable(container, text, glosses) {
   const frag = document.createDocumentFragment();
-  String(text || "").split(/(\s+)/).forEach((token) => {
-    if (!token) return;
-    if (/^\s+$/.test(token)) { frag.append(token); return; }
+  splitByGlosses(text, glosses).forEach((piece) => {
+    if (piece.space) { frag.append(piece.text); return; }
     const span = document.createElement("span");
-    span.className = "tap-word";
-    span.textContent = token;
+    span.className = /\s/.test(piece.text) ? "tap-word tap-phrase" : "tap-word";
+    span.textContent = piece.text;
+    if (piece.gloss) span.dataset.meaning = piece.gloss.t;
     frag.append(span);
   });
   container.replaceChildren(frag);
@@ -1182,7 +1270,7 @@ function renderLine() {
 
   const line = app.lines[app.index];
   ui.songProgress.textContent = `${app.index + 1} / ${total}`;
-  renderTappable(ui.lineOriginal, line.source);
+  renderTappable(ui.lineOriginal, line.source, line.glosses);
   ui.restartButton.hidden = true;
   updateLineNav();
 
@@ -1258,15 +1346,6 @@ function showGloss(word, meaning) {
   strong.textContent = word;
   ui.gloss.replaceChildren(strong, "  →  ", meaning);
   ui.gloss.hidden = false;
-}
-
-function glossWord(raw) {
-  const word = String(raw || "").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "").trim();
-  if (!word) return;
-  const line = app.lines[app.index];
-  const normalized = word.toLowerCase();
-  const hit = (line?.glosses || []).find((g) => g.w.toLowerCase() === normalized);
-  showGloss(word, hit ? hit.t : "(no translation for this word)");
 }
 
 // ---------------------------------------------------------------------------
@@ -1476,7 +1555,12 @@ ui.speakTranslation.addEventListener("click", () => {
 });
 ui.lineOriginal.addEventListener("click", (event) => {
   const span = event.target.closest(".tap-word");
-  if (span) glossWord(span.textContent);
+  if (!span) return;
+  // Keep the tapped words marked so it is clear which ones the meaning is for.
+  ui.lineOriginal.querySelectorAll(".tap-word.active")
+    .forEach((node) => node.classList.remove("active"));
+  span.classList.add("active");
+  showGloss(span.textContent, span.dataset.meaning || "(no translation for this word)");
 });
 ui.media.addEventListener("timeupdate", () => {
   if (app.mode !== "listen" || !app.song) return;
@@ -2260,6 +2344,8 @@ add.save.addEventListener("click", saveSong);
     });
   } catch (error) {
     console.warn("Could not start.", error);
+    showScreen("signin");                   // never leave the spinner up
+    ui.signinStatus.className = "status warn";
     ui.signinStatus.textContent = `Could not start: ${error?.message || error}`;
   }
 })();
