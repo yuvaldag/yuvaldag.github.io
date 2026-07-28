@@ -255,6 +255,11 @@ video {
 /* "or" rule separating the two ways of getting lyrics */
 .or-split { display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; }
 .or-split::before, .or-split::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+/* jump between lines / open the fix-a-line panel */
+.line-nav { display: flex; gap: 8px; margin-top: 14px; }
+.line-nav button { flex: 1; padding: 10px 8px; font-size: 0.9rem; }
+.line-nav button:disabled { opacity: 0.4; }
+.fix-panel { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-soft, transparent); }
 .opt { color: var(--muted); font-weight: 400; }
 .field { display: grid; gap: 6px; margin-bottom: 14px; color: var(--ink-soft); font-size: 0.9rem; font-weight: 600; }
 .field[hidden] { display: none; }
@@ -483,6 +488,34 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             <button id="nextButton" class="primary" type="button" hidden>Next →</button>
             <button id="restartButton" type="button" hidden>Start again</button>
           </div>
+
+          <!-- jump around the song without answering -->
+          <div class="line-nav">
+            <button id="prevLineButton" type="button" title="Previous line">⏮ Previous</button>
+            <button id="fixLineButton" type="button" title="Fix this line's translation">✏️ Fix line</button>
+            <button id="skipLineButton" type="button" title="Next line">Next ⏭</button>
+          </div>
+
+          <!-- ask ChatGPT to correct the line, then paste the answer back -->
+          <div id="fixPanel" class="fix-panel" hidden>
+            <p class="how"><strong>Fix this line's translation.</strong> ChatGPT gets the line, what the app currently says, and anything you add below.</p>
+            <label class="field"><span>Anything else it should know <span class="opt">(optional)</span></span>
+              <textarea id="fixExtra" rows="2" placeholder="e.g. this is slang for being fed up, keep it informal"></textarea>
+            </label>
+            <div class="stack">
+              <button id="fixChatButton" class="primary" type="button">💬 Ask ChatGPT</button>
+              <button id="fixCopyButton" type="button">📋 Just copy the request</button>
+            </div>
+            <p id="fixInfo" class="status"></p>
+            <label class="field"><span>Paste ChatGPT's answer here</span>
+              <textarea id="fixPaste" rows="4" placeholder="original line&#10;better translation&#10;word | meaning | word | meaning"></textarea>
+            </label>
+            <div class="stack">
+              <button id="fixApplyButton" class="primary" type="button">✓ Use this translation</button>
+              <button id="fixCloseButton" type="button">Close</button>
+            </div>
+            <p id="fixApplyInfo" class="status"></p>
+          </div>
           <p id="songStatus" class="status"></p>
         </div>
       </section>
@@ -540,6 +573,18 @@ const ui = {
   revealButton: el("revealButton"),
   nextButton: el("nextButton"),
   restartButton: el("restartButton"),
+  prevLine: el("prevLineButton"),
+  skipLine: el("skipLineButton"),
+  fixLine: el("fixLineButton"),
+  fixPanel: el("fixPanel"),
+  fixExtra: el("fixExtra"),
+  fixChat: el("fixChatButton"),
+  fixCopy: el("fixCopyButton"),
+  fixInfo: el("fixInfo"),
+  fixPaste: el("fixPaste"),
+  fixApply: el("fixApplyButton"),
+  fixClose: el("fixCloseButton"),
+  fixApplyInfo: el("fixApplyInfo"),
   songStatus: el("songStatus"),
 };
 
@@ -802,11 +847,23 @@ async function initFirebase() {
   const modules = await loadFirebase();
   const existing = modules.app.getApps().find((a) => a.name === "songs-app");
   const instance = existing || modules.app.initializeApp(FIREBASE_CONFIG, "songs-app");
-  app.auth = modules.auth.getAuth(instance);
+  // Inside the Android app the page is served from file://, an opaque origin
+  // where localStorage is not a reliable place to keep the session — that is
+  // what made it ask for Google every single launch. IndexedDB does survive
+  // there, so try it first and let Firebase fall back on the web.
+  if (!app.auth) {
+    try {
+      app.auth = modules.auth.initializeAuth(instance, {
+        persistence: [
+          modules.auth.indexedDBLocalPersistence,
+          modules.auth.browserLocalPersistence,
+        ],
+      });
+    } catch (error) {
+      app.auth = modules.auth.getAuth(instance);   // already initialised
+    }
+  }
   app.db = modules.firestore.getFirestore(instance);
-  try {
-    await modules.auth.setPersistence(app.auth, modules.auth.browserLocalPersistence);
-  } catch (error) { /* falls back to the default */ }
   return modules;
 }
 
@@ -823,6 +880,7 @@ function nativeAuthBridge() {
 }
 
 let nativeAuthResolvers = null;
+let silentAuthResolve = null;
 
 window.NativeAuth = {
   onGoogleIdToken(idToken) {
@@ -835,7 +893,45 @@ window.NativeAuth = {
     nativeAuthResolvers = null;
     if (r) r.reject(new Error(String(message || "cancelled")));
   },
+  onSilentIdToken(idToken) {
+    const r = silentAuthResolve;
+    silentAuthResolve = null;
+    if (r) r(String(idToken || ""));
+  },
+  onSilentError() {
+    const r = silentAuthResolve;
+    silentAuthResolve = null;
+    if (r) r("");
+  },
 };
+
+// Belt and braces for the Android app: even if the stored Firebase session is
+// gone, Play Services still remembers the account, so we can swap it for a
+// fresh credential without showing anything. Resolves true when that worked.
+async function resumeNativeSession() {
+  const bridge = nativeAuthBridge();
+  if (!bridge || typeof bridge.signInSilently !== "function") return false;
+  try {
+    const idToken = await new Promise((resolve) => {
+      const timer = window.setTimeout(() => { silentAuthResolve = null; resolve(""); }, 15000);
+      silentAuthResolve = (value) => { window.clearTimeout(timer); resolve(value); };
+      try {
+        bridge.signInSilently();
+      } catch (error) {
+        window.clearTimeout(timer);
+        silentAuthResolve = null;
+        resolve("");
+      }
+    });
+    if (!idToken) return false;
+    const { GoogleAuthProvider, signInWithCredential } = app.modules.auth;
+    await signInWithCredential(app.auth, GoogleAuthProvider.credential(idToken));
+    return true;
+  } catch (error) {
+    console.warn("Silent sign-in failed.", error);
+    return false;
+  }
+}
 
 function requestNativeGoogleIdToken(bridge) {
   return new Promise((resolve, reject) => {
@@ -1004,6 +1100,8 @@ async function openSong(song, lang) {
   ui.songTitle.textContent = songTitle(song);
   ui.gloss.hidden = true;
   ui.songStatus.textContent = "";
+  ui.fixExtra.value = "";
+  closeFixPanel();
   document.title = songTitle(song);
 
   showScreen("song");
@@ -1078,6 +1176,7 @@ function renderLine() {
     ui.revealButton.hidden = true;
     ui.nextButton.hidden = true;
     ui.restartButton.hidden = false;
+    updateLineNav();
     return;
   }
 
@@ -1085,6 +1184,7 @@ function renderLine() {
   ui.songProgress.textContent = `${app.index + 1} / ${total}`;
   renderTappable(ui.lineOriginal, line.source);
   ui.restartButton.hidden = true;
+  updateLineNav();
 
   if (app.mode === "listen") {
     // Both lines stay up and change with the music; the song is the audio.
@@ -1121,6 +1221,38 @@ function renderLine() {
   }
 }
 
+// Step to another line without having to answer this one. In Listen mode the
+// music is what drives the line, so move the music instead and let its own
+// timeupdate handler land on the right words.
+function jumpLine(delta) {
+  const total = app.lines.length;
+  if (!total) return;
+  const from = app.index >= total ? total - 1 : app.index;
+  const target = Math.max(0, Math.min(total - 1, from + delta));
+  if (target === app.index && app.index < total) return;
+
+  app.index = target;
+  app.spokenLine = -1;
+  app.spokenAnswer = -1;
+  closeFixPanel();
+
+  if (app.mode === "listen") {
+    const at = app.lines[target].time;
+    if (Number.isFinite(at)) ui.media.currentTime = at;
+    app.revealed = true;
+  } else {
+    app.revealed = false;
+  }
+  renderLine();
+}
+
+function updateLineNav() {
+  const total = app.lines.length;
+  ui.prevLine.disabled = total === 0 || app.index <= 0;
+  ui.skipLine.disabled = total === 0 || app.index >= total - 1;
+  ui.fixLine.disabled = total === 0 || app.index >= total;
+}
+
 function showGloss(word, meaning) {
   const strong = document.createElement("strong");
   strong.textContent = word;
@@ -1137,7 +1269,159 @@ function glossWord(raw) {
   showGloss(word, hit ? hit.t : "(no translation for this word)");
 }
 
+// ---------------------------------------------------------------------------
+// Fixing one line's translation
+// ---------------------------------------------------------------------------
+
+// The line the panel is working on. In Listen mode the music keeps moving the
+// current line along, so we pin the one that was on screen when it opened.
+let fixTarget = -1;
+
+function buildFixPrompt() {
+  const line = app.lines[fixTarget];
+  if (!line) return "";
+  const learn = app.lang?.learn || "the original language";
+  const from = app.lang?.from || "English";
+  const glosses = (line.glosses || []).map((g) => `${g.w} | ${g.t}`).join(" | ");
+  const extra = ui.fixExtra.value.trim();
+  return `This is one line of a song in ${learn}, with my ${from} translation of it. The translation is wrong or clumsy — correct it.
+
+Line (${learn}): ${line.source}
+Current ${from} translation: ${line.translation || "(none yet)"}
+Current word-by-word meanings: ${glosses || "(none yet)"}
+${extra ? `\nAlso: ${extra}\n` : ""}
+Answer with exactly three lines and nothing else — no explanation, no headings:
+
+line 1: the original ${learn} line, unchanged
+line 2: the corrected ${from} translation
+line 3: every word of the original line as "word | its meaning here | word | its meaning here", in the order they are sung
+
+Give the meaning each word carries in THIS line, not its dictionary entry.`;
+}
+
+function openFixPanel() {
+  if (!app.lines[app.index]) return;
+  fixTarget = app.index;
+  ui.media.pause();                 // so the song does not run on without you
+  ui.fixPanel.hidden = false;
+  ui.fixInfo.textContent = "";
+  ui.fixInfo.className = "status";
+  ui.fixApplyInfo.className = "status";
+  ui.fixApplyInfo.textContent = `Fixing line ${fixTarget + 1}: “${app.lines[fixTarget].source}”`;
+  ui.fixPaste.value = "";
+  ui.fixPanel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function closeFixPanel() {
+  ui.fixPanel.hidden = true;
+  fixTarget = -1;
+}
+
+async function sendFixPrompt(openIt) {
+  const prompt = buildFixPrompt();
+  if (!prompt) return;
+  ui.fixInfo.className = "status";
+  if (openIt) {
+    const bridge = nativeApp();
+    if (bridge && typeof bridge.openChatGpt === "function") {
+      try {
+        bridge.openChatGpt(prompt);
+        ui.fixInfo.textContent = "ChatGPT opened with the request — send it, then copy its answer back here.";
+        return;
+      } catch (error) { /* fall through to the browser route */ }
+    }
+  }
+  const ok = await copyText(prompt);
+  if (openIt) openLink("https://chatgpt.com/");
+  ui.fixInfo.textContent = ok
+    ? "Request copied — paste it in ChatGPT, send, then copy the answer back here."
+    : "Could not copy automatically. Select the request by hand.";
+}
+
+/**
+ * The library holds normalised copies of the stored sentences, so to save a fix
+ * we have to find the same line in the raw document. Replaying the same two
+ * filters the library applies gets us there exactly — safer than matching on
+ * the text, which repeats whenever a chorus does.
+ */
+function rawSentenceIndex(rawSentences, lineIndex) {
+  let seen = -1;
+  for (let i = 0; i < rawSentences.length; i += 1) {
+    const s = normalizeSentence(rawSentences[i]);
+    if (!s.source && !s.translation) continue;   // dropped by buildLibrary
+    if (s.header) continue;                      // dropped by openSong
+    seen += 1;
+    if (seen === lineIndex) return i;
+  }
+  return -1;
+}
+
+async function applyFix() {
+  const parsed = parseTranslation(ui.fixPaste.value);
+  const fixed = parsed.find((s) => !s.header);
+  if (!fixed || !fixed.translation) {
+    ui.fixApplyInfo.className = "status warn";
+    ui.fixApplyInfo.textContent = "Paste ChatGPT's answer first — the line, its translation, then the word meanings.";
+    return;
+  }
+
+  const lineIndex = fixTarget;
+  const line = app.lines[lineIndex];
+  if (!line) {
+    ui.fixApplyInfo.className = "status warn";
+    ui.fixApplyInfo.textContent = "That line is no longer open.";
+    return;
+  }
+  const previous = { translation: line.translation, glosses: line.glosses };
+
+  // Show it straight away, then persist.
+  line.translation = fixed.translation;
+  if (fixed.glosses.length) line.glosses = fixed.glosses;
+  renderLine();
+
+  ui.fixApply.disabled = true;
+  ui.fixApplyInfo.className = "status";
+  ui.fixApplyInfo.textContent = "Saving…";
+  try {
+    const { firestore } = app.modules;
+    const ref = firestore.doc(app.db, "users", app.user.uid, "trainer", "state");
+    const snapshot = await firestore.getDoc(ref);
+    if (!snapshot.exists()) throw new Error("Your data could not be found.");
+    const appState = readAppState(snapshot.data());
+    const setup = (appState.setups || []).find((s) => String(s?.id || "") === app.lang.id);
+    const text = (setup?.texts || []).find((t) => String(t?.id || "") === app.song.id);
+    if (!text || !Array.isArray(text.sentences)) throw new Error("This song is no longer in your account.");
+    const at = rawSentenceIndex(text.sentences, lineIndex);
+    if (at < 0) throw new Error("Could not find this line to update.");
+
+    text.sentences[at].translation = fixed.translation;
+    if (fixed.glosses.length) {
+      text.sentences[at].glosses = fixed.glosses.map((g) => ({ w: g.w, t: g.t }));
+    }
+    text.updatedAt = Date.now();
+
+    await firestore.setDoc(ref, {
+      stateJson: JSON.stringify(appState),
+      updatedAtMillis: Date.now(),
+    }, { merge: true });
+
+    ui.fixApplyInfo.className = "status ok";
+    ui.fixApplyInfo.textContent = "Saved. The trainer will show the new translation too.";
+    window.setTimeout(closeFixPanel, 1200);
+  } catch (error) {
+    console.warn("Could not save the fix.", error);
+    line.translation = previous.translation;    // put the old one back
+    line.glosses = previous.glosses;
+    renderLine();
+    ui.fixApplyInfo.className = "status warn";
+    ui.fixApplyInfo.textContent = `Could not save: ${error?.message || error}`;
+  } finally {
+    ui.fixApply.disabled = false;
+  }
+}
+
 function leaveSong() {
+  closeFixPanel();
   ui.media.pause();
   releaseMediaUrl();
   ui.media.removeAttribute("src");
@@ -1167,6 +1451,16 @@ ui.nextButton.addEventListener("click", () => {
   app.revealed = false;
   renderLine();
 });
+ui.prevLine.addEventListener("click", () => jumpLine(-1));
+ui.skipLine.addEventListener("click", () => jumpLine(1));
+ui.fixLine.addEventListener("click", () => {
+  if (ui.fixPanel.hidden) openFixPanel(); else closeFixPanel();
+});
+ui.fixChat.addEventListener("click", () => sendFixPrompt(true));
+ui.fixCopy.addEventListener("click", () => sendFixPrompt(false));
+ui.fixApply.addEventListener("click", applyFix);
+ui.fixClose.addEventListener("click", closeFixPanel);
+
 ui.restartButton.addEventListener("click", () => {
   app.index = 0;
   app.revealed = app.mode === "listen";
@@ -1951,14 +2245,18 @@ add.save.addEventListener("click", saveSong);
 (async function boot() {
   try {
     const modules = await initFirebase();
+    let firstCallback = true;
     modules.auth.onAuthStateChanged(app.auth, async (user) => {
       app.user = user || null;
       if (user) {
         showScreen("library");
         await loadLibrary();
+      } else if (firstCallback && await resumeNativeSession()) {
+        // Signed back in without asking; the next callback shows the library.
       } else {
         showScreen("signin");
       }
+      firstCallback = false;
     });
   } catch (error) {
     console.warn("Could not start.", error);
