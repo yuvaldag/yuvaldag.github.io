@@ -271,6 +271,10 @@ video {
 .line-nav { display: flex; gap: 8px; margin-top: 14px; }
 .line-nav button { flex: 1; padding: 10px 8px; font-size: 0.9rem; }
 .line-nav button:disabled { opacity: 0.4; }
+.resumed { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 0 0 14px; padding: 10px 12px; border-radius: 12px;
+  background: var(--accent-soft); color: var(--accent-strong); font-size: 0.9rem; font-weight: 600; }
+.resumed button { padding: 6px 12px; font-size: 0.85rem; }
 .fix-panel { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-soft, transparent); }
 /* the ±0.1s / ±0.5s timing nudges */
 .nudge-row { display: flex; gap: 8px; margin-bottom: 10px; }
@@ -361,6 +365,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             <span id="stepCount" class="progress"></span>
           </div>
           <div id="stepBar" class="step-bar"></div>
+
+          <!-- shown when a half-finished song was picked back up -->
+          <div id="resumedNote" class="resumed" hidden>
+            <span>Picked up where you left off.</span>
+            <button id="startOverButton" type="button">Start over</button>
+          </div>
 
           <!-- name -->
           <div class="step" data-step="name">
@@ -578,6 +588,11 @@ const FIREBASE_CONFIG = {
 // The trainer caches song media here; same origin, so we can reuse it.
 const MEDIA_DB_NAME = "vocabulary-trainer-media";
 const MEDIA_STORE = "media";
+// A database of its own: the media one above is shared with the Language
+// Trainer, which opens it at version 1, so bumping it here would break it.
+const DRAFT_DB_NAME = "songs-app-drafts";
+const DRAFT_STORE = "drafts";
+const DRAFT_KEY = "add-song";
 const TTS_RATE = 0.9;
 
 const el = (id) => document.getElementById(id);
@@ -903,9 +918,43 @@ async function initFirebase() {
       app.auth = modules.auth.getAuth(instance);   // already initialised
     }
   }
-  app.db = modules.firestore.getFirestore(instance);
+  // Keep a copy of everything on the device: the songs open instantly and
+  // still work with no signal, and anything saved offline is queued and sent
+  // the moment there is a connection again.
+  if (!app.db) {
+    try {
+      app.db = modules.firestore.initializeFirestore(instance, {
+        localCache: modules.firestore.persistentLocalCache({
+          tabManager: modules.firestore.persistentSingleTabManager({}),
+        }),
+      });
+    } catch (error) {
+      console.warn("Falling back to memory-only Firestore.", error);
+      app.db = modules.firestore.getFirestore(instance);
+    }
+  }
   return modules;
 }
+
+/**
+ * Firestore applies a write to the on-device copy straight away, but the
+ * promise only settles once the server has it — which never happens while
+ * offline. So we wait briefly and report which of the two we got, instead of
+ * hanging on a spinner forever.
+ */
+function writeState(ref, payload) {
+  const { firestore } = app.modules;
+  const sent = firestore.setDoc(ref, payload, { merge: true });
+  sent.catch(() => {});                     // handled by the race below
+  return Promise.race([
+    sent.then(() => "server"),
+    new Promise((resolve) => window.setTimeout(() => resolve("local"), 1500)),
+  ]);
+}
+
+const syncNote = (where) => (where === "server"
+  ? ""
+  : " Saved on this device — it will sync when you're back online.");
 
 // Google refuses its OAuth flow inside an embedded WebView, so the Android
 // shell injects `window.AndroidAuth`: it runs native Google Sign-In and hands
@@ -1050,26 +1099,48 @@ async function signOut() {
 // Library
 // ---------------------------------------------------------------------------
 
+/**
+ * Shows the copy already on the device first, so the songs are there the
+ * instant the app opens and with no signal at all, then quietly refreshes
+ * from the account behind it.
+ */
 async function loadLibrary() {
+  const { firestore } = app.modules;
+  const ref = firestore.doc(app.db, "users", app.user.uid, "trainer", "state");
+  let shown = false;
+
+  const show = (snapshot) => {
+    if (!snapshot?.exists()) return false;
+    setLibrary(readAppState(snapshot.data()));
+    if (!shown) app.langIndex = 0;          // only reset the tab on first paint
+    renderLibrary();
+    return true;
+  };
+
   ui.libraryStatus.textContent = "Loading your songs…";
   try {
-    const { firestore } = app.modules;
-    const ref = firestore.doc(app.db, "users", app.user.uid, "trainer", "state");
-    const snapshot = await firestore.getDoc(ref);
-    if (!snapshot.exists()) {
+    shown = show(await firestore.getDocFromCache(ref));
+    if (shown) ui.libraryStatus.textContent = "";
+  } catch (error) {
+    /* nothing stored on this device yet — the fetch below fills it in */
+  }
+
+  try {
+    const fresh = await firestore.getDoc(ref);
+    if (!fresh.exists() && !shown) {
       app.languages = [];
       app.allLanguages = [];
       ui.libraryStatus.textContent = "No data found for this account yet.";
       renderLibrary();
       return;
     }
-    setLibrary(readAppState(snapshot.data()));
+    if (fresh.exists()) show(fresh);
     ui.libraryStatus.textContent = "";
-    app.langIndex = 0;
-    renderLibrary();
   } catch (error) {
-    console.warn("Could not load songs.", error);
-    ui.libraryStatus.textContent = `Could not load your songs: ${error?.message || error}`;
+    console.warn("Could not refresh songs.", error);
+    ui.libraryStatus.textContent = shown
+      ? "Offline — showing the copy saved on this device."
+      : `Could not load your songs: ${error?.message || error}`;
   }
 }
 
@@ -1461,13 +1532,14 @@ async function saveTimings() {
     });
     text.updatedAt = Date.now();
 
-    await firestore.setDoc(ref, {
+    const where = await writeState(ref, {
       stateJson: JSON.stringify(appState),
       updatedAtMillis: Date.now(),
-    }, { merge: true });
+    });
 
     ui.timingInfo.className = "status ok";
-    ui.timingInfo.textContent = `Saved — moved ${signedSeconds(sessionShift)} in total.`;
+    ui.timingInfo.textContent =
+      `Saved — moved ${signedSeconds(sessionShift)} in total.${syncNote(where)}`;
   } catch (error) {
     console.warn("Could not save the timing.", error);
     pendingShift = Math.round((pendingShift + delta) * 100) / 100;  // try again next nudge
@@ -1614,13 +1686,14 @@ async function applyFix() {
     }
     text.updatedAt = Date.now();
 
-    await firestore.setDoc(ref, {
+    const where = await writeState(ref, {
       stateJson: JSON.stringify(appState),
       updatedAtMillis: Date.now(),
-    }, { merge: true });
+    });
 
     ui.fixApplyInfo.className = "status ok";
-    ui.fixApplyInfo.textContent = "Saved. The trainer will show the new translation too.";
+    ui.fixApplyInfo.textContent =
+      `Saved. The trainer will show the new translation too.${syncNote(where)}`;
     window.setTimeout(closeFixPanel, 1200);
   } catch (error) {
     console.warn("Could not save the fix.", error);
@@ -1715,6 +1788,16 @@ ui.media.addEventListener("timeupdate", () => {
 
 window.addEventListener("beforeunload", releaseMediaUrl);
 
+// Android can kill the app the moment it leaves the screen, so write the
+// half-finished song out now rather than waiting for the debounce.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    window.clearTimeout(draftTimer);
+    saveDraft();
+  }
+});
+window.addEventListener("pagehide", () => { window.clearTimeout(draftTimer); saveDraft(); });
+
 // ---------------------------------------------------------------------------
 // Add a song — one step at a time
 // ---------------------------------------------------------------------------
@@ -1760,6 +1843,8 @@ const add = {
   lang: el("addLang"),
   name: el("addName"),
   artist: el("addArtist"),
+  resumed: el("resumedNote"),
+  startOver: el("startOverButton"),
   search: el("searchLyricsButton"),
   aiLyrics: el("aiLyricsButton"),
   openLrcChat: el("openLrcChatButton"),
@@ -1992,6 +2077,7 @@ function goStep(next) {
   // earlier AI choice — otherwise Next would silently keep the AI path.
   if (flow()[wiz.step] === "find") wiz.source = "online";
   renderStep();
+  saveDraft();                              // so closing the app keeps this step
   window.scrollTo(0, 0);
 }
 
@@ -2245,15 +2331,16 @@ async function saveSong() {
     setup.texts.push(text);
 
     add.saveInfo.textContent = "Saving to your account…";
-    await firestore.setDoc(ref, {
+    const where = await writeState(ref, {
       stateJson: JSON.stringify(appState),
       updatedAtMillis: Date.now(),
-    }, { merge: true });
+    });
 
+    await clearDraft();                     // the wizard is done with it now
     add.saveInfo.className = "status ok";
-    add.saveInfo.textContent = wiz.media
+    add.saveInfo.textContent = (wiz.media
       ? "Added. The audio is saved on this device — open it in the Language Trainer to sync it to your other devices."
-      : "Added.";
+      : "Added.") + syncNote(where);
     const savedInto = lang.id;
     window.setTimeout(async () => {
       resetWizard();
@@ -2272,6 +2359,99 @@ async function saveSong() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Keeping a half-finished song
+//
+// Adding a song spans several steps and a trip out to ChatGPT, so the app is
+// very likely to be closed part-way through. Everything typed is written to
+// this device as it goes — including the audio file — and picked up again next
+// time. It is only thrown away when the song is saved or you start over.
+// ---------------------------------------------------------------------------
+
+let draftDbPromise = null;
+
+function openDraftDb() {
+  if (draftDbPromise) return draftDbPromise;
+  draftDbPromise = new Promise((resolve, reject) => {
+    if (!window.indexedDB) { reject(new Error("No IndexedDB")); return; }
+    const request = indexedDB.open(DRAFT_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(DRAFT_STORE)) {
+        request.result.createObjectStore(DRAFT_STORE, { keyPath: "id" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  return draftDbPromise;
+}
+
+function draftTx(mode, run) {
+  return openDraftDb().then((db) => new Promise((resolve, reject) => {
+    const req = run(db.transaction(DRAFT_STORE, mode).objectStore(DRAFT_STORE));
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  })).catch((error) => {
+    console.warn("Draft store unavailable.", error);
+    return null;
+  });
+}
+
+let draftTimer = null;
+
+function saveDraftSoon() {
+  window.clearTimeout(draftTimer);
+  draftTimer = window.setTimeout(saveDraft, 400);
+}
+
+function saveDraft() {
+  if (currentScreen !== "add") return Promise.resolve(null);
+  return draftTx("readwrite", (store) => store.put({
+    id: DRAFT_KEY,
+    step: wiz.step,
+    source: wiz.source,
+    langId: currentLang()?.id || "",
+    name: add.name.value,
+    artist: add.artist.value,
+    lrc: add.lrc.value,
+    chat: add.chat.value,
+    media: wiz.media || null,               // a File survives IndexedDB intact
+    mediaName: wiz.media?.name || "",
+    mediaFrom: wiz.mediaFrom,
+    savedAt: Date.now(),
+  }));
+}
+
+const readDraft = () => draftTx("readonly", (store) => store.get(DRAFT_KEY));
+const clearDraft = () => draftTx("readwrite", (store) => store.delete(DRAFT_KEY));
+
+/** Puts a saved draft back on screen. Returns true if there was one. */
+function restoreDraft(draft) {
+  if (!draft || (!draft.name && !draft.lrc && !draft.chat && !draft.media)) return false;
+  const langs = app.allLanguages || [];
+  const at = langs.findIndex((l) => l.id === draft.langId);
+  if (at >= 0) add.lang.value = String(at);
+  add.name.value = draft.name || "";
+  add.artist.value = draft.artist || "";
+  add.lrc.value = draft.lrc || "";
+  add.chat.value = draft.chat || "";
+  wiz.source = draft.source === "ai" ? "ai" : "online";
+  wiz.lrc = parseLyrics(add.lrc.value);
+  wiz.media = draft.media || null;
+  wiz.mediaSource = draft.media || null;
+  wiz.mediaFrom = draft.mediaFrom || (draft.media ? "original" : "");
+  if (wiz.media) {
+    add.compressRow.hidden = false;
+    add.mediaInfo.className = "status";
+    add.mediaInfo.textContent =
+      `Kept from last time: ${draft.mediaName || "your file"} — ${formatSize(wiz.media.size)}.`;
+  }
+  const steps = flow();
+  wiz.step = Math.max(0, Math.min(steps.length - 1, Number(draft.step) || 0));
+  add.resumed.hidden = false;
+  return true;
+}
+
 function resetWizard() {
   wiz.step = 0;
   wiz.source = "online";
@@ -2286,13 +2466,14 @@ function resetWizard() {
   add.chat.value = "";
   add.media.value = "";
   add.compressRow.hidden = true;
+  add.resumed.hidden = true;
   [add.lrcInfo, add.chatInfo, add.chatResultInfo, add.mediaInfo, add.saveInfo].forEach((n) => {
     n.textContent = "";
     n.className = "status";
   });
 }
 
-function openWizard() {
+async function openWizard() {
   const langs = app.allLanguages || [];
   if (!langs.length) {
     ui.libraryStatus.textContent =
@@ -2311,18 +2492,34 @@ function openWizard() {
   const viewing = app.languages[app.langIndex];
   const preselect = viewing ? langs.findIndex((l) => l.id === viewing.id) : 0;
   add.lang.value = String(preselect >= 0 ? preselect : 0);
+
+  showScreen("add");                        // before restoring, so saveDraft is armed
+  restoreDraft(await readDraft());
   renderStep();
-  showScreen("add");
+}
+
+async function startOver() {
+  await clearDraft();
+  resetWizard();
+  renderStep();
 }
 
 // --- wiring ------------------------------------------------------------------
 
 el("addSongButton").addEventListener("click", openWizard);
-add.cancel.addEventListener("click", () => { resetWizard(); showScreen("library"); });
+// Cancelling is a deliberate "forget this", unlike closing the app.
+add.cancel.addEventListener("click", async () => {
+  await clearDraft();
+  resetWizard();
+  showScreen("library");
+});
 add.prev.addEventListener("click", () => goStep(wiz.step - 1));
 add.next.addEventListener("click", () => goStep(wiz.step + 1));
-add.lrc.addEventListener("input", describeLyrics);
-add.chat.addEventListener("input", describeTranslation);
+add.lrc.addEventListener("input", () => { describeLyrics(); saveDraftSoon(); });
+add.chat.addEventListener("input", () => { describeTranslation(); saveDraftSoon(); });
+[add.name, add.artist].forEach((f) => f.addEventListener("input", saveDraftSoon));
+add.lang.addEventListener("change", saveDraftSoon);
+add.startOver.addEventListener("click", startOver);
 
 // Inside the Android app the WebView can't open tabs or reach the clipboard,
 // so hand these off to the app itself when it is there.
@@ -2425,6 +2622,7 @@ add.media.addEventListener("change", () => {
   add.mediaInfo.textContent = file
     ? `Chosen: ${file.name} — ${formatSize(file.size)}. Shrink it below if it's large.`
     : "";
+  saveDraft();
 });
 
 add.compressButton.addEventListener("click", async () => {
@@ -2447,6 +2645,7 @@ add.compressButton.addEventListener("click", async () => {
       wiz.mediaFrom = "shrunk";
       add.mediaInfo.className = "status ok";
       add.mediaInfo.textContent = `Done: ${formatSize(original.size)} → ${formatSize(smaller.size)}.`;
+      saveDraft();                          // keep the smaller file, not the original
     } else {
       add.mediaInfo.className = "status";
       add.mediaInfo.textContent = "That didn't come out smaller — keeping the original.";
