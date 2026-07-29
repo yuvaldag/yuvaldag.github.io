@@ -410,9 +410,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
           <div class="step" data-step="ailrc">
             <p class="how"><strong>Now ask ChatGPT to listen and write the times.</strong> It plays through the song and prints an LRC file for you.</p>
             <ol class="how-list">
-              <li>Tap <strong>Open ChatGPT</strong> — the request is copied for you.</li>
-              <li>In ChatGPT, tap the <strong>＋</strong> (or paperclip) and attach <strong>the same song file</strong> you just added.</li>
-              <li>Paste the request next to it, and send.</li>
+              <li>Tap <strong>Open ChatGPT</strong>. In the app the song and the request are handed over together, so there is nothing to attach yourself.</li>
+              <li>Send it.</li>
               <li>It answers with a box of <code>[00:17.54] …</code> lines — tap <strong>Copy</strong> on that box.</li>
               <li>Come back and paste it in the next step.</li>
             </ol>
@@ -464,15 +463,19 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             <div id="compressRow" class="field" hidden>
               <span>Make it smaller</span>
               <select id="addCompress">
-                <option value="audio">Audio only — smallest, best for songs (~2 MB)</option>
-                <option value="audioTiny">Audio only — tiny</option>
+                <option value="audio">Audio only — quick, keeps the quality (best for songs)</option>
+                <option value="audioTiny">Audio only — smallest, but slower</option>
                 <option value="v360">Keep video — 360p</option>
                 <option value="v480">Keep video — 480p</option>
                 <option value="none">Keep the file exactly as it is</option>
               </select>
               <div class="stack"><button id="compressButton" type="button">Shrink it now</button></div>
-              <p class="how muted-note">Shrinking plays the song through once, so it takes about the length of the song. Keep this screen open while it runs.</p>
+              <p class="how muted-note">The quick option drops the picture and keeps the sound exactly as it is — a few seconds. The others play the song through once to re-record it, so they take about as long as the song; keep this screen open while that runs.</p>
             </div>
+            <div class="stack">
+              <button id="saveFileButton" type="button" hidden>⬇ Save this file to my phone</button>
+            </div>
+            <p id="saveFileInfo" class="status"></p>
             <p id="mediaInfo" class="status"></p>
           </div>
 
@@ -1845,6 +1848,8 @@ const add = {
   artist: el("addArtist"),
   resumed: el("resumedNote"),
   startOver: el("startOverButton"),
+  saveFile: el("saveFileButton"),
+  saveFileInfo: el("saveFileInfo"),
   search: el("searchLyricsButton"),
   aiLyrics: el("aiLyricsButton"),
   openLrcChat: el("openLrcChatButton"),
@@ -2194,10 +2199,146 @@ function firstSupportedMime(list) {
   return list.find((t) => MediaRecorder.isTypeSupported(t)) || "";
 }
 
-// Re-encodes by playing the file through once, in real time.
+// ---------------------------------------------------------------------------
+// Handing files to the Android app
+//
+// The bridge only carries text, so bytes travel as base64 in pieces. This is
+// what lets the phone save a song to Downloads, send it to ChatGPT (no link
+// can put a file in a chat), and lift the audio out of a video without
+// re-encoding it.
+// ---------------------------------------------------------------------------
+
+const CHUNK_BYTES = 192 * 1024;
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 8192) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(text) {
+  const binary = atob(text);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+let nativeFileResolvers = null;
+
+window.NativeFiles = {
+  onSaved(message) { nativeFileResolvers?.resolve({ ok: true, message }); nativeFileResolvers = null; },
+  onError(message) { nativeFileResolvers?.reject(new Error(message || "Could not save.")); nativeFileResolvers = null; },
+  onExtracted(token, size, name) {
+    nativeFileResolvers?.resolve({ token, size: Number(size) || 0, name });
+    nativeFileResolvers = null;
+  },
+  onExtractFailed(message) {
+    nativeFileResolvers?.reject(new Error(message || "Could not read the audio."));
+    nativeFileResolvers = null;
+  },
+};
+
+function nativeAnswer(timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      nativeFileResolvers = null;
+      reject(new Error("The app took too long."));
+    }, timeoutMs);
+    const done = (fn) => (value) => { window.clearTimeout(timer); fn(value); };
+    nativeFileResolvers = { resolve: done(resolve), reject: done(reject) };
+  });
+}
+
+/** Streams a file over to the app. Returns the token it is held under. */
+async function pushFileToApp(bridge, file, onProgress) {
+  const token = bridge.fileBegin(file.name || "song", file.type || "application/octet-stream");
+  if (!token) throw new Error("The app could not start the file.");
+  for (let at = 0; at < file.size; at += CHUNK_BYTES) {
+    const slice = new Uint8Array(await file.slice(at, at + CHUNK_BYTES).arrayBuffer());
+    if (!bridge.fileChunk(token, bytesToBase64(slice))) {
+      throw new Error("The app could not take the whole file.");
+    }
+    onProgress?.(Math.min(1, (at + CHUNK_BYTES) / file.size));
+  }
+  return token;
+}
+
+/**
+ * Saves the file where you can find it. On the phone it goes to Downloads,
+ * and with `shareText` it is handed to ChatGPT with the request attached.
+ * In a browser it just downloads.
+ */
+async function saveFileToDevice(file, shareText, onProgress) {
+  const bridge = nativeApp();
+  if (bridge && typeof bridge.fileBegin === "function") {
+    const token = await pushFileToApp(bridge, file, onProgress);
+    const answer = nativeAnswer(60000);
+    bridge.fileEnd(token, shareText || "");
+    return (await answer).message;
+  }
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.name || "song";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 20000);
+  return "Downloaded.";
+}
+
+/**
+ * Asks Android to copy the audio track out of the file as-is. No re-encoding,
+ * so it takes seconds rather than the length of the song, and loses nothing.
+ * Returns null when the app isn't there or the file can't be handled this way.
+ */
+async function extractAudioNatively(file, onProgress) {
+  const bridge = nativeApp();
+  if (!bridge || typeof bridge.extractAudio !== "function") return null;
+  try {
+    const token = await pushFileToApp(bridge, file, (p) => onProgress?.(p * 0.5));
+    const answer = nativeAnswer(180000);
+    bridge.extractAudio(token);
+    const result = await answer;
+    if (!result?.token || !result.size) return null;
+
+    const parts = [];
+    for (let at = 0; at < result.size; at += CHUNK_BYTES) {
+      const piece = bridge.readChunk(result.token, at, CHUNK_BYTES);
+      if (!piece) break;
+      parts.push(base64ToBytes(piece));
+      onProgress?.(0.5 + Math.min(0.5, ((at + CHUNK_BYTES) / result.size) * 0.5));
+    }
+    bridge.readDone(result.token);
+    const blob = new Blob(parts, { type: "audio/mp4" });
+    if (!blob.size) return null;
+    return new File([blob], result.name || "song.m4a", { type: "audio/mp4" });
+  } catch (error) {
+    console.warn("Native audio extraction unavailable.", error);
+    return null;
+  }
+}
+
+/**
+ * Returns { file, how } where `how` is "lifted" when Android copied the audio
+ * out untouched, or "re-encoded" when it was played through and recorded.
+ */
 async function shrinkMedia(file, mode, onProgress) {
   const profile = COMPRESS_PROFILES[mode];
-  if (!profile) return file;
+  if (!profile) return { file, how: "kept" };
+
+  // The quick way first: no re-encoding, so it finishes in seconds.
+  if (mode === "audio") {
+    const lifted = await extractAudioNatively(file, onProgress);
+    if (lifted && lifted.size && lifted.size < file.size) return { file: lifted, how: "lifted" };
+  }
+  return { file: await reEncodeMedia(file, profile, onProgress), how: "re-encoded" };
+}
+
+// Re-encodes by playing the file through once, in real time.
+async function reEncodeMedia(file, profile, onProgress) {
   if (typeof MediaRecorder === "undefined") throw new Error("This browser can't shrink files.");
   const url = URL.createObjectURL(file);
   const video = document.createElement("video");
@@ -2445,6 +2586,7 @@ function restoreDraft(draft) {
     add.mediaInfo.className = "status";
     add.mediaInfo.textContent =
       `Kept from last time: ${draft.mediaName || "your file"} — ${formatSize(wiz.media.size)}.`;
+    add.saveFile.hidden = false;
   }
   const steps = flow();
   wiz.step = Math.max(0, Math.min(steps.length - 1, Number(draft.step) || 0));
@@ -2467,6 +2609,8 @@ function resetWizard() {
   add.media.value = "";
   add.compressRow.hidden = true;
   add.resumed.hidden = true;
+  add.saveFile.hidden = true;
+  add.saveFileInfo.textContent = "";
   [add.lrcInfo, add.chatInfo, add.chatResultInfo, add.mediaInfo, add.saveInfo].forEach((n) => {
     n.textContent = "";
     n.className = "status";
@@ -2546,21 +2690,40 @@ add.aiLyrics.addEventListener("click", () => {
   goStep(wiz.step + 1);
 });
 
-// Opening ChatGPT with a file cannot be automated — it has to be attached by
-// hand — so these only carry the request over.
 async function sendLrcPrompt(openIt) {
   const prompt = buildLrcPrompt();
+  const bridge = nativeApp();
   add.aiLrcInfo.className = "status";
-  if (openIt) {
-    const bridge = nativeApp();
-    if (bridge && typeof bridge.openChatGpt === "function") {
-      try {
-        bridge.openChatGpt(prompt);
-        add.aiLrcInfo.textContent =
-          "ChatGPT opened with the request filled in — attach the song file, then send.";
-        return;
-      } catch (error) { /* fall through to the browser route */ }
+
+  // In the app the song itself can go across with the request, which is the
+  // only way a file gets into a chat — no link can carry one.
+  if (openIt && wiz.media && bridge && typeof bridge.fileBegin === "function") {
+    add.openLrcChat.disabled = true;
+    try {
+      add.aiLrcInfo.textContent = "Getting the song ready…";
+      const message = await saveFileToDevice(wiz.media, prompt, (p) => {
+        add.aiLrcInfo.textContent = `Getting the song ready… ${Math.round(p * 100)}%`;
+      });
+      add.aiLrcInfo.className = "status ok";
+      add.aiLrcInfo.textContent = `${message} Send it there, then copy the answer back.`;
+      return;
+    } catch (error) {
+      console.warn("Could not hand the song over.", error);
+      add.aiLrcInfo.className = "status warn";
+      add.aiLrcInfo.textContent =
+        `${error?.message || "Could not send the song."} Opening ChatGPT — attach it yourself.`;
+    } finally {
+      add.openLrcChat.disabled = false;
     }
+  }
+
+  if (openIt && bridge && typeof bridge.openChatGpt === "function") {
+    try {
+      bridge.openChatGpt(prompt);
+      add.aiLrcInfo.textContent =
+        "ChatGPT opened with the request filled in — attach the song file, then send.";
+      return;
+    } catch (error) { /* fall through to the browser route */ }
   }
   const ok = await copyText(prompt);
   if (openIt) openLink("https://chatgpt.com/");
@@ -2622,7 +2785,27 @@ add.media.addEventListener("change", () => {
   add.mediaInfo.textContent = file
     ? `Chosen: ${file.name} — ${formatSize(file.size)}. Shrink it below if it's large.`
     : "";
+  add.saveFile.hidden = !file;
+  add.saveFileInfo.textContent = "";
   saveDraft();
+});
+
+add.saveFile.addEventListener("click", async () => {
+  if (!wiz.media) return;
+  add.saveFile.disabled = true;
+  add.saveFileInfo.className = "status";
+  add.saveFileInfo.textContent = "Saving…";
+  try {
+    add.saveFileInfo.textContent = await saveFileToDevice(wiz.media, "", (p) => {
+      add.saveFileInfo.textContent = `Saving… ${Math.round(p * 100)}%`;
+    });
+    add.saveFileInfo.className = "status ok";
+  } catch (error) {
+    add.saveFileInfo.className = "status warn";
+    add.saveFileInfo.textContent = error?.message || "Could not save the file.";
+  } finally {
+    add.saveFile.disabled = false;
+  }
 });
 
 add.compressButton.addEventListener("click", async () => {
@@ -2636,7 +2819,7 @@ add.compressButton.addEventListener("click", async () => {
   add.compressButton.disabled = true;
   add.next.disabled = true;
   try {
-    const smaller = await shrinkMedia(original, mode, (p) => {
+    const { file: smaller, how } = await shrinkMedia(original, mode, (p) => {
       add.mediaInfo.className = "status";
       add.mediaInfo.textContent = `Shrinking… ${Math.round(p * 100)}% — keep this screen open.`;
     });
@@ -2644,7 +2827,10 @@ add.compressButton.addEventListener("click", async () => {
       wiz.media = smaller;
       wiz.mediaFrom = "shrunk";
       add.mediaInfo.className = "status ok";
-      add.mediaInfo.textContent = `Done: ${formatSize(original.size)} → ${formatSize(smaller.size)}.`;
+      add.mediaInfo.textContent =
+        `Done: ${formatSize(original.size)} → ${formatSize(smaller.size)}.`
+        + (how === "lifted" ? " The audio was lifted straight out, so nothing was re-recorded." : "");
+      add.saveFile.hidden = false;
       saveDraft();                          // keep the smaller file, not the original
     } else {
       add.mediaInfo.className = "status";
