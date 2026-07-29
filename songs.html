@@ -272,6 +272,10 @@ video {
 .line-nav button { flex: 1; padding: 10px 8px; font-size: 0.9rem; }
 .line-nav button:disabled { opacity: 0.4; }
 .fix-panel { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-soft, transparent); }
+/* the ±0.1s / ±0.5s timing nudges */
+.nudge-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.nudge-row button { flex: 1; padding: 12px 4px; font-size: 0.95rem; font-weight: 700; }
+.panel-split { height: 1px; background: var(--line); margin: 18px 0; }
 .opt { color: var(--muted); font-weight: 400; }
 .field { display: grid; gap: 6px; margin-bottom: 14px; color: var(--ink-soft); font-size: 0.9rem; font-weight: 600; }
 .field[hidden] { display: none; }
@@ -513,12 +517,25 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
           <!-- jump around the song without answering -->
           <div class="line-nav">
             <button id="prevLineButton" type="button" title="Previous line">⏮ Previous</button>
-            <button id="fixLineButton" type="button" title="Fix this line's translation">✏️ Fix line</button>
+            <button id="editSongButton" type="button" title="Edit timing or this line">✏️ Edit song</button>
             <button id="skipLineButton" type="button" title="Next line">Next ⏭</button>
           </div>
 
-          <!-- ask ChatGPT to correct the line, then paste the answer back -->
           <div id="fixPanel" class="fix-panel" hidden>
+            <!-- 1. shift every line's timing so the words match the music -->
+            <p class="how"><strong>Timing.</strong> If the words run ahead of the music or lag behind it, nudge them until they line up. Every line moves together, and you can do this while the song plays.</p>
+            <div class="nudge-row">
+              <button data-shift="-0.5" type="button">−0.5s</button>
+              <button data-shift="-0.1" type="button">−0.1s</button>
+              <button data-shift="0.1" type="button">+0.1s</button>
+              <button data-shift="0.5" type="button">+0.5s</button>
+            </div>
+            <p class="how muted-note">Minus shows each line <strong>earlier</strong>, plus shows it <strong>later</strong>.</p>
+            <p id="timingInfo" class="status"></p>
+
+            <div class="panel-split"></div>
+
+            <!-- 2. get a better translation for the line you are on -->
             <p class="how"><strong>Fix this line's translation.</strong> ChatGPT gets the line, what the app currently says, and anything you add below.</p>
             <label class="field"><span>Anything else it should know <span class="opt">(optional)</span></span>
               <textarea id="fixExtra" rows="2" placeholder="e.g. this is slang for being fed up, keep it informal"></textarea>
@@ -597,8 +614,9 @@ const ui = {
   restartButton: el("restartButton"),
   prevLine: el("prevLineButton"),
   skipLine: el("skipLineButton"),
-  fixLine: el("fixLineButton"),
+  editSong: el("editSongButton"),
   fixPanel: el("fixPanel"),
+  timingInfo: el("timingInfo"),
   fixExtra: el("fixExtra"),
   fixChat: el("fixChatButton"),
   fixCopy: el("fixCopyButton"),
@@ -1130,6 +1148,9 @@ async function openSong(song, lang) {
   ui.gloss.hidden = true;
   ui.songStatus.textContent = "";
   ui.fixExtra.value = "";
+  sessionShift = 0;
+  pendingShift = 0;
+  window.clearTimeout(timingSaveTimer);
   closeFixPanel();
   document.title = songTitle(song);
 
@@ -1322,7 +1343,14 @@ function jumpLine(delta) {
   app.index = target;
   app.spokenLine = -1;
   app.spokenAnswer = -1;
-  closeFixPanel();
+  // Keep the edit panel open while moving around — just point the
+  // fix-this-line half at whatever line you have moved to.
+  if (!ui.fixPanel.hidden) {
+    fixTarget = target;
+    ui.fixApplyInfo.className = "status";
+    ui.fixApplyInfo.textContent = `Fixing line ${target + 1}: “${app.lines[target].source}”`;
+    ui.fixPaste.value = "";
+  }
 
   if (app.mode === "listen") {
     const at = app.lines[target].time;
@@ -1338,7 +1366,7 @@ function updateLineNav() {
   const total = app.lines.length;
   ui.prevLine.disabled = total === 0 || app.index <= 0;
   ui.skipLine.disabled = total === 0 || app.index >= total - 1;
-  ui.fixLine.disabled = total === 0 || app.index >= total;
+  ui.editSong.disabled = total === 0 || app.index >= total;
 }
 
 function showGloss(word, meaning) {
@@ -1346,6 +1374,97 @@ function showGloss(word, meaning) {
   strong.textContent = word;
   ui.gloss.replaceChildren(strong, "  →  ", meaning);
   ui.gloss.hidden = false;
+}
+
+// ---------------------------------------------------------------------------
+// Nudging the timing so the words match the music
+// ---------------------------------------------------------------------------
+
+let sessionShift = 0;      // everything moved since this song was opened
+let pendingShift = 0;      // moved but not yet written to your account
+let timingSaveTimer = null;
+
+const signedSeconds = (s) =>
+  `${s < 0 ? "−" : "+"}${Math.abs(s).toFixed(1).replace(/\.0$/, "")}s`;
+
+function shiftTimings(delta) {
+  const song = app.song;
+  if (!song) return;
+  const timed = song.sentences.filter((s) => Number.isFinite(s.time));
+  if (!timed.length) {
+    ui.timingInfo.className = "status warn";
+    ui.timingInfo.textContent = "This song has no timings to move — its lines have no times.";
+    return;
+  }
+
+  // Moving everything earlier can only go as far as the first line allows,
+  // otherwise the lines would bunch up at zero and lose their spacing.
+  const earliest = Math.min(...timed.map((s) => s.time));
+  const applied = delta < 0 ? Math.max(delta, -earliest) : delta;
+  if (!applied) {
+    ui.timingInfo.className = "status warn";
+    ui.timingInfo.textContent = "The first line is already at the very start.";
+    return;
+  }
+
+  song.sentences.forEach((s) => {
+    if (Number.isFinite(s.time)) s.time = Math.round((s.time + applied) * 100) / 100;
+  });
+  sessionShift = Math.round((sessionShift + applied) * 100) / 100;
+  pendingShift = Math.round((pendingShift + applied) * 100) / 100;
+
+  // Follow the music to whatever line is now current.
+  if (app.mode === "listen") {
+    const pos = lineAtTime(ui.media.currentTime);
+    if (pos >= 0) app.index = pos;
+  }
+  renderLine();
+
+  ui.timingInfo.className = "status";
+  ui.timingInfo.textContent = `Moved ${signedSeconds(sessionShift)} in total — saving…`;
+  window.clearTimeout(timingSaveTimer);
+  timingSaveTimer = window.setTimeout(saveTimings, 1200);
+}
+
+/** Writes the accumulated nudge to your account, once the tapping stops. */
+async function saveTimings() {
+  if (!pendingShift || !app.song || !app.user) return;
+  const delta = pendingShift;
+  // Remember which song this is: leaving the screen clears app.song while the
+  // write is still in flight.
+  const langId = app.lang.id;
+  const songId = app.song.id;
+  pendingShift = 0;
+  try {
+    const { firestore } = app.modules;
+    const ref = firestore.doc(app.db, "users", app.user.uid, "trainer", "state");
+    const snapshot = await firestore.getDoc(ref);
+    if (!snapshot.exists()) throw new Error("Your data could not be found.");
+    const appState = readAppState(snapshot.data());
+    const setup = (appState.setups || []).find((s) => String(s?.id || "") === langId);
+    const text = (setup?.texts || []).find((t) => String(t?.id || "") === songId);
+    if (!text || !Array.isArray(text.sentences)) throw new Error("This song is no longer in your account.");
+
+    text.sentences.forEach((s) => {
+      if (s && Number.isFinite(s.time)) {
+        s.time = Math.max(0, Math.round((s.time + delta) * 100) / 100);
+      }
+    });
+    text.updatedAt = Date.now();
+
+    await firestore.setDoc(ref, {
+      stateJson: JSON.stringify(appState),
+      updatedAtMillis: Date.now(),
+    }, { merge: true });
+
+    ui.timingInfo.className = "status ok";
+    ui.timingInfo.textContent = `Saved — moved ${signedSeconds(sessionShift)} in total.`;
+  } catch (error) {
+    console.warn("Could not save the timing.", error);
+    pendingShift = Math.round((pendingShift + delta) * 100) / 100;  // try again next nudge
+    ui.timingInfo.className = "status warn";
+    ui.timingInfo.textContent = `Moved on screen, but could not save: ${error?.message || error}`;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1380,9 +1499,14 @@ Give the meaning each word carries in THIS line, not its dictionary entry.`;
 
 function openFixPanel() {
   if (!app.lines[app.index]) return;
-  fixTarget = app.index;
-  ui.media.pause();                 // so the song does not run on without you
+  fixTarget = app.index;            // the line the translation part works on
+  // The song keeps playing on purpose — that is how you hear whether the
+  // timing nudges have landed.
   ui.fixPanel.hidden = false;
+  ui.timingInfo.className = "status";
+  ui.timingInfo.textContent = sessionShift
+    ? `Moved ${signedSeconds(sessionShift)} in total.`
+    : "";
   ui.fixInfo.textContent = "";
   ui.fixInfo.className = "status";
   ui.fixApplyInfo.className = "status";
@@ -1452,6 +1576,8 @@ async function applyFix() {
     return;
   }
   const previous = { translation: line.translation, glosses: line.glosses };
+  const langId = app.lang.id;   // captured now: leaving the song clears these
+  const songId = app.song.id;
 
   // Show it straight away, then persist.
   line.translation = fixed.translation;
@@ -1467,8 +1593,8 @@ async function applyFix() {
     const snapshot = await firestore.getDoc(ref);
     if (!snapshot.exists()) throw new Error("Your data could not be found.");
     const appState = readAppState(snapshot.data());
-    const setup = (appState.setups || []).find((s) => String(s?.id || "") === app.lang.id);
-    const text = (setup?.texts || []).find((t) => String(t?.id || "") === app.song.id);
+    const setup = (appState.setups || []).find((s) => String(s?.id || "") === langId);
+    const text = (setup?.texts || []).find((t) => String(t?.id || "") === songId);
     if (!text || !Array.isArray(text.sentences)) throw new Error("This song is no longer in your account.");
     const at = rawSentenceIndex(text.sentences, lineIndex);
     if (at < 0) throw new Error("Could not find this line to update.");
@@ -1500,6 +1626,9 @@ async function applyFix() {
 }
 
 function leaveSong() {
+  // Don't lose a nudge made in the last second before backing out.
+  window.clearTimeout(timingSaveTimer);
+  if (pendingShift) saveTimings();
   closeFixPanel();
   ui.media.pause();
   releaseMediaUrl();
@@ -1532,8 +1661,11 @@ ui.nextButton.addEventListener("click", () => {
 });
 ui.prevLine.addEventListener("click", () => jumpLine(-1));
 ui.skipLine.addEventListener("click", () => jumpLine(1));
-ui.fixLine.addEventListener("click", () => {
+ui.editSong.addEventListener("click", () => {
   if (ui.fixPanel.hidden) openFixPanel(); else closeFixPanel();
+});
+ui.fixPanel.querySelectorAll("[data-shift]").forEach((button) => {
+  button.addEventListener("click", () => shiftTimings(Number(button.dataset.shift)));
 });
 ui.fixChat.addEventListener("click", () => sendFixPrompt(true));
 ui.fixCopy.addEventListener("click", () => sendFixPrompt(false));
