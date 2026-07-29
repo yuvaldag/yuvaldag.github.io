@@ -1384,6 +1384,15 @@ let sessionShift = 0;      // everything moved since this song was opened
 let pendingShift = 0;      // moved but not yet written to your account
 let timingSaveTimer = null;
 
+// Saving a nudge and saving a fixed line are both read-modify-write on the
+// same document, and a shift is relative. If two overlap, the second can read
+// the document before the first has written and undo it — so they queue up.
+let writeQueue = Promise.resolve();
+function queueWrite(task) {
+  writeQueue = writeQueue.then(task, task);
+  return writeQueue;
+}
+
 const signedSeconds = (s) =>
   `${s < 0 ? "−" : "+"}${Math.abs(s).toFixed(1).replace(/\.0$/, "")}s`;
 
@@ -1423,7 +1432,7 @@ function shiftTimings(delta) {
   ui.timingInfo.className = "status";
   ui.timingInfo.textContent = `Moved ${signedSeconds(sessionShift)} in total — saving…`;
   window.clearTimeout(timingSaveTimer);
-  timingSaveTimer = window.setTimeout(saveTimings, 1200);
+  timingSaveTimer = window.setTimeout(() => queueWrite(saveTimings), 1200);
 }
 
 /** Writes the accumulated nudge to your account, once the tapping stops. */
@@ -1628,7 +1637,7 @@ async function applyFix() {
 function leaveSong() {
   // Don't lose a nudge made in the last second before backing out.
   window.clearTimeout(timingSaveTimer);
-  if (pendingShift) saveTimings();
+  if (pendingShift) queueWrite(saveTimings);
   closeFixPanel();
   ui.media.pause();
   releaseMediaUrl();
@@ -1669,7 +1678,7 @@ ui.fixPanel.querySelectorAll("[data-shift]").forEach((button) => {
 });
 ui.fixChat.addEventListener("click", () => sendFixPrompt(true));
 ui.fixCopy.addEventListener("click", () => sendFixPrompt(false));
-ui.fixApply.addEventListener("click", applyFix);
+ui.fixApply.addEventListener("click", () => queueWrite(applyFix));
 ui.fixClose.addEventListener("click", closeFixPanel);
 
 ui.restartButton.addEventListener("click", () => {
