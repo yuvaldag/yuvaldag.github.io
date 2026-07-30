@@ -1510,6 +1510,7 @@ function jumpLine(delta) {
   app.index = target;
   app.spokenLine = -1;
   app.spokenAnswer = -1;
+  releaseOneLine();
   // Keep the edit panel open while moving around — just point the
   // fix-this-line half at whatever line you have moved to.
   if (!ui.fixPanel.hidden) {
@@ -1529,8 +1530,40 @@ function jumpLine(delta) {
   renderLine();
 }
 
+// While you are tapping at one line, keep working on that one. Moving a line
+// later can push it past the playhead, which would otherwise hand the next tap
+// to the line before it and leave you nudging two lines by accident.
+let oneLineFocus = -1;
+let oneLineFocusTimer = null;
+
+function holdOneLine(at) {
+  oneLineFocus = at;
+  window.clearTimeout(oneLineFocusTimer);
+  oneLineFocusTimer = window.setTimeout(() => { oneLineFocus = -1; paintOneLineLabel(); }, 5000);
+}
+
+function releaseOneLine() {
+  oneLineFocus = -1;
+  window.clearTimeout(oneLineFocusTimer);
+}
+
+const oneLineTarget = () => (oneLineFocus >= 0 && oneLineFocus < app.lines.length
+  ? oneLineFocus
+  : Math.min(app.index, app.lines.length - 1));
+
+/** Keeps the "only this line" label pointing at the line being worked on. */
+function paintOneLineLabel() {
+  const total = app.lines.length;
+  const at = oneLineTarget();
+  const line = app.lines[at];
+  ui.oneLineLabel.textContent = total && at >= 0
+    ? `Only line ${at + 1}${line && !Number.isFinite(line.time) ? " (no time yet)" : ""}`
+    : "Only this line";
+}
+
 function updateLineNav() {
   const total = app.lines.length;
+  paintOneLineLabel();
   ui.prevLine.disabled = total === 0 || app.index <= 0;
   ui.skipLine.disabled = total === 0 || app.index >= total - 1;
   ui.editSong.disabled = total === 0 || app.index >= total;
@@ -1646,7 +1679,8 @@ let oneLineSaveTimer = null;
  * the lines have to stay in order for the song to follow along.
  */
 function shiftOneLine(delta) {
-  const at = fixTarget >= 0 ? fixTarget : app.index;
+  // The line on screen, or the one you are part-way through nudging.
+  const at = oneLineTarget();
   const line = app.lines[at];
   if (!line || !Number.isFinite(line.time)) {
     ui.timingInfo.className = "status warn";
@@ -1671,6 +1705,7 @@ function shiftOneLine(delta) {
     return;
   }
   line.time = Math.round(clamped * 100) / 100;
+  holdOneLine(at);
   renderLine();
 
   ui.timingInfo.className = "status";
@@ -1897,6 +1932,7 @@ Give the meaning each word carries in THIS line, not its dictionary entry.`;
 function openFixPanel() {
   if (!app.lines[app.index]) return;
   fixTarget = app.index;            // the line the translation part works on
+  releaseOneLine();
   // The song keeps playing on purpose — that is how you hear whether the
   // timing nudges have landed.
   ui.fixPanel.hidden = false;
@@ -1909,7 +1945,6 @@ function openFixPanel() {
   ui.fixApplyInfo.className = "status";
   ui.fixApplyInfo.textContent = `Fixing line ${fixTarget + 1}: “${app.lines[fixTarget].source}”`;
   ui.fixPaste.value = "";
-  ui.oneLineLabel.textContent = `Only line ${fixTarget + 1}`;
   ui.wholeApplyInfo.textContent = "";
   ui.wholeApplyInfo.className = "status";
   ui.wholeInfo.textContent =
