@@ -182,6 +182,10 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4.5vw, 2.4rem); font-weight: 800; lette
 .song-card .info { min-width: 0; flex: 1 1 auto; }
 .row-share { flex: 0 0 auto; padding: 8px 12px; font-size: 1rem; line-height: 1;
   border-radius: var(--radius-pill); }
+/* A class that sets `display` beats the browser's own [hidden] rule, so
+   anything hidden in script would still show. Settle it once, for everything. */
+[hidden] { display: none !important; }
+
 .pick-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   margin: 0 0 14px; padding: 10px 12px; border-radius: 12px;
   background: var(--accent-soft); color: var(--accent-strong); font-weight: 650; font-size: 0.9rem; }
@@ -650,8 +654,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             </div>
             <p id="shareInfo" class="status"></p>
             <div class="stack">
+              <button id="driveSyncButton" type="button">☁ Put the audio in Drive</button>
               <button id="markSyncButton" type="button">⚠ Mark as not synced yet</button>
             </div>
+            <p id="driveSyncInfo" class="status"></p>
             <p id="markSyncInfo" class="status"></p>
 
             <div class="panel-split"></div>
@@ -748,6 +754,8 @@ const ui = {
   shareSong: el("shareSongButton"),
   shareBig: el("shareBigButton"),
   shareInfo: el("shareInfo"),
+  driveSync: el("driveSyncButton"),
+  driveSyncInfo: el("driveSyncInfo"),
   markSync: el("markSyncButton"),
   markSyncInfo: el("markSyncInfo"),
   deleteSong: el("deleteSongButton"),
@@ -960,6 +968,41 @@ async function deleteLocalMedia(id) {
   } catch (error) {
     console.warn("Could not remove the stored audio.", error);
   }
+}
+
+/**
+ * Sizes of every audio file held on this device, in one sweep — a lookup per
+ * row would mean a separate transaction for each song in the list.
+ */
+async function getLocalMediaSizes() {
+  try {
+    const db = await openMediaDb();
+    return await new Promise((resolve, reject) => {
+      const sizes = new Map();
+      const request = db.transaction(MEDIA_STORE, "readonly").objectStore(MEDIA_STORE).openCursor();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) { resolve(sizes); return; }
+        const value = cursor.value;
+        if (value?.blob?.size) sizes.set(String(value.id), value.blob.size);
+        cursor.continue();
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    return new Map();
+  }
+}
+
+/** Fills the size into each song's audio badge once the sweep comes back. */
+async function paintMediaSizes() {
+  const sizes = await getLocalMediaSizes();
+  ui.songList.querySelectorAll("[data-audio-for]").forEach((badge) => {
+    const size = sizes.get(badge.dataset.audioFor);
+    badge.textContent = size
+      ? `♪ ${formatSize(size)}`
+      : (badge.dataset.inDrive === "1" ? "♪ in Drive" : "♪ audio");
+  });
 }
 
 async function getLocalMedia(id) {
@@ -1351,6 +1394,8 @@ function renderLibrary() {
       const badge = document.createElement("span");
       badge.className = "badge";
       badge.textContent = "♪ audio";
+      badge.dataset.audioFor = song.id;          // filled in with the size below
+      badge.dataset.inDrive = song.driveFileId ? "1" : "0";
       card.append(badge);
     }
 
@@ -1400,6 +1445,8 @@ function renderLibrary() {
     });
     ui.songList.append(card);
   });
+
+  paintMediaSizes();
 }
 
 // ---------------------------------------------------------------------------
@@ -2165,6 +2212,7 @@ function openFixPanel() {
   ui.shareBig.hidden = true;
   ui.markSyncInfo.textContent = "";
   paintSyncMark();
+  paintDriveState();
   disarmDelete();
   ui.fixPanel.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
@@ -2335,6 +2383,7 @@ ui.deleteSong.addEventListener("click", deleteSong);
 ui.shareSong.addEventListener("click", () => shareCurrentSong(false));
 ui.shareBig.addEventListener("click", () => shareCurrentSong(true));
 ui.markSync.addEventListener("click", toggleSyncMark);
+ui.driveSync.addEventListener("click", syncAudioToDrive);
 ui.draftResume.addEventListener("click", openWizard);
 ui.pickMany.addEventListener("click", startPicking);
 ui.pickCancel.addEventListener("click", stopPicking);
@@ -3167,7 +3216,9 @@ async function ensureSongMediaShared(song, lang, allowBig, onStatus) {
   }
 
   const record = await getLocalMedia(song.id);
-  if (!record?.blob) return "";
+  // Say so rather than quietly leaving the audio out: the usual reason is the
+  // song was added on another device, so its file was never on this one.
+  if (!record?.blob) return { missing: true };
   if (record.blob.size > AUTO_DRIVE_LIMIT && !allowBig) {
     return { tooBig: formatSize(record.blob.size) };
   }
@@ -3206,8 +3257,11 @@ async function buildSongLink(song, lang, allowBig, onStatus) {
     try {
       const shared = await ensureSongMediaShared(song, lang, allowBig, onStatus);
       if (shared && shared.tooBig) {
-        note = `The audio is ${shared.tooBig}, too big to send automatically — `
-          + "the link has the words only. Use “Share with the audio” to upload it anyway.";
+        note = `The audio is ${shared.tooBig}, over the ${AUTO_DRIVE_LIMIT / 1048576} MB mark — `
+          + "the link has the words only for now. Use “Share with the audio” to send it anyway.";
+      } else if (shared && shared.missing) {
+        note = "This song's audio isn't on this device, so the link has the words only. "
+          + "Open it here once on the device that has the file, or add the file again.";
       } else if (shared) {
         media = shared;
       }
@@ -3357,6 +3411,7 @@ function stopPicking() {
 async function buildManySongsLink(songs, lang, report) {
   const packed = [];
   let tooBig = 0;
+  let missing = 0;
   let failed = "";
   for (let i = 0; i < songs.length; i += 1) {
     const song = songs[i];
@@ -3375,6 +3430,7 @@ async function buildManySongsLink(songs, lang, report) {
         const shared = await ensureSongMediaShared(song, lang, false,
           (message) => report(`${songTitle(song)}: ${message}`));
         if (shared && shared.tooBig) tooBig += 1;
+        else if (shared && shared.missing) missing += 1;
         else if (shared) { one.media = shared; one.mediaType = song.mediaType || ""; }
       } catch (error) {
         console.warn(`Could not share the audio for ${songTitle(song)}.`, error);
@@ -3398,6 +3454,7 @@ async function buildManySongsLink(songs, lang, report) {
     link: `${TRAINER_URL}?v=${Date.now().toString(36)}#lesson=${encoded}`,
     count: packed.length,
     tooBig,
+    missing,
     failed,
   };
 }
@@ -3409,9 +3466,10 @@ async function shareManySongs() {
   ui.pickShare.disabled = true;
   const report = notice;
   try {
-    const { link, count, tooBig, failed } = await buildManySongsLink(songs, lang, report);
+    const { link, count, tooBig, missing, failed } = await buildManySongsLink(songs, lang, report);
     let tail = "";
     if (tooBig) tail += ` ${tooBig} go without audio — over ${AUTO_DRIVE_LIMIT / 1048576} MB.`;
+    if (missing) tail += ` ${missing} have no audio file on this device.`;
     if (failed) tail += ` Some audio was left out: ${failed}`;
     const bridge = nativeApp();
     if (bridge && typeof bridge.shareText === "function") {
@@ -3440,6 +3498,60 @@ function notice(message, kind) {
   ui.libraryNotice.hidden = !message;
   ui.libraryNotice.className = `status ${kind || ""}`.trim();
   ui.libraryNotice.textContent = message || "";
+}
+
+/**
+ * Says where this song's audio currently lives, so it is obvious whether
+ * sharing will carry it. Mirrors the button the Language Trainer has.
+ */
+async function paintDriveState() {
+  const song = app.song;
+  if (!song) return;
+  const has = song.hasMedia || song.driveFileId;
+  ui.driveSync.hidden = !has;
+  ui.driveSyncInfo.hidden = !has;
+  if (!has) return;
+  ui.driveSyncInfo.className = "status";
+  if (song.driveFileId && song.drivePublic) {
+    ui.driveSyncInfo.textContent = "In Drive — anyone with a link can hear it.";
+    ui.driveSync.textContent = "☁ Already in Drive";
+    return;
+  }
+  const record = await getLocalMedia(song.id);
+  if (!record?.blob) {
+    ui.driveSyncInfo.textContent = "The file isn't on this device, so there is nothing to upload here.";
+    ui.driveSync.textContent = "☁ Put the audio in Drive";
+    ui.driveSync.disabled = true;
+    return;
+  }
+  ui.driveSync.disabled = false;
+  ui.driveSync.textContent = `☁ Put the audio in Drive (${formatSize(record.blob.size)})`;
+  ui.driveSyncInfo.textContent = "Only on this device for now. Put it in Drive and any link you send will play it.";
+}
+
+/** Uploads whatever the size — this is a deliberate tap, not the automatic path. */
+async function syncAudioToDrive() {
+  if (!app.song || !app.lang) return;
+  ui.driveSync.disabled = true;
+  ui.driveSyncInfo.className = "status";
+  ui.driveSyncInfo.textContent = "Starting…";
+  try {
+    const result = await ensureSongMediaShared(app.song, app.lang, true, (message) => {
+      ui.driveSyncInfo.textContent = message;
+    });
+    if (result && result.missing) throw new Error("The file isn't on this device.");
+    if (!result) throw new Error("This song has no audio to upload.");
+    ui.driveSyncInfo.className = "status ok";
+    ui.driveSyncInfo.textContent = "Done — it's in Drive, and links will play it.";
+    ui.driveSync.textContent = "☁ Already in Drive";
+    renderLibrary();
+  } catch (error) {
+    console.warn("Could not put the audio in Drive.", error);
+    ui.driveSyncInfo.className = "status warn";
+    ui.driveSyncInfo.textContent = `Could not upload: ${error?.message || error}`;
+  } finally {
+    ui.driveSync.disabled = false;
+  }
 }
 
 async function shareCurrentSong(allowBig) {
