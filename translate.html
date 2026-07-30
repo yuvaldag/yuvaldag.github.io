@@ -4138,6 +4138,9 @@ function normalizeText(text) {
     mediaType: String(text?.mediaType || ""),
     driveFileId: String(text?.driveFileId || ""),
     drivePublic: Boolean(text?.drivePublic),
+    // Set in the Songs app as a note-to-self that a song still needs syncing.
+    // Carried through here so opening the trainer does not wipe it.
+    ...(text?.needsSync ? { needsSync: true } : {}),
     updatedAt: Number(text?.updatedAt) || 0,
   };
 }
