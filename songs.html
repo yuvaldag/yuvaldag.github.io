@@ -280,6 +280,10 @@ video {
 .nudge-row { display: flex; gap: 8px; margin-bottom: 10px; }
 .nudge-row button { flex: 1; padding: 12px 4px; font-size: 0.95rem; font-weight: 700; }
 .panel-split { height: 1px; background: var(--line); margin: 18px 0; }
+.nudge-label { margin: 12px 0 6px; font-size: 0.85rem; font-weight: 700; color: var(--muted); }
+.nudge-row button:disabled { opacity: 0.4; }
+button.danger { color: #c02626; border-color: #e7b4b4; }
+@media (prefers-color-scheme: dark) { button.danger { color: #ff9d9d; border-color: #6b2f2f; } }
 .opt { color: var(--muted); font-weight: 400; }
 .field { display: grid; gap: 6px; margin-bottom: 14px; color: var(--ink-soft); font-size: 0.9rem; font-weight: 600; }
 .field[hidden] { display: none; }
@@ -535,15 +539,23 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
           </div>
 
           <div id="fixPanel" class="fix-panel" hidden>
-            <!-- 1. shift every line's timing so the words match the music -->
-            <p class="how"><strong>Timing.</strong> If the words run ahead of the music or lag behind it, nudge them until they line up. Every line moves together, and you can do this while the song plays.</p>
+            <!-- 1. shift the timings so the words match the music -->
+            <p class="how"><strong>Timing.</strong> If the words run ahead of the music or lag behind it, nudge them until they line up. You can do this while the song plays.</p>
+            <p class="nudge-label">Every line together</p>
             <div class="nudge-row">
               <button data-shift="-0.5" type="button">−0.5s</button>
               <button data-shift="-0.1" type="button">−0.1s</button>
               <button data-shift="0.1" type="button">+0.1s</button>
               <button data-shift="0.5" type="button">+0.5s</button>
             </div>
-            <p class="how muted-note">Minus shows each line <strong>earlier</strong>, plus shows it <strong>later</strong>.</p>
+            <p id="oneLineLabel" class="nudge-label">Only this line</p>
+            <div class="nudge-row">
+              <button data-shift-one="-0.5" type="button">−0.5s</button>
+              <button data-shift-one="-0.1" type="button">−0.1s</button>
+              <button data-shift-one="0.1" type="button">+0.1s</button>
+              <button data-shift-one="0.5" type="button">+0.5s</button>
+            </div>
+            <p class="how muted-note">Minus shows the words <strong>earlier</strong>, plus shows them <strong>later</strong>. A single line can only move as far as its neighbours.</p>
             <p id="timingInfo" class="status"></p>
 
             <div class="panel-split"></div>
@@ -563,9 +575,47 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             </label>
             <div class="stack">
               <button id="fixApplyButton" class="primary" type="button">✓ Use this translation</button>
-              <button id="fixCloseButton" type="button">Close</button>
             </div>
             <p id="fixApplyInfo" class="status"></p>
+
+            <div class="panel-split"></div>
+
+            <!-- 3. redo the whole song at once -->
+            <p class="how"><strong>Redo the whole song.</strong> Paste a fresh set of timed lyrics, a fresh translation, or both. Leave a box empty to keep what the song already has.</p>
+            <label class="field"><span>Timed lyrics (LRC) <span class="opt">— replaces the lines and their times</span></span>
+              <textarea id="wholeLrc" rows="4" placeholder="[00:17.54] first line of the song&#10;[00:21.87] second line…"></textarea>
+            </label>
+            <label class="field"><span>ChatGPT's translation <span class="opt">— replaces every translation</span></span>
+              <textarea id="wholeTrans" rows="4" placeholder="original line&#10;its translation&#10;word | meaning | word | meaning&#10;&#10;next line…"></textarea>
+            </label>
+            <p id="wholeInfo" class="status"></p>
+            <div class="stack">
+              <button id="wholeApplyButton" class="primary" type="button">✓ Replace the whole song</button>
+            </div>
+            <p id="wholeApplyInfo" class="status"></p>
+
+            <div class="panel-split"></div>
+
+            <!-- 4. send it to someone -->
+            <p class="how"><strong>Share this song.</strong> Whoever opens the link sees it line by line, with the words read aloud — no app, no account. Audio under 10 MB is uploaded to your Drive automatically so it plays for them too.</p>
+            <div class="stack">
+              <button id="shareSongButton" class="primary" type="button">🔗 Share this song</button>
+              <button id="shareBigButton" type="button" hidden>Upload the audio anyway and share</button>
+            </div>
+            <p id="shareInfo" class="status"></p>
+            <div class="stack">
+              <button id="markSyncButton" type="button">⚠ Mark as not synced yet</button>
+            </div>
+            <p id="markSyncInfo" class="status"></p>
+
+            <div class="panel-split"></div>
+
+            <!-- 5. remove it altogether -->
+            <div class="stack">
+              <button id="deleteSongButton" class="danger" type="button">🗑 Delete this song</button>
+              <button id="fixCloseButton" type="button">Close</button>
+            </div>
+            <p id="deleteInfo" class="status"></p>
           </div>
           <p id="songStatus" class="status"></p>
         </div>
@@ -643,6 +693,19 @@ const ui = {
   fixApply: el("fixApplyButton"),
   fixClose: el("fixCloseButton"),
   fixApplyInfo: el("fixApplyInfo"),
+  oneLineLabel: el("oneLineLabel"),
+  wholeLrc: el("wholeLrc"),
+  wholeTrans: el("wholeTrans"),
+  wholeInfo: el("wholeInfo"),
+  wholeApply: el("wholeApplyButton"),
+  wholeApplyInfo: el("wholeApplyInfo"),
+  shareSong: el("shareSongButton"),
+  shareBig: el("shareBigButton"),
+  shareInfo: el("shareInfo"),
+  markSync: el("markSyncButton"),
+  markSyncInfo: el("markSyncInfo"),
+  deleteSong: el("deleteSongButton"),
+  deleteInfo: el("deleteInfo"),
   songStatus: el("songStatus"),
 };
 
@@ -818,6 +881,19 @@ function openMediaDb() {
     request.onerror = () => reject(request.error);
   });
   return mediaDbPromise;
+}
+
+async function deleteLocalMedia(id) {
+  try {
+    const db = await openMediaDb();
+    await new Promise((resolve, reject) => {
+      const req = db.transaction(MEDIA_STORE, "readwrite").objectStore(MEDIA_STORE).delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (error) {
+    console.warn("Could not remove the stored audio.", error);
+  }
 }
 
 async function getLocalMedia(id) {
@@ -1509,6 +1585,226 @@ function shiftTimings(delta) {
   timingSaveTimer = window.setTimeout(() => queueWrite(saveTimings), 1200);
 }
 
+/**
+ * Writes the song's lines exactly as they stand now, rather than as a nudge
+ * relative to what is stored. Used by everything that rewrites lines outright:
+ * moving one line, or replacing the whole song.
+ */
+async function saveSentences() {
+  if (!app.song || !app.user) return "local";
+  const langId = app.lang.id;
+  const songId = app.song.id;
+  const sentences = app.song.sentences.map((s) => ({
+    source: s.source || "",
+    translation: s.translation || "",
+    glosses: (s.glosses || []).map((g) => ({ w: g.w, t: g.t })),
+    header: Boolean(s.header),
+    time: Number.isFinite(s.time) ? s.time : null,
+  }));
+  // This snapshot already includes any nudge waiting to go, so drop it —
+  // otherwise the shift would be applied a second time on top.
+  window.clearTimeout(timingSaveTimer);
+  pendingShift = 0;
+
+  const { firestore } = app.modules;
+  const ref = firestore.doc(app.db, "users", app.user.uid, "trainer", "state");
+  const snapshot = await firestore.getDoc(ref);
+  if (!snapshot.exists()) throw new Error("Your data could not be found.");
+  const appState = readAppState(snapshot.data());
+  const setup = (appState.setups || []).find((s) => String(s?.id || "") === langId);
+  const text = (setup?.texts || []).find((t) => String(t?.id || "") === songId);
+  if (!text) throw new Error("This song is no longer in your account.");
+  text.sentences = sentences;
+  text.updatedAt = Date.now();
+  return writeState(ref, {
+    stateJson: JSON.stringify(appState),
+    updatedAtMillis: Date.now(),
+  });
+}
+
+let oneLineSaveTimer = null;
+
+/**
+ * Moves just the line you are on. It is kept between its neighbours, because
+ * the lines have to stay in order for the song to follow along.
+ */
+function shiftOneLine(delta) {
+  const at = fixTarget >= 0 ? fixTarget : app.index;
+  const line = app.lines[at];
+  if (!line || !Number.isFinite(line.time)) {
+    ui.timingInfo.className = "status warn";
+    ui.timingInfo.textContent = "This line has no time of its own to move.";
+    return;
+  }
+  let lower = 0;
+  for (let i = at - 1; i >= 0; i -= 1) {
+    if (Number.isFinite(app.lines[i].time)) { lower = app.lines[i].time + 0.05; break; }
+  }
+  let upper = Infinity;
+  for (let i = at + 1; i < app.lines.length; i += 1) {
+    if (Number.isFinite(app.lines[i].time)) { upper = app.lines[i].time - 0.05; break; }
+  }
+  const wanted = line.time + delta;
+  const clamped = Math.min(Math.max(wanted, lower), upper);
+  if (Math.abs(clamped - line.time) < 0.001) {
+    ui.timingInfo.className = "status warn";
+    ui.timingInfo.textContent = delta < 0
+      ? "This line is already up against the one before it."
+      : "This line is already up against the one after it.";
+    return;
+  }
+  line.time = Math.round(clamped * 100) / 100;
+  renderLine();
+
+  ui.timingInfo.className = "status";
+  ui.timingInfo.textContent = `Line ${at + 1} moved to ${formatClock(line.time)} — saving…`;
+  window.clearTimeout(oneLineSaveTimer);
+  oneLineSaveTimer = window.setTimeout(() => queueWrite(async () => {
+    try {
+      const where = await saveSentences();
+      ui.timingInfo.className = "status ok";
+      ui.timingInfo.textContent = `Line ${at + 1} saved at ${formatClock(line.time)}.${syncNote(where)}`;
+    } catch (error) {
+      ui.timingInfo.className = "status warn";
+      ui.timingInfo.textContent = `Could not save: ${error?.message || error}`;
+    }
+  }), 900);
+}
+
+/**
+ * Rebuilds the song from freshly pasted lyrics, a fresh translation, or both.
+ * An empty box means "keep what is already there".
+ */
+async function applyWholeSong() {
+  const lrcText = ui.wholeLrc.value.trim();
+  const transText = ui.wholeTrans.value.trim();
+  const say = (kind, message) => {
+    ui.wholeApplyInfo.className = `status ${kind}`;
+    ui.wholeApplyInfo.textContent = message;
+  };
+  if (!lrcText && !transText) { say("warn", "Paste new lyrics, a new translation, or both."); return; }
+  if (!app.song) return;
+
+  const body = app.song.sentences.filter((s) => !s.header);
+  let rebuilt;
+
+  if (transText) {
+    const parsed = parseTranslation(transText);
+    if (!parsed.length) { say("warn", "That translation could not be read — paste ChatGPT's whole answer."); return; }
+    // Times come from the new lyrics if given, otherwise from the song itself.
+    const lyrics = lrcText
+      ? parseLyrics(lrcText)
+      : body.map((s) => ({ text: s.source, time: s.time }));
+    rebuilt = mergeTiming(parsed, lyrics);
+  } else {
+    const lyrics = parseLyrics(lrcText);
+    if (!lyrics.length) { say("warn", "Those lyrics could not be read."); return; }
+    // Lyrics only: keep the translations, matching them to the new lines by
+    // their words so a corrected line count does not shuffle everything.
+    const spare = body.slice();
+    rebuilt = lyrics.map((l, i) => {
+      let from = null;
+      const same = spare.findIndex((s) => normalizeText(s.source) === normalizeText(l.text));
+      if (same >= 0) from = spare.splice(same, 1)[0];
+      else if (lyrics.length === body.length) from = body[i];
+      return {
+        source: l.text,
+        translation: from?.translation || "",
+        glosses: from?.glosses || [],
+        header: false,
+        time: Number.isFinite(l.time) ? l.time : null,
+      };
+    });
+  }
+
+  const kept = rebuilt.filter((s) => s.source || s.translation);
+  if (!kept.length) { say("warn", "That would leave the song empty."); return; }
+
+  const before = app.song.sentences;
+  app.song.sentences = kept;
+  app.lines = kept.filter((s) => !s.header);
+  app.index = Math.min(app.index, Math.max(0, app.lines.length - 1));
+  renderLine();
+
+  ui.wholeApply.disabled = true;
+  say("", "Saving…");
+  try {
+    const where = await saveSentences();
+    const timed = app.lines.filter((s) => Number.isFinite(s.time)).length;
+    say("ok", `Replaced — ${app.lines.length} lines, ${timed} with times.${syncNote(where)}`);
+    ui.wholeLrc.value = "";
+    ui.wholeTrans.value = "";
+  } catch (error) {
+    app.song.sentences = before;               // put the old song back
+    app.lines = before.filter((s) => !s.header);
+    renderLine();
+    say("warn", `Could not save: ${error?.message || error}`);
+  } finally {
+    ui.wholeApply.disabled = false;
+  }
+}
+
+// Deleting is two taps rather than a browser confirm box, which the Android
+// WebView silently swallows.
+let deleteArmed = false;
+
+function disarmDelete() {
+  deleteArmed = false;
+  ui.deleteSong.textContent = "🗑 Delete this song";
+  ui.deleteSong.classList.add("danger");
+}
+
+async function deleteSong() {
+  if (!app.song || !app.user) return;
+  if (!deleteArmed) {
+    deleteArmed = true;
+    ui.deleteSong.textContent = "🗑 Tap again to delete for good";
+    ui.deleteInfo.className = "status warn";
+    ui.deleteInfo.textContent = `“${songTitle(app.song)}” will be removed from your account on every device.`;
+    window.setTimeout(() => { if (deleteArmed) { disarmDelete(); ui.deleteInfo.textContent = ""; } }, 6000);
+    return;
+  }
+  disarmDelete();
+  const langId = app.lang.id;
+  const songId = app.song.id;
+  const name = songTitle(app.song);
+  ui.deleteSong.disabled = true;
+  ui.deleteInfo.className = "status";
+  ui.deleteInfo.textContent = "Deleting…";
+  try {
+    const where = await queueWrite(async () => {
+      window.clearTimeout(timingSaveTimer);
+      window.clearTimeout(oneLineSaveTimer);
+      pendingShift = 0;                        // nothing left to save for this song
+      const { firestore } = app.modules;
+      const ref = firestore.doc(app.db, "users", app.user.uid, "trainer", "state");
+      const snapshot = await firestore.getDoc(ref);
+      if (!snapshot.exists()) throw new Error("Your data could not be found.");
+      const appState = readAppState(snapshot.data());
+      const setup = (appState.setups || []).find((s) => String(s?.id || "") === langId);
+      if (!setup || !Array.isArray(setup.texts)) throw new Error("This song is no longer in your account.");
+      const at = setup.texts.findIndex((t) => String(t?.id || "") === songId);
+      if (at < 0) throw new Error("This song is no longer in your account.");
+      setup.texts.splice(at, 1);
+      return writeState(ref, {
+        stateJson: JSON.stringify(appState),
+        updatedAtMillis: Date.now(),
+      });
+    });
+    await deleteLocalMedia(songId);            // its audio has nowhere to belong now
+    leaveSong();
+    await loadLibrary();
+    ui.libraryStatus.className = "status ok";
+    ui.libraryStatus.textContent = `Deleted “${name}”.${syncNote(where)}`;
+  } catch (error) {
+    console.warn("Could not delete the song.", error);
+    ui.deleteInfo.className = "status warn";
+    ui.deleteInfo.textContent = `Could not delete: ${error?.message || error}`;
+  } finally {
+    ui.deleteSong.disabled = false;
+  }
+}
+
 /** Writes the accumulated nudge to your account, once the tapping stops. */
 async function saveTimings() {
   if (!pendingShift || !app.song || !app.user) return;
@@ -1596,12 +1892,22 @@ function openFixPanel() {
   ui.fixApplyInfo.className = "status";
   ui.fixApplyInfo.textContent = `Fixing line ${fixTarget + 1}: “${app.lines[fixTarget].source}”`;
   ui.fixPaste.value = "";
+  ui.oneLineLabel.textContent = `Only line ${fixTarget + 1}`;
+  ui.wholeApplyInfo.textContent = "";
+  ui.wholeApplyInfo.className = "status";
+  ui.wholeInfo.textContent =
+    `This song has ${app.lines.length} lines, `
+    + `${app.lines.filter((s) => Number.isFinite(s.time)).length} of them timed.`;
+  ui.deleteInfo.textContent = "";
+  disarmDelete();
   ui.fixPanel.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
 function closeFixPanel() {
   ui.fixPanel.hidden = true;
   fixTarget = -1;
+  disarmDelete();
+  ui.deleteInfo.textContent = "";
 }
 
 async function sendFixPrompt(openIt) {
@@ -1752,9 +2058,14 @@ ui.editSong.addEventListener("click", () => {
 ui.fixPanel.querySelectorAll("[data-shift]").forEach((button) => {
   button.addEventListener("click", () => shiftTimings(Number(button.dataset.shift)));
 });
+ui.fixPanel.querySelectorAll("[data-shift-one]").forEach((button) => {
+  button.addEventListener("click", () => shiftOneLine(Number(button.dataset.shiftOne)));
+});
 ui.fixChat.addEventListener("click", () => sendFixPrompt(true));
 ui.fixCopy.addEventListener("click", () => sendFixPrompt(false));
 ui.fixApply.addEventListener("click", () => queueWrite(applyFix));
+ui.wholeApply.addEventListener("click", applyWholeSong);
+ui.deleteSong.addEventListener("click", deleteSong);
 ui.fixClose.addEventListener("click", closeFixPanel);
 
 ui.restartButton.addEventListener("click", () => {
@@ -1797,7 +2108,11 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
     window.clearTimeout(draftTimer);
     saveDraft();
+    return;
   }
+  // Coming back: pick up anything changed elsewhere since we left — songs
+  // added in the trainer, and songs deleted there too.
+  if (app.user && currentScreen === "library") loadLibrary();
 });
 window.addEventListener("pagehide", () => { window.clearTimeout(draftTimer); saveDraft(); });
 
@@ -2416,6 +2731,314 @@ async function putLocalMedia(id, blob, type) {
     tx.oncomplete = () => resolve(true);
     tx.onerror = () => reject(tx.error);
   });
+}
+
+// ---------------------------------------------------------------------------
+// Sharing a song
+//
+// The link is exactly the format the Language Trainer already reads, so it
+// opens there in reveal-only lesson mode with nothing to install and no
+// account. The song's audio rides along by way of the sharer's Drive: it is
+// uploaded once, made link-readable, and the link carries only its id.
+// ---------------------------------------------------------------------------
+
+const TRAINER_URL = "https://yuvaldag.github.io/translate.html";
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+// Bigger than this and the upload is slow enough to be worth asking about.
+const AUTO_DRIVE_LIMIT = 10 * 1024 * 1024;
+
+const bytesToBase64Url = (bytes) => bytesToBase64(bytes)
+  .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+async function encodeSharePayload(text) {
+  const input = new TextEncoder().encode(text);
+  if (typeof CompressionStream === "function") {
+    const stream = new Blob([input]).stream().pipeThrough(new CompressionStream("gzip"));
+    return `g${bytesToBase64Url(new Uint8Array(await new Response(stream).arrayBuffer()))}`;
+  }
+  return `r${bytesToBase64Url(input)}`;
+}
+
+const nativeDriveBridge = () => (typeof window !== "undefined" &&
+  window.AndroidDrive && typeof window.AndroidDrive.getAccessToken === "function"
+  ? window.AndroidDrive : null);
+
+let driveTokenSeq = 0;
+const driveTokenResolvers = {};
+
+window.NativeDrive = {
+  onAccessToken(id, token) {
+    driveTokenResolvers[id]?.resolve(String(token || ""));
+    delete driveTokenResolvers[id];
+  },
+  onError(id, message) {
+    driveTokenResolvers[id]?.reject(new Error(String(message || "Drive access failed.")));
+    delete driveTokenResolvers[id];
+  },
+};
+
+async function driveAccessToken() {
+  const bridge = nativeDriveBridge();
+  if (bridge) {
+    return new Promise((resolve, reject) => {
+      const id = String(++driveTokenSeq);
+      driveTokenResolvers[id] = { resolve, reject };
+      try {
+        bridge.getAccessToken(id);
+      } catch (error) {
+        delete driveTokenResolvers[id];
+        reject(error);
+      }
+    });
+  }
+  // On the web, ask Google again for the Drive permission on top of sign-in.
+  const { GoogleAuthProvider, reauthenticateWithPopup } = app.modules.auth;
+  const provider = new GoogleAuthProvider();
+  provider.addScope(DRIVE_SCOPE);
+  const result = await reauthenticateWithPopup(app.auth, provider);
+  const token = GoogleAuthProvider.credentialFromResult(result)?.accessToken;
+  if (!token) throw new Error("Could not get Google Drive access.");
+  return token;
+}
+
+async function driveUpload(blob, name, onProgress) {
+  const token = await driveAccessToken();
+  const start = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json; charset=UTF-8" },
+      body: JSON.stringify({ name, mimeType: blob.type || "application/octet-stream" }),
+    },
+  );
+  if (!start.ok) throw new Error(`Drive upload could not start (${start.status}).`);
+  const uploadUrl = start.headers.get("Location");
+  if (!uploadUrl) throw new Error("Drive did not return an upload address.");
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", uploadUrl);
+    xhr.setRequestHeader("Content-Type", blob.type || "application/octet-stream");
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText).id); }
+        catch (error) { reject(new Error("Drive gave an answer we could not read.")); }
+      } else {
+        reject(new Error(`Drive refused the upload (${xhr.status}).`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("The upload to Drive failed."));
+    xhr.send(blob);
+  });
+}
+
+async function driveMakePublic(fileId) {
+  const token = await driveAccessToken();
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "reader", type: "anyone" }),
+    },
+  );
+  if (!res.ok && res.status !== 409) {
+    throw new Error(`Could not make the audio shareable (${res.status}).`);
+  }
+}
+
+/** Remembers the Drive id on the song, so the upload only ever happens once. */
+async function rememberDriveFile(langId, songId, fileId, mediaType) {
+  return queueWrite(async () => {
+    const { firestore } = app.modules;
+    const ref = firestore.doc(app.db, "users", app.user.uid, "trainer", "state");
+    const snapshot = await firestore.getDoc(ref);
+    if (!snapshot.exists()) return "local";
+    const appState = readAppState(snapshot.data());
+    const setup = (appState.setups || []).find((s) => String(s?.id || "") === langId);
+    const text = (setup?.texts || []).find((t) => String(t?.id || "") === songId);
+    if (!text) return "local";
+    text.driveFileId = fileId;
+    text.drivePublic = true;
+    if (mediaType) text.mediaType = mediaType;
+    text.updatedAt = Date.now();
+    return writeState(ref, {
+      stateJson: JSON.stringify(appState),
+      updatedAtMillis: Date.now(),
+    });
+  });
+}
+
+/**
+ * Makes sure the song's audio is reachable by whoever opens the link, and
+ * returns its Drive id. Files over the limit are skipped unless asked for,
+ * because the upload takes a while on a phone.
+ */
+async function ensureSongMediaShared(song, lang, allowBig, onStatus) {
+  if (song.driveFileId && song.drivePublic) return song.driveFileId;
+  if (song.driveFileId) {
+    onStatus?.("Making the audio playable for others…");
+    await driveMakePublic(song.driveFileId);
+    song.drivePublic = true;
+    await rememberDriveFile(lang.id, song.id, song.driveFileId, song.mediaType);
+    return song.driveFileId;
+  }
+
+  const record = await getLocalMedia(song.id);
+  if (!record?.blob) return "";
+  if (record.blob.size > AUTO_DRIVE_LIMIT && !allowBig) {
+    return { tooBig: formatSize(record.blob.size) };
+  }
+
+  onStatus?.("Uploading the audio to your Drive…");
+  const name = `${songTitle(song)}`.replace(/[\\/:*?"<>|]/g, "_") || "song";
+  const fileId = await driveUpload(record.blob, name, (p) => {
+    onStatus?.(`Uploading the audio to your Drive… ${Math.round(p * 100)}%`);
+  });
+  onStatus?.("Making the audio playable for others…");
+  await driveMakePublic(fileId);
+  song.driveFileId = fileId;
+  song.drivePublic = true;
+  song.mediaType = record.type || song.mediaType || "";
+  await rememberDriveFile(lang.id, song.id, fileId, song.mediaType);
+  return fileId;
+}
+
+async function buildSongLink(song, lang, allowBig, onStatus) {
+  const sentences = (song.sentences || [])
+    .filter((s) => !s.header && (s.source || s.translation))
+    .map((s) => {
+      const entry = {
+        s: s.source,
+        t: s.translation,
+        g: (s.glosses || []).map((g) => [g.w, g.t]),
+      };
+      if (Number.isFinite(s.time)) entry.at = Math.round(s.time * 100) / 100;
+      return entry;
+    });
+  if (!sentences.length) throw new Error("This song has no lines to share.");
+
+  let note = "";
+  let media = "";
+  if (song.hasMedia || song.driveFileId) {
+    try {
+      const shared = await ensureSongMediaShared(song, lang, allowBig, onStatus);
+      if (shared && shared.tooBig) {
+        note = `The audio is ${shared.tooBig}, too big to send automatically — `
+          + "the link has the words only. Use “Share with the audio” to upload it anyway.";
+      } else if (shared) {
+        media = shared;
+      }
+    } catch (error) {
+      console.warn("Could not share the audio.", error);
+      note = `The link has the words only — the audio could not be shared: ${error?.message || error}`;
+    }
+  }
+
+  const payload = {
+    v: 1,
+    title: songTitle(song),
+    learn: lang.learn,
+    from: lang.from,
+    learnCode: lang.learnCode,
+    fromCode: lang.fromCode,
+    sentences,
+    ...(media ? { media, mediaType: song.mediaType || "" } : {}),
+  };
+  onStatus?.("Building the link…");
+  const encoded = await encodeSharePayload(JSON.stringify(payload));
+  const base = `${TRAINER_URL}?v=${Date.now().toString(36)}`;
+  return { link: `${base}#lesson=${encoded}`, note, withMedia: Boolean(media) };
+}
+
+/**
+ * A note-to-self that this song still needs syncing — the app never sets or
+ * clears it on its own, so it stays put until you say otherwise. Shown as a
+ * badge in the list, and it travels with the song to your other devices.
+ */
+function paintSyncMark() {
+  const marked = Boolean(app.song?.needsSync);
+  ui.markSync.textContent = marked ? "✓ Mark as synced" : "⚠ Mark as not synced yet";
+  ui.markSync.classList.toggle("active", marked);
+}
+
+async function toggleSyncMark() {
+  if (!app.song || !app.lang) return;
+  const langId = app.lang.id;
+  const songId = app.song.id;
+  const wanted = !app.song.needsSync;
+  app.song.needsSync = wanted;                 // show it straight away
+  paintSyncMark();
+  ui.markSync.disabled = true;
+  ui.markSyncInfo.className = "status";
+  ui.markSyncInfo.textContent = "Saving…";
+  try {
+    const where = await queueWrite(async () => {
+      const { firestore } = app.modules;
+      const ref = firestore.doc(app.db, "users", app.user.uid, "trainer", "state");
+      const snapshot = await firestore.getDoc(ref);
+      if (!snapshot.exists()) throw new Error("Your data could not be found.");
+      const appState = readAppState(snapshot.data());
+      const setup = (appState.setups || []).find((s) => String(s?.id || "") === langId);
+      const text = (setup?.texts || []).find((t) => String(t?.id || "") === songId);
+      if (!text) throw new Error("This song is no longer in your account.");
+      if (wanted) text.needsSync = true; else delete text.needsSync;
+      text.updatedAt = Date.now();
+      return writeState(ref, {
+        stateJson: JSON.stringify(appState),
+        updatedAtMillis: Date.now(),
+      });
+    });
+    ui.markSyncInfo.className = "status ok";
+    ui.markSyncInfo.textContent = (wanted
+      ? "Marked — it shows as “needs syncing” in your list."
+      : "Cleared.") + syncNote(where);
+    renderLibrary();
+  } catch (error) {
+    app.song.needsSync = !wanted;              // put the button back
+    paintSyncMark();
+    ui.markSyncInfo.className = "status warn";
+    ui.markSyncInfo.textContent = `Could not save: ${error?.message || error}`;
+  } finally {
+    ui.markSync.disabled = false;
+  }
+}
+
+async function shareCurrentSong(allowBig) {
+  if (!app.song || !app.lang) return;
+  ui.shareSong.disabled = true;
+  ui.shareBig.disabled = true;
+  ui.shareInfo.className = "status";
+  ui.shareInfo.textContent = "Getting the song ready…";
+  try {
+    const { link, note, withMedia } = await buildSongLink(app.song, app.lang, allowBig, (message) => {
+      ui.shareInfo.textContent = message;
+    });
+    const bridge = nativeApp();
+    if (bridge && typeof bridge.shareText === "function") {
+      bridge.shareText(link);
+      ui.shareInfo.className = note ? "status warn" : "status ok";
+      ui.shareInfo.textContent = note
+        || (withMedia ? "Ready to send — the audio comes with it." : "Ready to send.");
+    } else {
+      const copied = await copyText(link);
+      ui.shareInfo.className = note ? "status warn" : "status ok";
+      ui.shareInfo.textContent = (copied ? "Link copied. " : "Copy the link from the box below. ")
+        + (note || (withMedia ? "It plays the audio too." : ""));
+      if (!copied) window.prompt("Copy this link", link);
+    }
+    ui.shareBig.hidden = !note.includes("too big");
+  } catch (error) {
+    console.warn("Could not share the song.", error);
+    ui.shareInfo.className = "status warn";
+    ui.shareInfo.textContent = `Could not share: ${error?.message || error}`;
+  } finally {
+    ui.shareSong.disabled = false;
+    ui.shareBig.disabled = false;
+  }
 }
 
 // --- saving ------------------------------------------------------------------
