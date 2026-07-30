@@ -180,6 +180,8 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4.5vw, 2.4rem); font-weight: 800; lette
 }
 .song-card:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
 .song-card .info { min-width: 0; flex: 1 1 auto; }
+.row-share { flex: 0 0 auto; padding: 8px 12px; font-size: 1rem; line-height: 1;
+  border-radius: var(--radius-pill); }
 .song-card .name { display: block; font-weight: 700; font-size: 1.05rem; }
 .song-card .meta { display: block; color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
 .badge {
@@ -1262,9 +1264,12 @@ function renderLibrary() {
 
   const current = app.languages[app.langIndex];
   current.songs.forEach((song) => {
-    const card = document.createElement("button");
-    card.type = "button";
+    // A div, not a button: it holds its own Share button, and a button inside
+    // a button is invalid and swallows the inner click on some browsers.
+    const card = document.createElement("div");
     card.className = "song-card";
+    card.setAttribute("role", "button");
+    card.tabIndex = 0;
 
     const info = document.createElement("span");
     info.className = "info";
@@ -1294,7 +1299,29 @@ function renderLibrary() {
       card.append(badge);
     }
 
+    // Share straight from the list, without opening the song first.
+    const share = document.createElement("button");
+    share.type = "button";
+    share.className = "row-share";
+    share.title = `Share “${songTitle(song)}”`;
+    share.setAttribute("aria-label", share.title);
+    share.textContent = "🔗";
+    share.addEventListener("click", (event) => {
+      event.stopPropagation();              // don't open the song as well
+      shareSong(song, current, false, (message, kind) => {
+        ui.libraryStatus.className = `status ${kind || ""}`.trim();
+        ui.libraryStatus.textContent = message;
+      });
+    });
+    card.append(share);
+
     card.addEventListener("click", () => openSong(song, current));
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openSong(song, current);
+      }
+    });
     ui.songList.append(card);
   });
 }
@@ -3055,34 +3082,48 @@ async function toggleSyncMark() {
   }
 }
 
-async function shareCurrentSong(allowBig) {
-  if (!app.song || !app.lang) return;
-  ui.shareSong.disabled = true;
-  ui.shareBig.disabled = true;
-  ui.shareInfo.className = "status";
-  ui.shareInfo.textContent = "Getting the song ready…";
+/**
+ * Builds the link and hands it to the share sheet (or the clipboard on the
+ * web). `report(message, kind)` decides where the progress shows, so this
+ * works both from the song list and from inside a song.
+ */
+async function shareSong(song, lang, allowBig, report) {
+  if (!song || !lang) return;
+  report("Getting the song ready…");
   try {
-    const { link, note, withMedia } = await buildSongLink(app.song, app.lang, allowBig, (message) => {
-      ui.shareInfo.textContent = message;
-    });
+    const { link, note, withMedia } = await buildSongLink(song, lang, allowBig,
+      (message) => report(message));
     const bridge = nativeApp();
     if (bridge && typeof bridge.shareText === "function") {
       bridge.shareText(link);
-      ui.shareInfo.className = note ? "status warn" : "status ok";
-      ui.shareInfo.textContent = note
-        || (withMedia ? "Ready to send — the audio comes with it." : "Ready to send.");
+      report(note || (withMedia ? "Ready to send — the audio comes with it." : "Ready to send."),
+        note ? "warn" : "ok");
     } else {
       const copied = await copyText(link);
-      ui.shareInfo.className = note ? "status warn" : "status ok";
-      ui.shareInfo.textContent = (copied ? "Link copied. " : "Copy the link from the box below. ")
-        + (note || (withMedia ? "It plays the audio too." : ""));
-      if (!copied) window.prompt("Copy this link", link);
+      report((copied ? "Link copied. " : "Copy the link from the box. ")
+        + (note || (withMedia ? "It plays the audio too." : "")), note ? "warn" : "ok");
+      if (!copied) {
+        try { window.prompt("Copy this link", link); }
+        catch (blocked) { console.warn("Link:", link); }
+      }
     }
-    ui.shareBig.hidden = !note.includes("too big");
+    return note;
   } catch (error) {
     console.warn("Could not share the song.", error);
-    ui.shareInfo.className = "status warn";
-    ui.shareInfo.textContent = `Could not share: ${error?.message || error}`;
+    report(`Could not share: ${error?.message || error}`, "warn");
+    return "";
+  }
+}
+
+async function shareCurrentSong(allowBig) {
+  ui.shareSong.disabled = true;
+  ui.shareBig.disabled = true;
+  try {
+    const note = await shareSong(app.song, app.lang, allowBig, (message, kind) => {
+      ui.shareInfo.className = `status ${kind || ""}`.trim();
+      ui.shareInfo.textContent = message;
+    });
+    ui.shareBig.hidden = !String(note || "").includes("too big");
   } finally {
     ui.shareSong.disabled = false;
     ui.shareBig.disabled = false;
