@@ -182,6 +182,12 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4.5vw, 2.4rem); font-weight: 800; lette
 .song-card .info { min-width: 0; flex: 1 1 auto; }
 .row-share { flex: 0 0 auto; padding: 8px 12px; font-size: 1rem; line-height: 1;
   border-radius: var(--radius-pill); }
+.pick-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 14px; padding: 10px 12px; border-radius: 12px;
+  background: var(--accent-soft); color: var(--accent-strong); font-weight: 650; font-size: 0.9rem; }
+.pick-bar span { flex: 1 1 auto; }
+.song-card.picked { border-color: var(--accent); background: var(--accent-soft); }
+.pick-box { flex: 0 0 auto; width: 22px; height: 22px; accent-color: var(--accent); }
 .song-card .name { display: block; font-weight: 700; font-size: 1.05rem; }
 .song-card .meta { display: block; color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
 .badge {
@@ -283,6 +289,11 @@ video {
   margin: 0 0 14px; padding: 10px 12px; border-radius: 12px;
   background: var(--accent-soft); color: var(--accent-strong); font-size: 0.9rem; font-weight: 600; }
 .resumed button { padding: 6px 12px; font-size: 0.85rem; }
+.sync-panel { margin-top: 16px; padding: 16px; border: 2px solid var(--accent);
+  border-radius: 14px; }
+.sync-upcoming-label { margin: 12px 0 4px; font-size: 0.78rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.sync-stamp { width: 100%; padding: 22px 12px; font-size: 1.15rem; margin: 12px 0; }
 .fix-panel { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-soft, transparent); }
 /* the ±0.1s / ±0.5s timing nudges */
 .nudge-row { display: flex; gap: 8px; margin-bottom: 10px; }
@@ -361,7 +372,15 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
           </div>
         </div>
         <div class="panel">
-          <div class="stack"><button id="addSongButton" class="primary" type="button">＋ Add a song</button></div>
+          <div class="stack">
+            <button id="addSongButton" class="primary" type="button">＋ Add a song</button>
+            <button id="pickManyButton" type="button">🔗 Share several songs</button>
+          </div>
+          <div id="pickBar" class="pick-bar" hidden>
+            <span id="pickCount">Pick the songs to send.</span>
+            <button id="pickShareButton" class="primary" type="button">Share them</button>
+            <button id="pickCancelButton" type="button">Cancel</button>
+          </div>
           <div id="draftBanner" class="resumed" hidden>
             <span id="draftBannerText">Still adding a song.</span>
             <button id="draftResumeButton" type="button">Carry on</button>
@@ -544,6 +563,21 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             <button id="skipLineButton" type="button" title="Next line">Next ⏭</button>
           </div>
 
+          <!-- tap along with the song to set every line's time from scratch -->
+          <div id="syncPanel" class="sync-panel" hidden>
+            <p class="how"><strong>Setting the times.</strong> The song is playing. Each time the next line begins, tap the big button. Nothing moves on its own — the line only changes when you say so.</p>
+            <p id="syncProgress" class="progress"></p>
+            <p class="sync-upcoming-label">Next line to mark</p>
+            <p id="syncUpcoming" class="line-original"></p>
+            <button id="syncStampButton" class="primary sync-stamp" type="button">This line starts now</button>
+            <div class="stack">
+              <button id="syncUndoButton" type="button">↶ Undo the last one</button>
+              <button id="syncFinishButton" class="primary" type="button">✓ Save these times</button>
+              <button id="syncCancelButton" type="button">✕ Stop, keep the old times</button>
+            </div>
+            <p id="syncInfo" class="status"></p>
+          </div>
+
           <div id="fixPanel" class="fix-panel" hidden>
             <!-- 1. shift the timings so the words match the music -->
             <p class="how"><strong>Timing.</strong> If the words run ahead of the music or lag behind it, nudge them until they line up. You can do this while the song plays.</p>
@@ -563,6 +597,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             </div>
             <p class="how muted-note">Minus shows the words <strong>earlier</strong>, plus shows them <strong>later</strong>. A single line can only move as far as its neighbours.</p>
             <p id="timingInfo" class="status"></p>
+
+            <p class="how" style="margin-top:14px"><strong>Or set them all from scratch.</strong> The song plays and you tap once as each line begins — the surest way when the timings are missing or badly out.</p>
+            <div class="stack">
+              <button id="startSyncButton" type="button">🎯 Tap along with the song</button>
+            </div>
 
             <div class="panel-split"></div>
 
@@ -712,6 +751,20 @@ const ui = {
   markSyncInfo: el("markSyncInfo"),
   deleteSong: el("deleteSongButton"),
   deleteInfo: el("deleteInfo"),
+  syncPanel: el("syncPanel"),
+  syncProgress: el("syncProgress"),
+  syncUpcoming: el("syncUpcoming"),
+  syncStamp: el("syncStampButton"),
+  syncUndo: el("syncUndoButton"),
+  syncFinish: el("syncFinishButton"),
+  syncCancel: el("syncCancelButton"),
+  syncInfo: el("syncInfo"),
+  startSync: el("startSyncButton"),
+  pickMany: el("pickManyButton"),
+  pickBar: el("pickBar"),
+  pickCount: el("pickCount"),
+  pickShare: el("pickShareButton"),
+  pickCancel: el("pickCancelButton"),
   draftBanner: el("draftBanner"),
   draftBannerText: el("draftBannerText"),
   draftResume: el("draftResumeButton"),
@@ -1299,6 +1352,21 @@ function renderLibrary() {
       card.append(badge);
     }
 
+    if (picking.on) {
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.className = "pick-box";
+      box.checked = picking.chosen.has(song.id);
+      box.addEventListener("click", (event) => event.stopPropagation());
+      box.addEventListener("change", () => {
+        if (box.checked) picking.chosen.add(song.id); else picking.chosen.delete(song.id);
+        card.classList.toggle("picked", box.checked);
+        paintPickBar();
+      });
+      card.classList.toggle("picked", box.checked);
+      card.prepend(box);
+    }
+
     // Share straight from the list, without opening the song first.
     const share = document.createElement("button");
     share.type = "button";
@@ -1306,6 +1374,7 @@ function renderLibrary() {
     share.title = `Share “${songTitle(song)}”`;
     share.setAttribute("aria-label", share.title);
     share.textContent = "🔗";
+    share.hidden = picking.on;
     share.addEventListener("click", (event) => {
       event.stopPropagation();              // don't open the song as well
       shareSong(song, current, false, (message, kind) => {
@@ -1315,11 +1384,19 @@ function renderLibrary() {
     });
     card.append(share);
 
-    card.addEventListener("click", () => openSong(song, current));
+    card.addEventListener("click", () => {
+      if (picking.on) {
+        const box = card.querySelector(".pick-box");
+        box.checked = !box.checked;
+        box.dispatchEvent(new Event("change"));
+        return;
+      }
+      openSong(song, current);
+    });
     card.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        openSong(song, current);
+        card.click();
       }
     });
     ui.songList.append(card);
@@ -1884,6 +1961,112 @@ async function deleteSong() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Setting the times by tapping along
+//
+// The song plays and you tap once as each line begins. Nothing advances by
+// itself — the line only moves when you say it does, so a line you miss does
+// not drag the rest out of step. Times are only written at the end, which is
+// what makes "stop, keep the old ones" honest.
+// ---------------------------------------------------------------------------
+
+const tapSync = { on: false, at: 0, times: [], wasMode: "line" };
+
+function paintSyncPanel() {
+  const total = app.lines.length;
+  ui.syncProgress.textContent = `${tapSync.at} of ${total} marked`;
+  const next = app.lines[tapSync.at];
+  ui.syncUpcoming.textContent = next ? next.source : "That's every line.";
+  ui.syncStamp.textContent = next
+    ? `Line ${tapSync.at + 1} starts now`
+    : "All lines marked";
+  ui.syncStamp.disabled = !next;
+  ui.syncUndo.disabled = tapSync.at === 0;
+  ui.syncFinish.disabled = tapSync.at === 0;
+}
+
+function startTapSync() {
+  if (!app.lines.length) return;
+  if (ui.mediaWrap.hidden) {
+    ui.timingInfo.className = "status warn";
+    ui.timingInfo.textContent = "There is no audio for this song to tap along to.";
+    return;
+  }
+  tapSync.on = true;
+  tapSync.at = 0;
+  tapSync.times = [];
+  tapSync.wasMode = app.mode;
+  app.mode = "line";                    // stop the words following the music
+  closeFixPanel();
+  ui.syncPanel.hidden = false;
+  ui.syncInfo.className = "status";
+  ui.syncInfo.textContent = "Listen, and tap as the first line begins.";
+  paintSyncPanel();
+  ui.media.currentTime = 0;
+  ui.media.play().catch(() => {
+    ui.syncInfo.className = "status warn";
+    ui.syncInfo.textContent = "Press play on the song, then tap as each line begins.";
+  });
+  ui.syncPanel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function stampLine() {
+  if (!tapSync.on || tapSync.at >= app.lines.length) return;
+  tapSync.times[tapSync.at] = Math.round(ui.media.currentTime * 100) / 100;
+  tapSync.at += 1;
+  ui.syncInfo.className = "status";
+  ui.syncInfo.textContent = tapSync.at >= app.lines.length
+    ? "That's the lot — save them below."
+    : `Marked line ${tapSync.at} at ${formatClock(tapSync.times[tapSync.at - 1])}.`;
+  paintSyncPanel();
+}
+
+/** Steps back one and rewinds to just before it, to try that line again. */
+function undoStamp() {
+  if (!tapSync.on || tapSync.at === 0) return;
+  tapSync.at -= 1;
+  const back = tapSync.times[tapSync.at];
+  tapSync.times.length = tapSync.at;
+  if (Number.isFinite(back)) ui.media.currentTime = Math.max(0, back - 2);
+  ui.syncInfo.className = "status";
+  ui.syncInfo.textContent = `Line ${tapSync.at + 1} is up again — rewound a couple of seconds.`;
+  paintSyncPanel();
+}
+
+function stopTapSync() {
+  tapSync.on = false;
+  ui.media.pause();
+  ui.syncPanel.hidden = true;
+  app.mode = tapSync.wasMode;
+  updateModeButtons();
+  renderLine();
+}
+
+async function finishTapSync() {
+  if (!tapSync.at) return;
+  const marked = tapSync.at;
+  ui.syncFinish.disabled = true;
+  ui.syncInfo.className = "status";
+  ui.syncInfo.textContent = "Saving…";
+  const before = app.lines.map((l) => l.time);
+  tapSync.times.forEach((t, i) => { if (Number.isFinite(t)) app.lines[i].time = t; });
+  try {
+    const where = await queueWrite(saveSentences);
+    stopTapSync();
+    openFixPanel();                    // reopens the editor, clearing its notices
+    ui.timingInfo.className = "status ok";
+    ui.timingInfo.textContent =
+      `Saved the times you tapped for ${marked} line${marked === 1 ? "" : "s"}.${syncNote(where)}`;
+  } catch (error) {
+    app.lines.forEach((l, i) => { l.time = before[i]; });   // put the old ones back
+    console.warn("Could not save the tapped times.", error);
+    ui.syncInfo.className = "status warn";
+    ui.syncInfo.textContent = `Could not save: ${error?.message || error}`;
+  } finally {
+    ui.syncFinish.disabled = false;
+  }
+}
+
 /** Writes the accumulated nudge to your account, once the tapping stops. */
 async function saveTimings() {
   if (!pendingShift || !app.song || !app.user) return;
@@ -2154,6 +2337,19 @@ ui.shareSong.addEventListener("click", () => shareCurrentSong(false));
 ui.shareBig.addEventListener("click", () => shareCurrentSong(true));
 ui.markSync.addEventListener("click", toggleSyncMark);
 ui.draftResume.addEventListener("click", openWizard);
+ui.pickMany.addEventListener("click", startPicking);
+ui.pickCancel.addEventListener("click", stopPicking);
+ui.pickShare.addEventListener("click", shareManySongs);
+ui.startSync.addEventListener("click", startTapSync);
+ui.syncStamp.addEventListener("click", stampLine);
+ui.syncUndo.addEventListener("click", undoStamp);
+ui.syncFinish.addEventListener("click", finishTapSync);
+ui.syncCancel.addEventListener("click", () => {
+  stopTapSync();
+  openFixPanel();
+  ui.timingInfo.className = "status";
+  ui.timingInfo.textContent = "Stopped — the old times are untouched.";
+});
 ui.fixClose.addEventListener("click", closeFixPanel);
 
 ui.restartButton.addEventListener("click", () => {
@@ -2179,6 +2375,7 @@ ui.lineOriginal.addEventListener("click", (event) => {
   showGloss(span.textContent, span.dataset.meaning || "(no translation for this word)");
 });
 ui.media.addEventListener("timeupdate", () => {
+  if (tapSync.on) return;               // you are deciding where the lines go
   if (app.mode !== "listen" || !app.song) return;
   const pos = lineAtTime(ui.media.currentTime);
   if (pos >= 0 && pos !== app.index) {
@@ -3112,6 +3309,123 @@ async function shareSong(song, lang, allowBig, report) {
     console.warn("Could not share the song.", error);
     report(`Could not share: ${error?.message || error}`, "warn");
     return "";
+  }
+}
+
+// --- several songs in one link ---------------------------------------------
+
+const picking = { on: false, chosen: new Set() };
+
+function paintPickBar() {
+  const n = picking.chosen.size;
+  ui.pickCount.textContent = n
+    ? `${n} song${n === 1 ? "" : "s"} picked.`
+    : "Pick the songs to send.";
+  ui.pickShare.disabled = n === 0;
+}
+
+function startPicking() {
+  picking.on = true;
+  picking.chosen.clear();
+  ui.pickBar.hidden = false;
+  ui.pickMany.hidden = true;
+  ui.libraryStatus.textContent = "";
+  paintPickBar();
+  renderLibrary();
+}
+
+function stopPicking() {
+  picking.on = false;
+  picking.chosen.clear();
+  ui.pickBar.hidden = true;
+  ui.pickMany.hidden = false;
+  renderLibrary();
+}
+
+/**
+ * The trainer reads a second link shape that holds several songs, with a
+ * chooser to move between them. Same encoding, same viewer — only the payload
+ * differs, so this stays in step with single-song links.
+ */
+async function buildManySongsLink(songs, lang, report) {
+  const packed = [];
+  let skippedAudio = 0;
+  for (let i = 0; i < songs.length; i += 1) {
+    const song = songs[i];
+    report(`Packing “${songTitle(song)}” (${i + 1} of ${songs.length})…`);
+    const sentences = (song.sentences || [])
+      .filter((x) => !x.header && (x.source || x.translation))
+      .map((x) => {
+        const entry = { s: x.source, t: x.translation, g: (x.glosses || []).map((g) => [g.w, g.t]) };
+        if (Number.isFinite(x.time)) entry.at = Math.round(x.time * 100) / 100;
+        return entry;
+      });
+    if (!sentences.length) continue;
+    const one = { title: songTitle(song), sentences };
+    if (song.hasMedia || song.driveFileId) {
+      try {
+        const shared = await ensureSongMediaShared(song, lang, false,
+          (message) => report(`${songTitle(song)}: ${message}`));
+        if (shared && shared.tooBig) skippedAudio += 1;
+        else if (shared) { one.media = shared; one.mediaType = song.mediaType || ""; }
+      } catch (error) {
+        console.warn(`Could not share the audio for ${songTitle(song)}.`, error);
+        skippedAudio += 1;
+      }
+    }
+    packed.push(one);
+  }
+  if (!packed.length) throw new Error("None of those songs have lines to share.");
+
+  report("Building the link…");
+  const encoded = await encodeSharePayload(JSON.stringify({
+    v: 2,
+    learn: lang.learn,
+    from: lang.from,
+    learnCode: lang.learnCode,
+    fromCode: lang.fromCode,
+    songs: packed,
+  }));
+  return {
+    link: `${TRAINER_URL}?v=${Date.now().toString(36)}#lesson=${encoded}`,
+    count: packed.length,
+    skippedAudio,
+  };
+}
+
+async function shareManySongs() {
+  const lang = app.languages[app.langIndex];
+  const songs = (lang?.songs || []).filter((s) => picking.chosen.has(s.id));
+  if (!songs.length) return;
+  ui.pickShare.disabled = true;
+  const report = (message, kind) => {
+    ui.libraryStatus.className = `status ${kind || ""}`.trim();
+    ui.libraryStatus.textContent = message;
+  };
+  try {
+    const { link, count, skippedAudio } = await buildManySongsLink(songs, lang, report);
+    const tail = skippedAudio
+      ? ` ${skippedAudio} of them go without audio — too big to send automatically.`
+      : "";
+    const bridge = nativeApp();
+    if (bridge && typeof bridge.shareText === "function") {
+      bridge.shareText(link);
+      report(`Ready to send ${count} songs.${tail}`, skippedAudio ? "warn" : "ok");
+    } else {
+      const copied = await copyText(link);
+      report(`${copied ? "Link copied" : "Copy the link from the box"} — ${count} songs.${tail}`,
+        skippedAudio ? "warn" : "ok");
+      if (!copied) {
+        try { window.prompt("Copy this link", link); }
+        catch (blocked) { console.warn("Link:", link); }
+      }
+    }
+    stopPicking();
+  } catch (error) {
+    console.warn("Could not share those songs.", error);
+    report(`Could not share: ${error?.message || error}`, "warn");
+  } finally {
+    ui.pickShare.disabled = false;
   }
 }
 
