@@ -376,6 +376,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             <button id="addSongButton" class="primary" type="button">＋ Add a song</button>
             <button id="pickManyButton" type="button">🔗 Share several songs</button>
           </div>
+          <p id="libraryNotice" class="status" hidden></p>
           <div id="pickBar" class="pick-bar" hidden>
             <span id="pickCount">Pick the songs to send.</span>
             <button id="pickShareButton" class="primary" type="button">Share them</button>
@@ -760,6 +761,7 @@ const ui = {
   syncCancel: el("syncCancelButton"),
   syncInfo: el("syncInfo"),
   startSync: el("startSyncButton"),
+  libraryNotice: el("libraryNotice"),
   pickMany: el("pickManyButton"),
   pickBar: el("pickBar"),
   pickCount: el("pickCount"),
@@ -1377,10 +1379,7 @@ function renderLibrary() {
     share.hidden = picking.on;
     share.addEventListener("click", (event) => {
       event.stopPropagation();              // don't open the song as well
-      shareSong(song, current, false, (message, kind) => {
-        ui.libraryStatus.className = `status ${kind || ""}`.trim();
-        ui.libraryStatus.textContent = message;
-      });
+      shareSong(song, current, false, notice);
     });
     card.append(share);
 
@@ -3038,8 +3037,10 @@ const nativeDriveBridge = () => (typeof window !== "undefined" &&
 let driveTokenSeq = 0;
 const driveTokenResolvers = {};
 
-window.NativeDrive = {
-  onAccessToken(id, token) {
+// The names here must match what MainActivity calls — it answers on
+// window.DriveNative.onToken / onError, keyed by the id we passed in.
+window.DriveNative = {
+  onToken(id, token) {
     driveTokenResolvers[id]?.resolve(String(token || ""));
     delete driveTokenResolvers[id];
   },
@@ -3054,10 +3055,16 @@ async function driveAccessToken() {
   if (bridge) {
     return new Promise((resolve, reject) => {
       const id = String(++driveTokenSeq);
-      driveTokenResolvers[id] = { resolve, reject };
+      const timer = window.setTimeout(() => {
+        delete driveTokenResolvers[id];
+        reject(new Error("Google Drive did not answer. Try again."));
+      }, 90000);
+      const done = (fn) => (value) => { window.clearTimeout(timer); fn(value); };
+      driveTokenResolvers[id] = { resolve: done(resolve), reject: done(reject) };
       try {
         bridge.getAccessToken(id);
       } catch (error) {
+        window.clearTimeout(timer);
         delete driveTokenResolvers[id];
         reject(error);
       }
@@ -3329,7 +3336,7 @@ function startPicking() {
   picking.chosen.clear();
   ui.pickBar.hidden = false;
   ui.pickMany.hidden = true;
-  ui.libraryStatus.textContent = "";
+  notice("");
   paintPickBar();
   renderLibrary();
 }
@@ -3349,7 +3356,8 @@ function stopPicking() {
  */
 async function buildManySongsLink(songs, lang, report) {
   const packed = [];
-  let skippedAudio = 0;
+  let tooBig = 0;
+  let failed = "";
   for (let i = 0; i < songs.length; i += 1) {
     const song = songs[i];
     report(`Packing “${songTitle(song)}” (${i + 1} of ${songs.length})…`);
@@ -3366,11 +3374,11 @@ async function buildManySongsLink(songs, lang, report) {
       try {
         const shared = await ensureSongMediaShared(song, lang, false,
           (message) => report(`${songTitle(song)}: ${message}`));
-        if (shared && shared.tooBig) skippedAudio += 1;
+        if (shared && shared.tooBig) tooBig += 1;
         else if (shared) { one.media = shared; one.mediaType = song.mediaType || ""; }
       } catch (error) {
         console.warn(`Could not share the audio for ${songTitle(song)}.`, error);
-        skippedAudio += 1;
+        failed = error?.message || "the audio could not be uploaded";
       }
     }
     packed.push(one);
@@ -3389,7 +3397,8 @@ async function buildManySongsLink(songs, lang, report) {
   return {
     link: `${TRAINER_URL}?v=${Date.now().toString(36)}#lesson=${encoded}`,
     count: packed.length,
-    skippedAudio,
+    tooBig,
+    failed,
   };
 }
 
@@ -3398,23 +3407,20 @@ async function shareManySongs() {
   const songs = (lang?.songs || []).filter((s) => picking.chosen.has(s.id));
   if (!songs.length) return;
   ui.pickShare.disabled = true;
-  const report = (message, kind) => {
-    ui.libraryStatus.className = `status ${kind || ""}`.trim();
-    ui.libraryStatus.textContent = message;
-  };
+  const report = notice;
   try {
-    const { link, count, skippedAudio } = await buildManySongsLink(songs, lang, report);
-    const tail = skippedAudio
-      ? ` ${skippedAudio} of them go without audio — too big to send automatically.`
-      : "";
+    const { link, count, tooBig, failed } = await buildManySongsLink(songs, lang, report);
+    let tail = "";
+    if (tooBig) tail += ` ${tooBig} go without audio — over ${AUTO_DRIVE_LIMIT / 1048576} MB.`;
+    if (failed) tail += ` Some audio was left out: ${failed}`;
     const bridge = nativeApp();
     if (bridge && typeof bridge.shareText === "function") {
       bridge.shareText(link);
-      report(`Ready to send ${count} songs.${tail}`, skippedAudio ? "warn" : "ok");
+      report(`Ready to send ${count} songs.${tail}`, tail ? "warn" : "ok");
     } else {
       const copied = await copyText(link);
       report(`${copied ? "Link copied" : "Copy the link from the box"} — ${count} songs.${tail}`,
-        skippedAudio ? "warn" : "ok");
+        tail ? "warn" : "ok");
       if (!copied) {
         try { window.prompt("Copy this link", link); }
         catch (blocked) { console.warn("Link:", link); }
@@ -3427,6 +3433,13 @@ async function shareManySongs() {
   } finally {
     ui.pickShare.disabled = false;
   }
+}
+
+/** Sharing progress belongs at the top — the old spot scrolled out of sight. */
+function notice(message, kind) {
+  ui.libraryNotice.hidden = !message;
+  ui.libraryNotice.className = `status ${kind || ""}`.trim();
+  ui.libraryNotice.textContent = message || "";
 }
 
 async function shareCurrentSong(allowBig) {
