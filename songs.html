@@ -696,8 +696,14 @@ const MEDIA_STORE = "media";
 // A database of its own: the media one above is shared with the Language
 // Trainer, which opens it at version 1, so bumping it here would break it.
 const DRAFT_DB_NAME = "songs-app-drafts";
+const DRAFT_DB_VERSION = 2;
 const DRAFT_STORE = "drafts";
 const DRAFT_KEY = "add-song";
+// Our own copy of the library, so the songs are on screen before a single
+// byte is fetched. Firestore's cache cannot do this: reading it means first
+// downloading the Firebase SDK, which is the slow part on a weak connection.
+const CACHE_STORE = "library";
+const CACHE_KEY = "songs";
 const TTS_RATE = 0.9;
 
 const el = (id) => document.getElementById(id);
@@ -1297,9 +1303,11 @@ async function loadLibrary() {
   const ref = firestore.doc(app.db, "users", app.user.uid, "trainer", "state");
   let shown = false;
 
-  const show = (snapshot) => {
+  const show = (snapshot, keep) => {
     if (!snapshot?.exists()) return false;
-    setLibrary(readAppState(snapshot.data()));
+    const data = snapshot.data();
+    if (keep) saveLibrarySnapshot(app.user.uid, JSON.stringify(readAppState(data)));
+    setLibrary(readAppState(data));
     if (!shown) app.langIndex = 0;          // only reset the tab on first paint
     renderLibrary();
     refreshDraftBanner();
@@ -1323,7 +1331,7 @@ async function loadLibrary() {
       renderLibrary();
       return;
     }
-    if (fresh.exists()) show(fresh);
+    if (fresh.exists()) show(fresh, true);
     ui.libraryStatus.textContent = "";
   } catch (error) {
     console.warn("Could not refresh songs.", error);
@@ -3666,10 +3674,13 @@ function openDraftDb() {
   if (draftDbPromise) return draftDbPromise;
   draftDbPromise = new Promise((resolve, reject) => {
     if (!window.indexedDB) { reject(new Error("No IndexedDB")); return; }
-    const request = indexedDB.open(DRAFT_DB_NAME, 1);
+    const request = indexedDB.open(DRAFT_DB_NAME, DRAFT_DB_VERSION);
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains(DRAFT_STORE)) {
         request.result.createObjectStore(DRAFT_STORE, { keyPath: "id" });
+      }
+      if (!request.result.objectStoreNames.contains(CACHE_STORE)) {
+        request.result.createObjectStore(CACHE_STORE, { keyPath: "id" });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -3688,6 +3699,22 @@ function draftTx(mode, run) {
     return null;
   });
 }
+
+function cacheTx(mode, run) {
+  return openDraftDb().then((db) => new Promise((resolve, reject) => {
+    const req = run(db.transaction(CACHE_STORE, mode).objectStore(CACHE_STORE));
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  })).catch((error) => {
+    console.warn("Library cache unavailable.", error);
+    return null;
+  });
+}
+
+const saveLibrarySnapshot = (uid, stateJson) => cacheTx("readwrite",
+  (store) => store.put({ id: CACHE_KEY, uid, stateJson, savedAt: Date.now() }));
+
+const readLibrarySnapshot = () => cacheTx("readonly", (store) => store.get(CACHE_KEY));
 
 let draftTimer = null;
 
@@ -4009,7 +4036,30 @@ add.save.addEventListener("click", saveSong);
 // Boot
 // ---------------------------------------------------------------------------
 
+/**
+ * Puts the songs on screen straight away from the copy on this device. The
+ * Firebase SDK is a few hundred KB fetched from Google, and waiting for it
+ * was the whole delay on a weak connection — so it is loaded afterwards.
+ */
+async function showSongsFromDevice() {
+  try {
+    const snapshot = await readLibrarySnapshot();
+    if (!snapshot?.stateJson) return false;
+    app.user = app.user || { uid: snapshot.uid, email: snapshot.email || "" };
+    setLibrary(JSON.parse(snapshot.stateJson));
+    if (!app.languages.length && !(app.allLanguages || []).length) return false;
+    renderLibrary();
+    showScreen("library");
+    ui.libraryStatus.textContent = "Showing the songs saved on this device…";
+    return true;
+  } catch (error) {
+    console.warn("No usable copy on this device.", error);
+    return false;
+  }
+}
+
 (async function boot() {
+  const painted = await showSongsFromDevice();
   try {
     const modules = await initFirebase();
     let firstCallback = true;
@@ -4021,12 +4071,18 @@ add.save.addEventListener("click", saveSong);
       } else if (firstCallback && await resumeNativeSession()) {
         // Signed back in without asking; the next callback shows the library.
       } else {
-        showScreen("signin");
+        showScreen("signin");          // really signed out: the copy is not yours to show
       }
       firstCallback = false;
     });
   } catch (error) {
     console.warn("Could not start.", error);
+    if (painted) {
+      // The songs are up and playable; only syncing is out of reach.
+      ui.libraryStatus.className = "status warn";
+      ui.libraryStatus.textContent = "Offline — showing the songs saved on this device.";
+      return;
+    }
     showScreen("signin");                   // never leave the spinner up
     ui.signinStatus.className = "status warn";
     ui.signinStatus.textContent = `Could not start: ${error?.message || error}`;
