@@ -1031,6 +1031,48 @@ function releaseMediaUrl() {
   }
 }
 
+/**
+ * Pulls the file out of Drive as bytes. Pointing a <video> at a Drive link
+ * mostly fails — Drive answers with an HTML page rather than the audio — so we
+ * go through the Drive API the way the trainer does: signed in first, which
+ * reaches your own private files, then the plain API key for public ones.
+ */
+async function fetchDriveMedia(fileId, onProgress) {
+  const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`;
+  let lastError = null;
+
+  try {
+    const token = await driveAccessToken();
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) return await readWithProgress(res, onProgress);
+    lastError = new Error(`Drive said ${res.status}.`);
+  } catch (error) {
+    lastError = error;                       // not signed in, or no Drive bridge
+  }
+
+  const res = await fetch(`${url}&key=${encodeURIComponent(FIREBASE_CONFIG.apiKey)}`);
+  if (res.ok) return await readWithProgress(res, onProgress);
+  let detail = "";
+  try { detail = (await res.json())?.error?.message || ""; } catch (e) { /* ignore */ }
+  throw new Error(detail || lastError?.message || `Drive download failed (${res.status}).`);
+}
+
+async function readWithProgress(res, onProgress) {
+  const total = Number(res.headers.get("content-length")) || 0;
+  if (!res.body || !total) return res.blob();
+  const reader = res.body.getReader();
+  const chunks = [];
+  let loaded = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.length;
+    onProgress?.(loaded / total);
+  }
+  return new Blob(chunks, { type: res.headers.get("content-type") || "" });
+}
+
 async function loadMedia(song) {
   releaseMediaUrl();
   // Clear handlers from the previous song, or its fallback chain can fire here.
@@ -1049,28 +1091,24 @@ async function loadMedia(song) {
   }
 
   if (song.driveFileId) {
-    // Public Drive files stream straight into a <video> with no sign-in.
-    const id = encodeURIComponent(song.driveFileId);
-    const sources = [
-      `https://drive.usercontent.google.com/download?id=${id}&export=download`,
-      `https://drive.google.com/uc?export=download&id=${id}`,
-    ];
-    let step = 0;
-    const tryNext = () => {
-      if (step >= sources.length) {
-        ui.media.onerror = null;
-        ui.mediaNote.textContent = "The audio could not be loaded — the words still work.";
-        return;
-      }
-      ui.media.src = sources[step];
-      step += 1;
-    };
-    ui.media.onerror = tryNext;
-    ui.media.onloadeddata = () => { ui.mediaNote.textContent = ""; };
-    ui.mediaNote.textContent = "Loading the audio…";
-    tryNext();
     ui.mediaWrap.hidden = false;
-    return true;
+    ui.mediaNote.textContent = "Fetching the audio…";
+    try {
+      const blob = await fetchDriveMedia(song.driveFileId, (p) => {
+        ui.mediaNote.textContent = `Fetching the audio… ${Math.round(p * 100)}%`;
+      });
+      app.mediaUrl = URL.createObjectURL(blob);
+      ui.media.src = app.mediaUrl;
+      ui.mediaNote.textContent = "";
+      // Keep it, so next time it opens instantly and works with no signal.
+      putLocalMedia(song.id, blob, song.mediaType || blob.type)
+        .catch((error) => console.warn("Could not keep the audio on this device.", error));
+      return true;
+    } catch (error) {
+      console.warn("Could not fetch the audio from Drive.", error);
+      ui.mediaNote.textContent = `The audio could not be loaded — the words still work. (${error?.message || error})`;
+      return false;
+    }
   }
 
   ui.mediaWrap.hidden = true;
