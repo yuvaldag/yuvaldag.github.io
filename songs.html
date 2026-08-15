@@ -1107,6 +1107,9 @@ async function initFirebase() {
           modules.auth.indexedDBLocalPersistence,
           modules.auth.browserLocalPersistence,
         ],
+        // getAuth() bundles this in; initializeAuth() does not, and without it
+        // signInWithPopup rejects with auth/argument-error on the web.
+        popupRedirectResolver: modules.auth.browserPopupRedirectResolver,
       });
     } catch (error) {
       app.auth = modules.auth.getAuth(instance);   // already initialised
