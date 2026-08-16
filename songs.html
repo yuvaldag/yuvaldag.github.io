@@ -2982,9 +2982,27 @@ async function extractAudioNatively(file, onProgress) {
   const bridge = nativeApp();
   if (!bridge || typeof bridge.extractAudio !== "function") return null;
   try {
-    const token = await pushFileToApp(bridge, file, (p) => onProgress?.(p * 0.5));
-    const answer = nativeAnswer(180000);
-    bridge.extractAudio(token);
+    // If the app still holds the file you picked, it can read it off disk.
+    // Sending a video over the bridge costs far more than the work itself,
+    // so this is the difference between seconds and minutes on a big file.
+    let sameFile = false;
+    if (typeof bridge.pickedFileInfo === "function") {
+      try {
+        const info = JSON.parse(bridge.pickedFileInfo() || "{}");
+        sameFile = Boolean(info.size) && info.size === file.size;
+      } catch (error) { /* fall back to sending the bytes */ }
+    }
+
+    let answer;
+    if (sameFile && typeof bridge.extractAudioFromPicked === "function") {
+      onProgress?.(0.15);
+      answer = nativeAnswer(180000);
+      bridge.extractAudioFromPicked();
+    } else {
+      const token = await pushFileToApp(bridge, file, (p) => onProgress?.(p * 0.5));
+      answer = nativeAnswer(180000);
+      bridge.extractAudio(token);
+    }
     const result = await answer;
     if (!result?.token || !result.size) return null;
 
@@ -2993,8 +3011,9 @@ async function extractAudioNatively(file, onProgress) {
       const piece = bridge.readChunk(result.token, at, CHUNK_BYTES);
       if (!piece) break;
       parts.push(base64ToBytes(piece));
-      onProgress?.(0.5 + Math.min(0.5, ((at + CHUNK_BYTES) / result.size) * 0.5));
+      onProgress?.(0.5 + Math.min(0.49, ((at + CHUNK_BYTES) / result.size) * 0.5));
     }
+    onProgress?.(1);
     bridge.readDone(result.token);
     const blob = new Blob(parts, { type: "audio/mp4" });
     if (!blob.size) return null;
