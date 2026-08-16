@@ -2978,9 +2978,15 @@ async function saveFileToDevice(file, shareText, onProgress) {
  * so it takes seconds rather than the length of the song, and loses nothing.
  * Returns null when the app isn't there or the file can't be handled this way.
  */
+let lastLiftProblem = "";
+
 async function extractAudioNatively(file, onProgress) {
+  lastLiftProblem = "";
   const bridge = nativeApp();
-  if (!bridge || typeof bridge.extractAudio !== "function") return null;
+  if (!bridge || typeof bridge.extractAudio !== "function") {
+    lastLiftProblem = "only the Android app can do the quick copy";
+    return null;
+  }
   try {
     // If the app still holds the file you picked, it can read it off disk.
     // Sending a video over the bridge costs far more than the work itself,
@@ -3020,6 +3026,7 @@ async function extractAudioNatively(file, onProgress) {
     return new File([blob], result.name || "song.m4a", { type: "audio/mp4" });
   } catch (error) {
     console.warn("Native audio extraction unavailable.", error);
+    lastLiftProblem = error?.message || "the app could not read the audio track";
     return null;
   }
 }
@@ -3036,8 +3043,13 @@ async function shrinkMedia(file, mode, onProgress) {
   if (mode === "audio") {
     const lifted = await extractAudioNatively(file, onProgress);
     if (lifted && lifted.size && lifted.size < file.size) return { file: lifted, how: "lifted" };
+    if (!lastLiftProblem) lastLiftProblem = "the quick copy came out no smaller";
   }
-  return { file: await reEncodeMedia(file, profile, onProgress), how: "re-encoded" };
+  return {
+    file: await reEncodeMedia(file, profile, onProgress),
+    how: "re-encoded",
+    why: mode === "audio" ? lastLiftProblem : "",
+  };
 }
 
 // Re-encodes by playing the file through once, in real time.
@@ -4063,9 +4075,16 @@ add.compressButton.addEventListener("click", async () => {
   add.compressButton.disabled = true;
   add.next.disabled = true;
   try {
-    const { file: smaller, how } = await shrinkMedia(original, mode, (p) => {
+    let announced = "";
+    const { file: smaller, how, why } = await shrinkMedia(original, mode, (p) => {
       add.mediaInfo.className = "status";
-      add.mediaInfo.textContent = `Shrinking… ${Math.round(p * 100)}% — keep this screen open.`;
+      // The two routes feel completely different, so name the one in use.
+      if (!announced) {
+        announced = mode === "audio" ? "Copying the audio out (no re-recording)…" : "";
+      }
+      add.mediaInfo.textContent = announced
+        ? `${announced} ${Math.round(p * 100)}%`
+        : `Re-recording in real time — this takes about as long as the song. ${Math.round(p * 100)}%`;
     });
     if (smaller && smaller.size && smaller.size < original.size) {
       wiz.media = smaller;
@@ -4073,7 +4092,9 @@ add.compressButton.addEventListener("click", async () => {
       add.mediaInfo.className = "status ok";
       add.mediaInfo.textContent =
         `Done: ${formatSize(original.size)} → ${formatSize(smaller.size)}.`
-        + (how === "lifted" ? " The audio was lifted straight out, so nothing was re-recorded." : "");
+        + (how === "lifted"
+          ? " Copied straight out — nothing was re-recorded."
+          : (why ? ` It had to re-record this one: ${why}.` : ""));
       add.saveFile.hidden = false;
       saveDraft();                          // keep the smaller file, not the original
     } else {
