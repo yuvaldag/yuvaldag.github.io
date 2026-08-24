@@ -2380,6 +2380,7 @@ async function applyFix() {
 }
 
 function leaveSong() {
+  keepScreenAwake(false);
   // Don't lose a nudge made in the last second before backing out.
   window.clearTimeout(timingSaveTimer);
   if (pendingShift) queueWrite(saveTimings);
@@ -2471,6 +2472,48 @@ ui.lineOriginal.addEventListener("click", (event) => {
   span.classList.add("active");
   showGloss(span.textContent, span.dataset.meaning || "(no translation for this word)");
 });
+// ---------------------------------------------------------------------------
+// Keeping the screen on while the song plays
+//
+// The Android WebView does not hold the screen awake for HTML5 media the way
+// a browser tab does, so the page has to say when playback starts and stops.
+// In a browser we ask for a wake lock instead, which does the same thing.
+// ---------------------------------------------------------------------------
+
+let screenLock = null;      // the browser's WakeLockSentinel, when we have one
+let wantAwake = false;
+
+async function keepScreenAwake(on) {
+  wantAwake = on;
+  const bridge = nativeApp();
+  if (bridge && typeof bridge.keepAwake === "function") {
+    try { bridge.keepAwake(on); return; } catch (error) { /* try the web way */ }
+  }
+  try {
+    if (on) {
+      if (!screenLock && navigator.wakeLock?.request) {
+        screenLock = await navigator.wakeLock.request("screen");
+        screenLock.addEventListener("release", () => { screenLock = null; });
+      }
+    } else if (screenLock) {
+      await screenLock.release();
+      screenLock = null;
+    }
+  } catch (error) {
+    /* not allowed here — the song still plays, the screen just may dim */
+  }
+}
+
+// Work it out from the player itself rather than from which event arrived
+// last: loading a song fires "emptied" *after* "play", which would otherwise
+// switch the screen lock straight back off the first time you press play.
+function syncScreenAwake() {
+  keepScreenAwake(!ui.media.paused && !ui.media.ended);
+}
+
+["play", "playing", "pause", "ended", "emptied", "error", "loadeddata"]
+  .forEach((event) => ui.media.addEventListener(event, syncScreenAwake));
+
 ui.media.addEventListener("timeupdate", () => {
   if (tapSync.on) return;               // you are deciding where the lines go
   if (app.mode !== "listen" || !app.song) return;
@@ -2492,6 +2535,9 @@ document.addEventListener("visibilitychange", () => {
     saveDraft();
     return;
   }
+  // A browser drops the wake lock whenever the page is hidden, so take it
+  // back if the song is still going.
+  if (wantAwake && !ui.media.paused) keepScreenAwake(true);
   // Coming back: pick up anything changed elsewhere since we left — songs
   // added in the trainer, and songs deleted there too.
   if (app.user && currentScreen === "library") loadLibrary();
