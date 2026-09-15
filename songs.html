@@ -793,7 +793,8 @@ const app = {
   db: null,
   user: null,
   languages: [],      // [{ id, learn, from, learnCode, fromCode, songs: [] }]
-  langIndex: 0,
+  langIndex: 0,       // derived from langId on every render
+  langId: "",         // the setup being shown — an id, since indexes shift
   song: null,         // the open song
   lines: [],          // its playable (non-header) sentences
   index: 0,
@@ -1349,8 +1350,7 @@ async function loadLibrary() {
     const data = snapshot.data();
     if (keep) saveLibrarySnapshot(app.user.uid, JSON.stringify(readAppState(data)));
     setLibrary(readAppState(data));
-    if (!shown) app.langIndex = 0;          // only reset the tab on first paint
-    renderLibrary();
+    renderLibrary();                        // keeps whichever language you are on
     refreshDraftBanner();
     return true;
   };
@@ -1394,7 +1394,9 @@ function renderLibrary() {
     return;
   }
 
-  app.langIndex = Math.min(app.langIndex, app.languages.length - 1);
+  const at = app.languages.findIndex((l) => l.id === app.langId);
+  app.langIndex = at >= 0 ? at : 0;
+  if (at < 0) app.langId = app.languages[0].id;   // saved one gone — show the first
 
   // One chip per language setup, so you can jump between languages.
   app.languages.forEach((lang, i) => {
@@ -1402,10 +1404,7 @@ function renderLibrary() {
     chip.type = "button";
     chip.className = i === app.langIndex ? "lang-chip active" : "lang-chip";
     chip.textContent = `${lang.learn} → ${lang.from} (${lang.songs.length})`;
-    chip.addEventListener("click", () => {
-      app.langIndex = i;
-      renderLibrary();
-    });
+    chip.addEventListener("click", () => selectLanguage(lang.id));
     ui.langs.append(chip);
   });
 
@@ -3763,10 +3762,10 @@ async function saveSong() {
     window.setTimeout(async () => {
       resetWizard();
       showScreen("library");
-      await loadLibrary();
       // Land on the language we just added to, so the new song is in view.
-      const i = app.languages.findIndex((l) => l.id === savedInto);
-      if (i > 0) { app.langIndex = i; renderLibrary(); }
+      app.langId = savedInto;
+      await loadLibrary();
+      selectLanguage(savedInto);
     }, 1200);
   } catch (error) {
     console.warn("Could not save the song.", error);
@@ -3833,6 +3832,22 @@ const saveLibrarySnapshot = (uid, stateJson) => cacheTx("readwrite",
   (store) => store.put({ id: CACHE_KEY, uid, stateJson, savedAt: Date.now() }));
 
 const readLibrarySnapshot = () => cacheTx("readonly", (store) => store.get(CACHE_KEY));
+
+// The language you were on, kept on the device so the app reopens there.
+// IndexedDB rather than localStorage: inside the Android app the page runs
+// from file://, where localStorage does not reliably survive a restart.
+const LANG_KEY = "language";
+const saveSelectedLanguage = (langId) => cacheTx("readwrite",
+  (store) => store.put({ id: LANG_KEY, langId }));
+const readSelectedLanguage = () => cacheTx("readonly", (store) => store.get(LANG_KEY))
+  .then((row) => row?.langId || "");
+
+function selectLanguage(langId) {
+  if (!langId) return;
+  app.langId = langId;
+  saveSelectedLanguage(langId);
+  renderLibrary();
+}
 
 let draftTimer = null;
 
@@ -4186,6 +4201,7 @@ async function showSongsFromDevice() {
 }
 
 (async function boot() {
+  app.langId = await readSelectedLanguage();   // before the first paint
   const painted = await showSongsFromDevice();
   try {
     const modules = await initFirebase();
