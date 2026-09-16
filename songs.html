@@ -4605,7 +4605,7 @@ async function showSongsFromDevice() {
 
 (async function boot() {
   // A link like songs.html#import comes from someone sharing a zip.
-  app.wantImport = /(^|[#&])import/.test(location.hash);
+  app.wantImport = /(^|[#&])import\b/.test(location.hash);
   app.langId = await readSelectedLanguage();   // before the first paint
   const painted = await showSongsFromDevice();
   try {
