@@ -364,6 +364,31 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
       </section>
 
       <!-- ============ LIBRARY ============ -->
+      <!-- ============ ADD SHARED SONGS ============ -->
+      <section id="importScreen" class="screen">
+        <button id="importBackButton" class="back-btn" type="button">← All songs</button>
+        <div class="panel">
+          <div class="song-head">
+            <h2 class="song-title">Add shared songs</h2>
+          </div>
+          <p class="how">Someone sent you songs as a <strong>zip file</strong>. Choose it here and the songs are added to yours — the words, the translation, the timings and the audio.</p>
+          <label class="field"><span>The zip file</span>
+            <input id="importFile" type="file" accept=".zip,application/zip,application/x-zip-compressed" />
+          </label>
+          <p id="importInfo" class="status"></p>
+          <div id="importPreview" hidden>
+            <div id="importList" class="summary"></div>
+            <label class="field"><span>Add them to</span>
+              <select id="importTarget"></select>
+            </label>
+            <div class="stack">
+              <button id="importAddButton" class="primary" type="button">✓ Add these songs</button>
+            </div>
+          </div>
+          <p id="importResult" class="status"></p>
+        </div>
+      </section>
+
       <section id="libraryScreen" class="screen">
         <div class="topbar">
           <div>
@@ -379,11 +404,13 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
           <div class="stack">
             <button id="addSongButton" class="primary" type="button">＋ Add a song</button>
             <button id="pickManyButton" type="button">🔗 Share several songs</button>
+            <button id="importOpenButton" type="button">📥 Add songs from a zip</button>
           </div>
           <p id="libraryNotice" class="status" hidden></p>
           <div id="pickBar" class="pick-bar" hidden>
             <span id="pickCount">Pick the songs to send.</span>
-            <button id="pickShareButton" class="primary" type="button">Share them</button>
+            <button id="pickShareButton" type="button">🔗 As a link</button>
+            <button id="pickZipButton" class="primary" type="button">📦 As a zip</button>
             <button id="pickCancelButton" type="button">Cancel</button>
           </div>
           <div id="draftBanner" class="resumed" hidden>
@@ -610,9 +637,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
             <div class="panel-split"></div>
 
             <!-- 4. send it to someone -->
-            <p class="how"><strong>Share this song.</strong> Whoever opens the link sees it line by line, with the words read aloud — no app, no account. Audio under 10 MB is uploaded to your Drive automatically so it plays for them too.</p>
+            <p class="how"><strong>Share this song.</strong> As a <strong>link</strong>, anyone can open it line by line in a browser — no app, no account; audio under 10 MB is uploaded to your Drive so it plays for them. As a <strong>zip</strong>, they add the song, its translation and audio to their own songs.</p>
             <div class="stack">
               <button id="shareSongButton" class="primary" type="button">🔗 Share this song</button>
+              <button id="shareZipButton" type="button">📦 Share as a zip</button>
               <button id="shareBigButton" type="button" hidden>Upload the audio anyway and share</button>
             </div>
             <p id="shareInfo" class="status"></p>
@@ -677,6 +705,7 @@ const ui = {
     library: el("libraryScreen"),
     add: el("addScreen"),
     song: el("songScreen"),
+    import: el("importScreen"),
   },
   signInButton: el("signInButton"),
   signinStatus: el("signinStatus"),
@@ -744,6 +773,17 @@ const ui = {
   pickCount: el("pickCount"),
   pickShare: el("pickShareButton"),
   pickCancel: el("pickCancelButton"),
+  pickZip: el("pickZipButton"),
+  importOpen: el("importOpenButton"),
+  importBack: el("importBackButton"),
+  importFile: el("importFile"),
+  importInfo: el("importInfo"),
+  importPreview: el("importPreview"),
+  importList: el("importList"),
+  importTarget: el("importTarget"),
+  importAdd: el("importAddButton"),
+  importResult: el("importResult"),
+  shareZip: el("shareZipButton"),
   draftBanner: el("draftBanner"),
   draftBannerText: el("draftBannerText"),
   draftResume: el("draftResumeButton"),
@@ -789,6 +829,10 @@ function showScreen(name) {
 window.AppBack = function AppBack() {
   if (currentScreen === "song") {
     leaveSong();
+    return true;
+  }
+  if (currentScreen === "import") {
+    showScreen("library");
     return true;
   }
   if (currentScreen === "add") {
@@ -2400,6 +2444,22 @@ ui.draftResume.addEventListener("click", openWizard);
 ui.pickMany.addEventListener("click", startPicking);
 ui.pickCancel.addEventListener("click", stopPicking);
 ui.pickShare.addEventListener("click", shareManySongs);
+ui.pickZip.addEventListener("click", shareManyAsZip);
+ui.importOpen.addEventListener("click", openImport);
+ui.importBack.addEventListener("click", () => showScreen("library"));
+ui.importFile.addEventListener("change", previewImport);
+ui.importAdd.addEventListener("click", importSongs);
+ui.shareZip.addEventListener("click", async () => {
+  ui.shareZip.disabled = true;
+  try {
+    await shareSongsAsZip([app.song], app.lang, (message, kind) => {
+      ui.shareInfo.className = `status ${kind || ""}`.trim();
+      ui.shareInfo.textContent = message;
+    });
+  } finally {
+    ui.shareZip.disabled = false;
+  }
+});
 ui.startSync.addEventListener("click", startTapSync);
 ui.syncStamp.addEventListener("click", stampLine);
 ui.syncUndo.addEventListener("click", undoStamp);
@@ -3442,6 +3502,7 @@ function paintPickBar() {
     ? `${n} song${n === 1 ? "" : "s"} picked.`
     : "Pick the songs to send.";
   ui.pickShare.disabled = n === 0;
+  ui.pickZip.disabled = n === 0;
 }
 
 function startPicking() {
@@ -3610,6 +3671,458 @@ async function syncAudioToDrive() {
     ui.driveSyncInfo.textContent = `Could not upload: ${error?.message || error}`;
   } finally {
     ui.driveSync.disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Zip files, without a library
+//
+// Songs travel as a zip: songs.json with the words, translations, meanings and
+// timings, plus each song's audio. Files are stored, not compressed — the
+// audio is already compressed, so squeezing it again saves nothing and costs
+// time. Reading also accepts deflated entries, so a zip that went through
+// another tool on the way still opens.
+// ---------------------------------------------------------------------------
+
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n += 1) {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i += 1) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+/** files: [{ name, data: Uint8Array | Blob }] → a zip Blob. */
+async function makeZip(files) {
+  const encoder = new TextEncoder();
+  const now = new Date();
+  const time = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+  const day = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  const parts = [];
+  const central = [];
+  let offset = 0;
+  for (const file of files) {
+    const bytes = file.data instanceof Uint8Array
+      ? file.data : new Uint8Array(await file.data.arrayBuffer());
+    const name = encoder.encode(file.name);
+    const crc = crc32(bytes);
+
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true);
+    local.setUint16(6, 0x0800, true);                // file names are UTF-8
+    local.setUint16(8, 0, true);                     // stored
+    local.setUint16(10, time, true);
+    local.setUint16(12, day, true);
+    local.setUint32(14, crc, true);
+    local.setUint32(18, bytes.length, true);
+    local.setUint32(22, bytes.length, true);
+    local.setUint16(26, name.length, true);
+    local.setUint16(28, 0, true);
+    parts.push(local.buffer, name, bytes);
+
+    const entry = new DataView(new ArrayBuffer(46));
+    entry.setUint32(0, 0x02014b50, true);
+    entry.setUint16(4, 20, true);
+    entry.setUint16(6, 20, true);
+    entry.setUint16(8, 0x0800, true);
+    entry.setUint16(10, 0, true);
+    entry.setUint16(12, time, true);
+    entry.setUint16(14, day, true);
+    entry.setUint32(16, crc, true);
+    entry.setUint32(20, bytes.length, true);
+    entry.setUint32(24, bytes.length, true);
+    entry.setUint16(28, name.length, true);
+    entry.setUint32(42, offset, true);
+    central.push(entry.buffer, name);
+    offset += 30 + name.length + bytes.length;
+  }
+  const centralSize = central.reduce((n, part) => n + part.byteLength, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, files.length, true);
+  end.setUint16(10, files.length, true);
+  end.setUint32(12, centralSize, true);
+  end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end.buffer], { type: "application/zip" });
+}
+
+/** A zip file → Map of name → (type) => Promise<Blob>. Reads only what is asked for. */
+async function readZip(file) {
+  const tailSize = Math.min(file.size, 22 + 0xffff);
+  const tail = new DataView(await file.slice(file.size - tailSize).arrayBuffer());
+  let eocd = -1;
+  for (let i = tail.byteLength - 22; i >= 0; i -= 1) {
+    if (tail.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("That isn't a zip file.");
+  const count = tail.getUint16(eocd + 10, true);
+  const cdSize = tail.getUint32(eocd + 12, true);
+  const cdOffset = tail.getUint32(eocd + 16, true);
+  if (cdOffset === 0xffffffff) throw new Error("This zip is too large to open here.");
+  const cd = new DataView(await file.slice(cdOffset, cdOffset + cdSize).arrayBuffer());
+  const decoder = new TextDecoder();
+  const entries = new Map();
+  let p = 0;
+  for (let n = 0; n < count; n += 1) {
+    if (cd.getUint32(p, true) !== 0x02014b50) throw new Error("This zip file is damaged.");
+    const method = cd.getUint16(p + 10, true);
+    const compSize = cd.getUint32(p + 20, true);
+    const nameLen = cd.getUint16(p + 28, true);
+    const extraLen = cd.getUint16(p + 30, true);
+    const commentLen = cd.getUint16(p + 32, true);
+    const localOffset = cd.getUint32(p + 42, true);
+    const name = decoder.decode(new Uint8Array(cd.buffer, p + 46, nameLen));
+    p += 46 + nameLen + extraLen + commentLen;
+    entries.set(name, async (type = "") => {
+      const head = new DataView(await file.slice(localOffset, localOffset + 30).arrayBuffer());
+      const start = localOffset + 30 + head.getUint16(26, true) + head.getUint16(28, true);
+      const raw = file.slice(start, start + compSize);
+      if (method === 0) return new Blob([raw], { type });
+      if (method === 8) {
+        const stream = raw.stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        return new Blob([await new Response(stream).arrayBuffer()], { type });
+      }
+      throw new Error(`“${name}” uses a kind of compression this app can't read.`);
+    });
+  }
+  return entries;
+}
+
+// --- songs packed into a zip ---------------------------------------------------
+
+const SONG_PACK_KIND = "language-trainer-songs";
+const IMPORT_URL = "https://yuvaldag.github.io/songs.html#import";
+
+function mediaExtension(type) {
+  const t = String(type || "").toLowerCase();
+  if (t.startsWith("video/mp4")) return "mp4";
+  if (t.includes("mp4") || t.includes("m4a") || t.includes("aac")) return "m4a";
+  if (t.includes("mpeg") || t.includes("mp3")) return "mp3";
+  if (t.includes("webm")) return "webm";
+  if (t.includes("ogg")) return "ogg";
+  if (t.includes("wav")) return "wav";
+  return "bin";
+}
+
+async function buildSongsZip(songs, lang, report) {
+  const files = [];
+  const packed = [];
+  let missing = 0;
+  for (let i = 0; i < songs.length; i += 1) {
+    const song = songs[i];
+    report(`Packing “${songTitle(song)}” (${i + 1} of ${songs.length})…`);
+    const entry = {
+      title: songTitle(song),
+      sentences: (song.sentences || []).map((x) => ({
+        source: x.source || "",
+        translation: x.translation || "",
+        glosses: (x.glosses || []).map((g) => ({ w: g.w, t: g.t })),
+        header: Boolean(x.header),
+        time: Number.isFinite(x.time) ? x.time : null,
+      })),
+      media: null,
+      mediaType: "",
+    };
+    if (song.hasMedia || song.driveFileId) {
+      const local = await getLocalMedia(song.id);
+      let blob = local?.blob || null;
+      if (!blob && song.driveFileId) {
+        // Only on Drive: fetch it, so the zip is complete on its own.
+        try {
+          blob = await fetchDriveMedia(song.driveFileId, (progress) => report(
+            `Fetching the audio for “${songTitle(song)}”… ${Math.round(progress * 100)}%`));
+        } catch (error) {
+          console.warn(`No audio for ${songTitle(song)}.`, error);
+        }
+      }
+      if (blob) {
+        const type = song.mediaType || local?.type || blob.type || "";
+        entry.media = `media/${i + 1}.${mediaExtension(type)}`;
+        entry.mediaType = type;
+        files.push({ name: entry.media, data: blob });
+      } else {
+        missing += 1;
+      }
+    }
+    packed.push(entry);
+  }
+  const manifest = {
+    kind: SONG_PACK_KIND,
+    version: 1,
+    exportedAt: Date.now(),
+    learn: lang.learn,
+    from: lang.from,
+    learnCode: lang.learnCode,
+    fromCode: lang.fromCode,
+    songs: packed,
+  };
+  files.unshift({ name: "songs.json", data: new TextEncoder().encode(JSON.stringify(manifest, null, 1)) });
+  report("Building the zip…");
+  return { zip: await makeZip(files), count: packed.length, missing };
+}
+
+function zipFileName(songs, lang) {
+  const base = songs.length === 1 ? songTitle(songs[0]) : `${songs.length} songs - ${lang.learn}`;
+  const clean = base.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+  return `${clean || "songs"}.zip`;
+}
+
+function importInstructions(count, lang) {
+  const what = count === 1 ? "a song" : `${count} songs`;
+  return `I'm sending you ${what} (${lang.learn} → ${lang.from}) as a zip file.\n`
+    + `To add ${count === 1 ? "it" : "them"} to your songs: open ${IMPORT_URL} , sign in, and choose the zip.`;
+}
+
+/** Packs the songs and sends them: share sheet in the app, download in a browser. */
+async function shareSongsAsZip(songs, lang, report) {
+  if (!songs.length || !lang) return false;
+  try {
+    const { zip, count, missing } = await buildSongsZip(songs, lang, report);
+    const file = new File([zip], zipFileName(songs, lang), { type: "application/zip" });
+    const text = importInstructions(count, lang);
+    const tail = missing
+      ? ` ${missing} ${missing === 1 ? "has" : "have"} no audio to include.` : "";
+    const bridge = nativeApp();
+    if (bridge && typeof bridge.fileShare === "function") {
+      const token = await pushFileToApp(bridge, file, (progress) =>
+        report(`Getting the zip ready… ${Math.round(progress * 100)}%`));
+      const answer = nativeAnswer(60000);
+      bridge.fileShare(token, text);
+      report(`${(await answer).message}${tail}`, tail ? "warn" : "ok");
+    } else {
+      await saveFileToDevice(file, "", () => {});
+      const copied = await copyText(text);
+      report(`Zip downloaded (${formatSize(file.size)})`
+        + `${copied ? ", and a message with the link is copied" : ""} — send them both.${tail}`,
+        tail ? "warn" : "ok");
+    }
+    return true;
+  } catch (error) {
+    console.warn("Could not share as a zip.", error);
+    report(`Could not make the zip: ${error?.message || error}`, "warn");
+    return false;
+  }
+}
+
+async function shareManyAsZip() {
+  const lang = app.languages[app.langIndex];
+  const songs = (lang?.songs || []).filter((s) => picking.chosen.has(s.id));
+  if (!songs.length) return;
+  ui.pickZip.disabled = true;
+  ui.pickShare.disabled = true;
+  try {
+    if (await shareSongsAsZip(songs, lang, notice)) stopPicking();
+  } finally {
+    ui.pickZip.disabled = false;
+    ui.pickShare.disabled = false;
+  }
+}
+
+// --- adding songs someone sent ---------------------------------------------------
+
+const importState = { entries: null, pack: null, prefix: "" };
+
+function openImport() {
+  importState.entries = null;
+  importState.pack = null;
+  ui.importFile.value = "";
+  ui.importPreview.hidden = true;
+  ui.importInfo.className = "status";
+  ui.importInfo.textContent = "";
+  ui.importResult.className = "status";
+  ui.importResult.textContent = "";
+  showScreen("import");
+}
+
+async function readSongPack(file) {
+  const entries = await readZip(file);
+  // Find songs.json even if the zip was re-packed inside a folder.
+  const manifestName = [...entries.keys()]
+    .find((n) => /(^|\/)songs\.json$/i.test(n) && !n.startsWith("__MACOSX"));
+  if (!manifestName) {
+    throw new Error("There are no songs in this zip — it may not have come from the Songs app.");
+  }
+  const prefix = manifestName.slice(0, manifestName.length - "songs.json".length);
+  const pack = JSON.parse(await (await entries.get(manifestName)()).text());
+  if (pack?.kind !== SONG_PACK_KIND || !Array.isArray(pack.songs)) {
+    throw new Error("This zip wasn't made by the Songs app.");
+  }
+  return { entries, pack, prefix };
+}
+
+/** The setup these songs belong in: same language codes, else the same names. */
+function findSetupFor(pack) {
+  const langs = app.allLanguages || [];
+  const same = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+  return langs.find((l) => pack.learnCode && pack.fromCode
+      && same(l.learnCode, pack.learnCode) && same(l.fromCode, pack.fromCode))
+    || langs.find((l) => same(l.learn, pack.learn) && same(l.from, pack.from))
+    || null;
+}
+
+async function previewImport() {
+  const file = ui.importFile.files?.[0];
+  ui.importPreview.hidden = true;
+  ui.importResult.textContent = "";
+  importState.entries = null;
+  importState.pack = null;
+  if (!file) return;
+  ui.importInfo.className = "status";
+  ui.importInfo.textContent = "Opening the zip…";
+  try {
+    const { entries, pack, prefix } = await readSongPack(file);
+    Object.assign(importState, { entries, pack, prefix });
+    const songs = pack.songs.filter((s) => (s.sentences || []).length);
+    ui.importInfo.className = "status ok";
+    ui.importInfo.textContent =
+      `${songs.length} ${songs.length === 1 ? "song" : "songs"} · ${pack.learn} → ${pack.from}`;
+    ui.importList.replaceChildren(...songs.map((s) => {
+      const row = document.createElement("div");
+      const title = document.createElement("span");
+      const meta = document.createElement("span");
+      const lines = s.sentences.filter((x) => !x.header).length;
+      title.textContent = s.title || "Untitled";
+      meta.textContent = `${lines} line${lines === 1 ? "" : "s"}${s.media ? " · ♪" : ""}`;
+      row.append(title, meta);
+      return row;
+    }));
+
+    const match = findSetupFor(pack);
+    ui.importTarget.replaceChildren();
+    (app.allLanguages || []).forEach((l) => {
+      const option = document.createElement("option");
+      option.value = l.id;
+      option.textContent = `${l.learn} → ${l.from}`;
+      ui.importTarget.append(option);
+    });
+    if (!match) {
+      const option = document.createElement("option");
+      option.value = "__new__";
+      option.textContent = `New: ${pack.learn} → ${pack.from}`;
+      ui.importTarget.append(option);
+    }
+    ui.importTarget.value = match ? match.id : "__new__";
+    ui.importPreview.hidden = false;
+  } catch (error) {
+    console.warn("Could not open the zip.", error);
+    ui.importInfo.className = "status warn";
+    ui.importInfo.textContent = error?.message || "Could not open that zip.";
+  }
+}
+
+async function importSongs() {
+  const { pack, entries, prefix } = importState;
+  if (!pack || !entries) return;
+  if (!app.user || !app.modules) {
+    ui.importResult.className = "status warn";
+    ui.importResult.textContent = "Sign in first — the songs are added to your account.";
+    return;
+  }
+  const targetId = ui.importTarget.value;
+  ui.importAdd.disabled = true;
+  ui.importResult.className = "status";
+  ui.importResult.textContent = "Adding…";
+  try {
+    const outcome = await queueWrite(async () => {
+      const { firestore } = app.modules;
+      const ref = firestore.doc(app.db, "users", app.user.uid, "trainer", "state");
+      const snapshot = await firestore.getDoc(ref);
+      const appState = snapshot.exists() ? readAppState(snapshot.data()) : {};
+      if (!Array.isArray(appState.setups)) appState.setups = [];
+
+      let setup = targetId === "__new__"
+        ? null : appState.setups.find((s) => String(s?.id || "") === targetId);
+      if (!setup) {
+        // The trainer fills in everything else a setup needs.
+        setup = {
+          id: `setup-${Date.now().toString(36)}`,
+          learnLanguage: pack.learn,
+          fromLanguage: pack.from,
+          learnLanguageCode: pack.learnCode || "",
+          fromLanguageCode: pack.fromCode || "",
+          words: [],
+          texts: [],
+        };
+        appState.setups.push(setup);
+      }
+      setup.texts = Array.isArray(setup.texts) ? setup.texts : [];
+
+      // Skip songs you already have, so adding the same zip twice is harmless.
+      const have = new Set(setup.texts.map((t) => String(t?.title || "").trim().toLowerCase()));
+      let added = 0;
+      let skipped = 0;
+      for (let i = 0; i < pack.songs.length; i += 1) {
+        const song = pack.songs[i];
+        const sentences = (song.sentences || []).map(normalizeSentence)
+          .filter((x) => x.source || x.translation);
+        if (!sentences.length) continue;
+        const title = String(song.title || "").trim();
+        if (title && have.has(title.toLowerCase())) { skipped += 1; continue; }
+        ui.importResult.textContent = `Adding “${title || "Untitled"}” (${i + 1} of ${pack.songs.length})…`;
+
+        const id = newTextId();
+        let hasMedia = false;
+        const getMedia = song.media ? entries.get(prefix + song.media) : null;
+        if (getMedia) {
+          const blob = await getMedia(song.mediaType || "");
+          await putLocalMedia(id, blob, song.mediaType || blob.type);
+          hasMedia = true;
+        }
+        setup.texts.push({
+          id,
+          title,
+          sentences,
+          hasMedia,
+          mediaType: hasMedia ? String(song.mediaType || "") : "",
+          driveFileId: "",
+          drivePublic: false,
+          updatedAt: Date.now(),
+        });
+        have.add(title.toLowerCase());
+        added += 1;
+      }
+
+      const where = await writeState(ref, {
+        stateJson: JSON.stringify(appState),
+        updatedAtMillis: Date.now(),
+      });
+      return {
+        added,
+        skipped,
+        setupId: String(setup.id),
+        label: `${setup.learnLanguage} → ${setup.fromLanguage}`,
+        where,
+      };
+    });
+
+    app.langId = outcome.setupId;
+    await loadLibrary();
+    selectLanguage(outcome.setupId);
+    showScreen("library");
+    const songs = (n) => `${n} ${n === 1 ? "song" : "songs"}`;
+    let message;
+    if (!outcome.added && outcome.skipped) {
+      message = `Nothing new — ${outcome.skipped === 1 ? "that song is" : `those ${songs(outcome.skipped)} are`} already in ${outcome.label}.`;
+    } else {
+      message = `Added ${songs(outcome.added)} to ${outcome.label}.`;
+      if (outcome.skipped) message += ` ${songs(outcome.skipped)} skipped — already in your songs.`;
+    }
+    notice(message + syncNote(outcome.where), outcome.skipped ? "warn" : "ok");
+  } catch (error) {
+    console.warn("Could not add the songs.", error);
+    ui.importResult.className = "status warn";
+    ui.importResult.textContent = `Could not add them: ${error?.message || error}`;
+  } finally {
+    ui.importAdd.disabled = false;
   }
 }
 
@@ -4091,6 +4604,8 @@ async function showSongsFromDevice() {
 }
 
 (async function boot() {
+  // A link like songs.html#import comes from someone sharing a zip.
+  app.wantImport = /(^|[#&])import/.test(location.hash);
   app.langId = await readSelectedLanguage();   // before the first paint
   const painted = await showSongsFromDevice();
   try {
@@ -4100,11 +4615,20 @@ async function showSongsFromDevice() {
       app.user = user || null;
       if (user) {
         showScreen("library");
+        if (app.wantImport) {
+          app.wantImport = false;
+          history.replaceState(null, "", location.pathname + location.search);
+          openImport();
+        }
         await loadLibrary();
       } else if (firstCallback && await resumeNativeSession()) {
         // Signed back in without asking; the next callback shows the library.
       } else {
         showScreen("signin");          // really signed out: the copy is not yours to show
+        if (app.wantImport) {
+          ui.signinStatus.className = "status";
+          ui.signinStatus.textContent = "Sign in to add the songs someone shared with you.";
+        }
       }
       firstCallback = false;
     });
