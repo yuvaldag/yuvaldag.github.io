@@ -192,6 +192,9 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4.5vw, 2.4rem); font-weight: 800; lette
 .pick-bar span { flex: 1 1 auto; }
 .song-card.picked { border-color: var(--accent); background: var(--accent-soft); }
 .pick-box { flex: 0 0 auto; width: 22px; height: 22px; accent-color: var(--accent); }
+.import-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
+.import-row { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; cursor: pointer; }
+.import-row span:first-of-type { flex: 1 1 auto; }
 .song-card .name { display: block; font-weight: 700; font-size: 1.05rem; }
 .song-card .meta { display: block; color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
 .badge {
@@ -377,6 +380,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
           </label>
           <p id="importInfo" class="status"></p>
           <div id="importPreview" hidden>
+            <div class="import-tools">
+              <span id="importPickedCount"></span>
+              <button id="importAllButton" type="button">Select none</button>
+            </div>
             <div id="importList" class="summary"></div>
             <label class="field"><span>Add them to</span>
               <select id="importTarget"></select>
@@ -409,6 +416,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
           <p id="libraryNotice" class="status" hidden></p>
           <div id="pickBar" class="pick-bar" hidden>
             <span id="pickCount">Pick the songs to send.</span>
+            <button id="pickAllButton" type="button">Select all</button>
             <button id="pickShareButton" type="button">🔗 As a link</button>
             <button id="pickZipButton" class="primary" type="button">📦 As a zip</button>
             <button id="pickCancelButton" type="button">Cancel</button>
@@ -783,6 +791,9 @@ const ui = {
   importTarget: el("importTarget"),
   importAdd: el("importAddButton"),
   importResult: el("importResult"),
+  importAll: el("importAllButton"),
+  importPickedCount: el("importPickedCount"),
+  pickAll: el("pickAllButton"),
   shareZip: el("shareZipButton"),
   draftBanner: el("draftBanner"),
   draftBannerText: el("draftBannerText"),
@@ -1502,6 +1513,7 @@ function renderLibrary() {
   });
 
   paintMediaSizes();
+  if (picking.on) paintPickBar();          // counts follow a language switch
 }
 
 // ---------------------------------------------------------------------------
@@ -2449,6 +2461,8 @@ ui.importOpen.addEventListener("click", openImport);
 ui.importBack.addEventListener("click", () => showScreen("library"));
 ui.importFile.addEventListener("change", previewImport);
 ui.importAdd.addEventListener("click", importSongs);
+ui.importAll.addEventListener("click", toggleImportAll);
+ui.pickAll.addEventListener("click", togglePickAll);
 ui.shareZip.addEventListener("click", async () => {
   ui.shareZip.disabled = true;
   try {
@@ -3497,12 +3511,23 @@ async function shareSong(song, lang, allowBig, report) {
 const picking = { on: false, chosen: new Set() };
 
 function paintPickBar() {
-  const n = picking.chosen.size;
+  // Count only the language on screen — that is what gets shared.
+  const songs = app.languages[app.langIndex]?.songs || [];
+  const n = songs.filter((s) => picking.chosen.has(s.id)).length;
   ui.pickCount.textContent = n
     ? `${n} song${n === 1 ? "" : "s"} picked.`
     : "Pick the songs to send.";
+  ui.pickAll.textContent = songs.length && n === songs.length ? "Select none" : "Select all";
+  ui.pickAll.disabled = songs.length === 0;
   ui.pickShare.disabled = n === 0;
   ui.pickZip.disabled = n === 0;
+}
+
+function togglePickAll() {
+  const songs = app.languages[app.langIndex]?.songs || [];
+  const everything = songs.length && songs.every((s) => picking.chosen.has(s.id));
+  songs.forEach((s) => (everything ? picking.chosen.delete(s.id) : picking.chosen.add(s.id)));
+  renderLibrary();
 }
 
 function startPicking() {
@@ -3929,11 +3954,29 @@ async function shareManyAsZip() {
 
 // --- adding songs someone sent ---------------------------------------------------
 
-const importState = { entries: null, pack: null, prefix: "" };
+const importState = { entries: null, pack: null, prefix: "", available: [], chosen: new Set() };
+
+function paintImportPicks() {
+  const total = importState.available.length;
+  const n = importState.chosen.size;
+  ui.importPickedCount.textContent = `${n} of ${total} selected`;
+  ui.importAll.textContent = total && n === total ? "Select none" : "Select all";
+  ui.importAdd.textContent = n ? `✓ Add ${n} ${n === 1 ? "song" : "songs"}` : "✓ Add songs";
+  ui.importAdd.disabled = n === 0;
+}
+
+function toggleImportAll() {
+  const everything = importState.chosen.size === importState.available.length;
+  importState.chosen = new Set(everything ? [] : importState.available);
+  ui.importList.querySelectorAll("input[type=checkbox]").forEach((box) => { box.checked = !everything; });
+  paintImportPicks();
+}
 
 function openImport() {
   importState.entries = null;
   importState.pack = null;
+  importState.available = [];
+  importState.chosen = new Set();
   ui.importFile.value = "";
   ui.importPreview.hidden = true;
   ui.importInfo.className = "status";
@@ -3985,16 +4028,31 @@ async function previewImport() {
     ui.importInfo.className = "status ok";
     ui.importInfo.textContent =
       `${songs.length} ${songs.length === 1 ? "song" : "songs"} · ${pack.learn} → ${pack.from}`;
-    ui.importList.replaceChildren(...songs.map((s) => {
-      const row = document.createElement("div");
+    // Every song starts ticked; untick any you don't want.
+    importState.available = pack.songs.map((_, i) => i)
+      .filter((i) => (pack.songs[i].sentences || []).length);
+    importState.chosen = new Set(importState.available);
+    ui.importList.replaceChildren(...importState.available.map((i) => {
+      const s = pack.songs[i];
+      const row = document.createElement("label");
+      row.className = "import-row";
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.className = "pick-box";
+      box.checked = true;
+      box.addEventListener("change", () => {
+        if (box.checked) importState.chosen.add(i); else importState.chosen.delete(i);
+        paintImportPicks();
+      });
       const title = document.createElement("span");
       const meta = document.createElement("span");
       const lines = s.sentences.filter((x) => !x.header).length;
       title.textContent = s.title || "Untitled";
       meta.textContent = `${lines} line${lines === 1 ? "" : "s"}${s.media ? " · ♪" : ""}`;
-      row.append(title, meta);
+      row.append(box, title, meta);
       return row;
     }));
+    paintImportPicks();
 
     const match = findSetupFor(pack);
     ui.importTarget.replaceChildren();
@@ -4021,7 +4079,8 @@ async function previewImport() {
 
 async function importSongs() {
   const { pack, entries, prefix } = importState;
-  if (!pack || !entries) return;
+  const chosen = new Set(importState.chosen);
+  if (!pack || !entries || !chosen.size) return;
   if (!app.user || !app.modules) {
     ui.importResult.className = "status warn";
     ui.importResult.textContent = "Sign in first — the songs are added to your account.";
@@ -4061,6 +4120,7 @@ async function importSongs() {
       let added = 0;
       let skipped = 0;
       for (let i = 0; i < pack.songs.length; i += 1) {
+        if (!chosen.has(i)) continue;               // unticked
         const song = pack.songs[i];
         const sentences = (song.sentences || []).map(normalizeSentence)
           .filter((x) => x.source || x.translation);
