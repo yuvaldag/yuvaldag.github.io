@@ -697,7 +697,10 @@ button{font:inherit;color:inherit}
 .chip[aria-pressed="true"]{background:var(--soft);border-color:var(--accent);color:var(--accent);font-weight:600}
 .chip .ic{width:24px;height:24px;font-size:18px}
 .chip .ic svg{width:24px;height:24px}
-.fbar{display:flex;justify-content:space-between;align-items:center;font-size:.85rem;color:var(--muted)}
+.fbar{display:flex;justify-content:space-between;align-items:center;font-size:.85rem;color:var(--muted);gap:10px;flex-wrap:wrap}
+.sortrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dist{font-size:.8rem;color:var(--muted);white-space:nowrap}
+.mepin{width:16px;height:16px;border-radius:50%;background:#2a7de1;border:3px solid #fff;box-shadow:0 0 0 2px rgba(42,125,225,.35)}
 .linkbtn{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font-weight:500}
 .linkbtn:hover{text-decoration:underline}
 /* list */
@@ -826,6 +829,19 @@ const locMatch = (p,l) =>
   (!F.far.size  || F.far.has(Number(l.far))) &&
   (!F.vibe.size || F.vibe.has(Number(l.vibe))) &&
   (!F.city.size || F.city.has(String(l.city||"")));
+let sortMode = "default", myPos = null, locMsg = "";
+const R = 6371, rad = d => d*Math.PI/180;
+function km(a,b){ const dLat=rad(b[0]-a[0]), dLng=rad(b[1]-a[1]); const h=Math.sin(dLat/2)**2+Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+const locKm = l => (myPos && typeof l.lat==="number") ? km(myPos,[l.lat,l.lng]) : Infinity;
+const fmtKm = d => !isFinite(d) ? "" : d < 1 ? `${Math.round(d*1000/10)*10} m` : `${d<10?d.toFixed(1):Math.round(d)} km`;
+function askLocation(){
+  if(!navigator.geolocation){ locMsg="Your browser can't share its location."; sortMode="default"; renderAll(false); return; }
+  locMsg="Finding your location…"; renderFilters();
+  navigator.geolocation.getCurrentPosition(pos => {
+    myPos=[pos.coords.latitude,pos.coords.longitude]; locMsg=""; sortMode="near"; renderAll(false); showMe();
+  }, () => { locMsg="Couldn't get your location. Allow location access in your browser and try again."; sortMode="default"; renderAll(false); },
+  {enableHighAccuracy:false, timeout:15000, maximumAge:300000});
+}
 const anyFilter = () => F.type.size+F.far.size+F.vibe.size+F.city.size > 0;
 function visible(){
   return places.map(p => ({p, locs: locsOf(p).filter(l => locMatch(p,l))})).filter(x => x.locs.length);
@@ -845,10 +861,14 @@ function renderFilters(){
     <div class="fgroup"><span class="flabel">How far</span>${[1,2,3,4].map(n=>chip("far",n,distIcon(n),DIST_TXT[n])).join("")}</div>
     <div class="fgroup"><span class="flabel">Vibe</span>${[0,1,2,3,4].map(n=>chip("vibe",n,vibeIcon(n),VIBE_TXT[n])).join("")}</div>
     <div class="fgroup"><span class="flabel">City</span>${cities.map(c=>chip("city",c,esc(c),c)).join("")}</div>
+    <div class="fgroup"><span class="flabel">Sort</span><span class="sortrow">
+      <button class="chip" id="sortdef" aria-pressed="${sortMode==="default"}">By type</button>
+      <button class="chip" id="sortnear" aria-pressed="${sortMode==="near"}">📍 Closest first</button>
+      ${locMsg?`<span class="dist">${esc(locMsg)}</span>`:""}</span></div>
     <div class="fbar"><span id="fcount"></span>${anyFilter()?`<button class="linkbtn" id="fclear">Clear filters</button>`:""}</div>`;
 }
 document.getElementById("filters").addEventListener("click", e => {
-  const b = e.target.closest(".chip");
+  const b = e.target.closest(".chip[data-g]");
   if(b){ const g=b.dataset.g; let v=b.dataset.v; if(g==="far"||g==="vibe") v=Number(v);
     if(g==="far"||g==="vibe"){
       const max = g==="far"?4:4, min = Math.min(...F[g]);
@@ -857,6 +877,8 @@ document.getElementById("filters").addEventListener("click", e => {
       if(!same) for(let i=v;i<=max;i++) F[g].add(i);
     } else { F[g].has(v)?F[g].delete(v):F[g].add(v); }
     renderAll(true); return; }
+  const s=e.target.closest("#sortdef,#sortnear");
+  if(s){ if(s.id==="sortdef"){ sortMode="default"; renderAll(false); } else askLocation(); return; }
   if(e.target.id==="fclear"){ for(const k in F) F[k].clear(); renderAll(true); }
 });
 
@@ -894,7 +916,10 @@ function _renderList(){
   if(!places.length){ list.innerHTML = `<li class="state">No recommendations yet.</li>`; return; }
   const vis = visible();
   const minFar = x => Math.min(...x.locs.map(l=>Number(l.far)||9));
-  vis.sort((a,b)=> String(a.p.type||"").localeCompare(String(b.p.type||"")) || minFar(a)-minFar(b) || String(a.p.name).localeCompare(b.p.name));
+  if(sortMode==="near" && myPos){
+    for(const x of vis) x.locs = x.locs.slice().sort((a,b)=>locKm(a)-locKm(b));
+    vis.sort((a,b)=> locKm(a.locs[0])-locKm(b.locs[0]) || String(a.p.name).localeCompare(b.p.name));
+  } else vis.sort((a,b)=> String(a.p.type||"").localeCompare(String(b.p.type||"")) || minFar(a)-minFar(b) || String(a.p.name).localeCompare(b.p.name));
   document.getElementById("fcount").textContent = anyFilter() ? `${vis.length} of ${places.length} places` : `${places.length} places`;
   if(!vis.length){ list.innerHTML = `<li class="state">Nothing matches these filters.</li>`; return; }
   list.innerHTML = vis.map(({p,locs}) => `
@@ -903,7 +928,7 @@ function _renderList(){
         <span class="acts">${p.description?`<button class="ibtn" data-act="td" data-p="${esc(p.id)}" aria-expanded="${openDesc.has(p.id)}" aria-label="Description" title="Description">${DESC_SVG}</button>`:""}${cmtBtn(p)}</span></div>
       ${(p.description && openDesc.has(p.id))?`<p class="desc">${esc(p.description)}</p>`:""}
       <ul class="locs">${locs.map(l=>`<li class="lrow2">
-        <span class="where">${l.street?`<span>${esc(l.street)}</span>`:""}${l.city?`<span class="city">${l.street?", ":""}${esc(l.city)}</span>`:""}</span>
+        <span class="where">${l.street?`<span>${esc(l.street)}</span>`:""}${l.city?`<span class="city">${l.street?", ":""}${esc(l.city)}</span>`:""}${(sortMode==="near"&&myPos)?` <span class="dist">· ${fmtKm(locKm(l))}</span>`:""}</span>
         <span class="icons">${distIcon(l.far)}${vibeIcon(l.vibe)}</span>
         <a class="map" href="${mapsUrl(p,l)}" target="_blank" rel="noopener" aria-label="Open ${esc(p.name)}${l.street?" on "+esc(l.street):""} in Google Maps">${MAP_SVG}Map</a></li>`).join("")}</ul>
       ${renderComments(p)}
@@ -978,6 +1003,10 @@ function renderMap(fit){
   if(fit && pts.length){ pts.length===1 ? map.setView(pts[0],15) : map.fitBounds(pts,{padding:[28,28],maxZoom:15}); }
 }
 
+let meMarker=null;
+function showMe(){ if(!map||!myPos) return; if(meMarker) meMarker.remove();
+  meMarker=L.marker(myPos,{icon:L.divIcon({className:"",html:'<div class="mepin"></div>',iconSize:[16,16],iconAnchor:[8,8]}),title:"You are here",zIndexOffset:1000}).bindPopup("You are here").addTo(map);
+  map.setView(myPos, Math.max(map.getZoom(),14)); }
 /* ---------- render ---------- */
 let fitted=false;
 function renderAll(fit){ renderFilters(); renderList(); renderMap(fit || !fitted); if(places.length) fitted=true; }
