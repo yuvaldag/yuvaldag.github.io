@@ -395,5 +395,48 @@
   "cuisine": [
    "pizza"
   ]
+ },
+ {
+  "id": "okasan",
+  "name": "Okasan",
+  "type": "Restaurant",
+  "cuisine": [
+   "ramen"
+  ],
+  "description": "Light, simple ramen soup.",
+  "locations": [
+   {
+    "street": "Malan 39",
+    "city": "Tel Aviv",
+    "address": "Malan 39, Tel Aviv, Israel",
+    "far": 2,
+    "vibe": 2,
+    "lat": 32.068875,
+    "lng": 34.768557
+   }
+  ]
+ },
+ {
+  "id": "ikari",
+  "name": "Ikari",
+  "type": "Coffee",
+  "cuisine": [
+   "japanese"
+  ],
+  "features": [
+   "talk"
+  ],
+  "description": "Cute Japanese place in the shuk. Excellent onigiri.",
+  "locations": [
+   {
+    "street": "Malan 39",
+    "city": "Tel Aviv",
+    "address": "Malan 39, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 3,
+    "lat": 32.068875,
+    "lng": 34.768557
+   }
+  ]
  }
 ]
