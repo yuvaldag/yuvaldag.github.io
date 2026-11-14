@@ -585,5 +585,206 @@
     "lng": 34.767349
    }
   ]
+ },
+ {
+  "id": "mclovin",
+  "name": "McLovin",
+  "mapsName": "מקלאבין",
+  "type": "Coffee",
+  "features": [
+   "specialty"
+  ],
+  "description": "",
+  "locations": [
+   {
+    "street": "Sheinkin 11",
+    "city": "Tel Aviv",
+    "address": "Sheinkin 11, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 3,
+    "lat": 32.069728,
+    "lng": 34.771714
+   }
+  ]
+ },
+ {
+  "id": "mae-caffe",
+  "name": "Mae Caffe",
+  "mapsName": "Mae Cafe",
+  "type": "Coffee",
+  "description": "",
+  "locations": [
+   {
+    "street": "Ibn Gabirol 98",
+    "city": "Tel Aviv",
+    "address": "Ibn Gabirol 98, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 2,
+    "lat": 32.083343,
+    "lng": 34.781571
+   },
+   {
+    "street": "David Elazar 17 (Sarona)",
+    "city": "Tel Aviv",
+    "address": "David Elazar 17, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 2,
+    "lat": 32.071955,
+    "lng": 34.788181
+   },
+   {
+    "street": "Montefiore 3",
+    "city": "Tel Aviv",
+    "address": "Montefiore 3, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 2,
+    "lat": 32.064803,
+    "lng": 34.76928
+   }
+  ]
+ },
+ {
+  "id": "hummus-asi-and-adnan",
+  "name": "Hummus Asi and Adnan",
+  "mapsName": "אסי ועדנן",
+  "type": "Restaurant",
+  "cuisine": [
+   "hummus"
+  ],
+  "description": "",
+  "locations": [
+   {
+    "street": "Rabbi Meir 21 (Kerem HaTeimanim)",
+    "city": "Tel Aviv",
+    "address": "Rabbi Meir 21, Tel Aviv, Israel",
+    "far": 2,
+    "vibe": 1,
+    "lat": 32.0692645,
+    "lng": 34.7686396
+   }
+  ]
+ },
+ {
+  "id": "hateimani",
+  "name": "HaTeimani",
+  "mapsName": "התימני מל\"ן",
+  "type": "Restaurant",
+  "description": "Excellent skewers. Just enjoy good, filling food and relax.",
+  "locations": [
+   {
+    "street": "Malan 27 (Kerem HaTeimanim)",
+    "city": "Tel Aviv",
+    "address": "Malan 27, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 2,
+    "lat": 32.069297,
+    "lng": 34.76792
+   }
+  ]
+ },
+ {
+  "id": "caffe-tamati",
+  "name": "Caffe Tamati",
+  "type": "Coffee",
+  "description": "Small espresso bar.",
+  "locations": [
+   {
+    "street": "HaCarmel 14 (Carmel Market)",
+    "city": "Tel Aviv",
+    "address": "HaCarmel 14, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 3,
+    "lat": 32.068174,
+    "lng": 34.766562
+   }
+  ]
+ },
+ {
+  "id": "amita",
+  "name": "Amita Bakery",
+  "mapsName": "עמיתה",
+  "type": "Bakery",
+  "kinds": [
+   "bakery"
+  ],
+  "description": "",
+  "locations": [
+   {
+    "street": "Derech Shlomo 10 (Salame)",
+    "city": "Tel Aviv",
+    "address": "Derech Shlomo 10, Tel Aviv, Israel",
+    "far": 2,
+    "vibe": 1,
+    "lat": 32.0546135,
+    "lng": 34.7615049
+   }
+  ]
+ },
+ {
+  "id": "le-mala",
+  "name": "Le Mala",
+  "mapsName": "למעלה",
+  "type": "Restaurant",
+  "cuisine": [
+   "mexican"
+  ],
+  "description": "",
+  "locations": [
+   {
+    "street": "Shvil HaMif'al 6",
+    "city": "Tel Aviv",
+    "address": "Shvil HaMif'al 6, Tel Aviv, Israel",
+    "far": 2,
+    "vibe": 2,
+    "lat": 32.0506571,
+    "lng": 34.7726991
+   }
+  ]
+ },
+ {
+  "id": "basta-dagim",
+  "name": "Basta Dagim",
+  "mapsName": "בסטה דגים",
+  "type": "Restaurant",
+  "cuisine": [
+   "sushi"
+  ],
+  "features": [
+   "value"
+  ],
+  "description": "Very cheap sashimi of great quality. Good value for money because it's not a restaurant, but you can sit down.",
+  "locations": [
+   {
+    "street": "Mikve Israel 22",
+    "city": "Tel Aviv",
+    "address": "Mikve Israel 22, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 1,
+    "lat": 32.0626213,
+    "lng": 34.7761617
+   }
+  ]
+ },
+ {
+  "id": "hummus-7",
+  "name": "Hummus 7",
+  "mapsName": "חומוס 7",
+  "type": "Restaurant",
+  "cuisine": [
+   "hummus",
+   "homefood"
+  ],
+  "description": "",
+  "locations": [
+   {
+    "street": "Levontin 7",
+    "city": "Tel Aviv",
+    "address": "Levontin 7, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 2,
+    "lat": 32.0617378,
+    "lng": 34.774758
+   }
+  ]
  }
 ]
