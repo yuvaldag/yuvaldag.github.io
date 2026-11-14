@@ -438,5 +438,45 @@
     "lng": 34.768557
    }
   ]
+ },
+ {
+  "id": "cassata",
+  "name": "Cassata (Eyal Shani)",
+  "mapsName": "Cassata",
+  "type": "Ice cream",
+  "description": "Special Israeli flavors.",
+  "locations": [
+   {
+    "street": "Yehuda HaLevi 12 (Park HaMesila)",
+    "city": "Tel Aviv",
+    "address": "Yehuda HaLevi 12, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 2,
+    "lat": 32.0608449,
+    "lng": 34.7688807
+   }
+  ]
+ },
+ {
+  "id": "stefan",
+  "name": "Stefan",
+  "mapsName": "Stefan Austrian Bakery",
+  "type": "Ice cream",
+  "kinds": [
+   "icecream",
+   "dessert"
+  ],
+  "description": "Austrian desserts.",
+  "locations": [
+   {
+    "street": "Tchernikhovski 21",
+    "city": "Tel Aviv",
+    "address": "Tchernikhovski 21, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 2,
+    "lat": 32.072474,
+    "lng": 34.771261
+   }
+  ]
  }
 ]
