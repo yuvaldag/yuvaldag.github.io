@@ -1187,14 +1187,26 @@ function renderOwner(){
   } else {
     bar.hidden = true;
     foot.innerHTML = user ? `Signed in as ${esc(user.email)} (not an editor). <button class="linkbtn" id="signout">Sign out</button>`
-                          : `<button class="linkbtn" id="signin">Owner sign-in</button>`;
+                          : `<button class="linkbtn" id="signin">Owner sign-in</button>
+      <form id="signinform" style="display:none;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">
+        <input type="email" name="email" autocomplete="username" placeholder="Email" required style="font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)">
+        <input type="password" name="password" autocomplete="current-password" placeholder="Password" required style="font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)">
+        <button class="btn" type="submit">Sign in</button><span class="err" id="signinerr"></span></form>`;
   }
 }
 document.addEventListener("click", async e => {
   const id = e.target.id;
-  if(id==="signin"){ try{ await fb.au.signInWithPopup(fb.auth, new fb.au.GoogleAuthProvider()); }catch(err){ if(!/popup-closed|cancelled/.test(err.code||"")) alert("Sign-in failed: "+err.message); } }
+  if(id==="signin"){ const f=document.getElementById("signinform"); const show=f.style.display==="none"; f.style.display=show?"flex":"none"; if(show) f.email.focus(); }
   else if(id==="signout") fb.au.signOut(fb.auth);
   else if(id==="addplace") openEditor(null);
+});
+document.addEventListener("submit", async e => {
+  if(e.target.id!=="signinform") return;
+  e.preventDefault();
+  const f = e.target, err = document.getElementById("signinerr");
+  err.textContent = "Signing in…";
+  try{ await fb.au.signInWithEmailAndPassword(fb.auth, f.email.value.trim(), f.password.value); }
+  catch(x){ err.textContent = /invalid-credential|wrong-password|user-not-found|invalid-email/.test(x.code||"") ? "Wrong email or password." : /too-many/.test(x.code||"") ? "Too many tries — wait a few minutes." : "Couldn't sign in: "+(x.code||x.message); }
 });
 /* ---------- place editor (owner only) ---------- */
 const ed = document.getElementById("editor"), edf = document.getElementById("edform");
