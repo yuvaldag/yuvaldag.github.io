@@ -175,6 +175,9 @@
   "id": "kafe-bashuk",
   "name": "Kafe BaShuk",
   "type": "Coffee",
+  "features": [
+   "talk"
+  ],
   "description": "",
   "locations": [
    {
