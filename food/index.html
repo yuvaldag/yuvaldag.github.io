@@ -858,7 +858,7 @@ const vibeIcon = n => (n!=null && TABLE[n]) ? `<span class="ic" role="img" aria-
 document.getElementById("lg-dist").innerHTML = [1,2,3,4].map(n=>`<div class="lrow">${distIcon(n)}<span>${DIST_TXT[n]}</span></div>`).join("");
 document.getElementById("lg-vibe").innerHTML = [0,1,2,3,4].map(n=>`<div class="lrow">${vibeIcon(n)}<span>${VIBE_TXT[n]}</span></div>`).join("");
 
-const KIND = {coffee:["☕","Coffee"], icecream:["🍦","Ice cream"], restaurant:["🍽️","Restaurant"], bar:["🍸","Bar"]};
+const KIND = {coffee:["☕","Coffee"], icecream:["🍦","Ice cream"], restaurant:["🍽️","Restaurant"], bar:["🍸","Bar"], dessert:["🍰","Desserts"]};
 const CUISINE = {fish:["🐟","Seafood"], pizza:["🍕","Pizza"], ramen:["🍜","Ramen"], japanese:["🍱","Japanese"]};
 const cuisineOf = p => (Array.isArray(p.cuisine)?p.cuisine:[]).concat((p.kinds||[]).filter(k=>CUISINE[k])).filter((k,i,a)=>CUISINE[k]&&a.indexOf(k)===i);
 const cuisineHtml = cs => cs.map(k=>`<span class="cuis" role="img" aria-label="${CUISINE[k][1]}" title="${CUISINE[k][1]}">${CUISINE[k][0]}</span>`).join("");
