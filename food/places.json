@@ -53,6 +53,7 @@
  {
   "id": "hoc",
   "name": "HOC – House of Coffee",
+  "mapsName": "House of Coffee",
   "type": "Coffee",
   "description": "",
   "locations": [

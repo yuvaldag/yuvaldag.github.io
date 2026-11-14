@@ -840,7 +840,13 @@ function locsOf(p){
   if(Array.isArray(p.locations) && p.locations.length) return p.locations;
   return [{street:p.street||"", city:p.location||"", address:p.address||"", far:p.score, vibe:p.vibe}];
 }
-const mapsUrl = (p,l) => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent([p.name, l.address || [l.street,l.city].filter(Boolean).join(", ")].filter(Boolean).join(", "));
+/* Google Maps link to the business page: search the place's name right at its pin, so Google opens
+   that business instead of the street address. A location can override this with its own "gmaps" link. */
+const mapsName = p => String(p.mapsName || p.name || "");
+const mapsUrl = (p,l) => l.gmaps ? l.gmaps
+  : (typeof l.lat==="number" && typeof l.lng==="number")
+    ? `https://www.google.com/maps/search/${encodeURIComponent(mapsName(p))}/@${l.lat},${l.lng},18z`
+    : "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent([mapsName(p), l.street, l.city].filter(Boolean).join(", "));
 const locMatch = (p,l) =>
   (!F.type.size || F.type.has(String(p.type||""))) &&
   (!F.far.size  || F.far.has(Number(l.far))) &&
