@@ -355,8 +355,7 @@
   "name": "Goocha",
   "type": "Restaurant",
   "kinds": [
-   "restaurant",
-   "fish"
+   "restaurant"
   ],
   "features": [
    "lunch"
@@ -372,6 +371,9 @@
     "far": 2,
     "vibe": 2
    }
+  ],
+  "cuisine": [
+   "fish"
   ]
  },
  {
@@ -389,6 +391,9 @@
     "lat": 32.8182072,
     "lng": 35.001269
    }
+  ],
+  "cuisine": [
+   "pizza"
   ]
  }
 ]
