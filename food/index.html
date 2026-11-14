@@ -873,7 +873,7 @@ function siteSteps(){
     return ["Tap the icon at the left of the address bar (it looks like sliders or a lock) → <b>Permissions</b>.","Turn <b>Location</b> on / set it to <b>Allow</b>."];
   }
   if(br==="firefox") return ["Click the icon at the left of the address bar (map pin / sliders).","Next to <b>Access Your Location</b>, click <b>×</b> to remove the block."];
-  if(br==="safari") return [`In the menu bar, click <b>Safari → Settings for ${esc(location.hostname)}…</b> (or right-click the address bar).`,"Set <b>Location</b> to <b>Allow</b>."];
+  if(br==="safari") return [`In the menu bar, click <b>Safari → Settings for ${esc(location.hostname)}…</b> (or right-click the address bar).`,"Set <b>Location</b> to <b>Allow</b>. (If it already says <b>Ask</b>, Safari may still be remembering an earlier “Don't Allow” — choosing <b>Allow</b> overrides that.)"];
   return ["Click the icon at the left of the address bar (it looks like sliders or a lock).","Set <b>Location</b> to <b>Allow</b>."];
 }
 /* Steps to turn on location for the whole device / for the browser app. */
