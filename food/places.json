@@ -9,8 +9,8 @@
     "street": "Beit Lechem 3",
     "city": "Tel Aviv",
     "address": "Beit Lechem 3, Tel Aviv, Israel",
-    "lat": 32.0577,
-    "lng": 34.7683,
+    "lat": 32.070912,
+    "lng": 34.770842,
     "far": 3,
     "vibe": 2
    }
@@ -26,8 +26,8 @@
     "street": "Oskar Schindler 7",
     "city": "Haifa",
     "address": "Oskar Schindler 7, Haifa, Israel",
-    "lat": 32.7785,
-    "lng": 35.0105,
+    "lat": 32.766889,
+    "lng": 35.013444,
     "far": 3,
     "vibe": 2
    }
@@ -43,8 +43,8 @@
     "street": "HaOranim 20",
     "city": "Pardes Hanna-Karkur",
     "address": "HaOranim 20, Pardes Hanna-Karkur, Israel",
-    "lat": 32.4743,
-    "lng": 34.9688,
+    "lat": 32.477339,
+    "lng": 34.969242,
     "far": 3,
     "vibe": 3
    }
@@ -60,8 +60,8 @@
     "street": "Trumpeldor 6",
     "city": "Tel Aviv",
     "address": "Trumpeldor 6, Tel Aviv, Israel",
-    "lat": 32.0778,
-    "lng": 34.7672,
+    "lat": 32.075392,
+    "lng": 34.766402,
     "far": 2,
     "vibe": 2
    },
@@ -69,8 +69,8 @@
     "street": "HaTavor 2",
     "city": "Tel Aviv",
     "address": "HaTavor 2, Tel Aviv, Israel",
-    "lat": 32.0563,
-    "lng": 34.7768,
+    "lat": 32.06513,
+    "lng": 34.766832,
     "far": 2,
     "vibe": 1
    }
@@ -86,8 +86,8 @@
     "street": "Reines 20",
     "city": "Tel Aviv",
     "address": "Harav Reines 20, Tel Aviv, Israel",
-    "lat": 32.0797,
-    "lng": 34.7768,
+    "lat": 32.079878,
+    "lng": 34.775271,
     "far": 2,
     "vibe": 2
    },
@@ -95,8 +95,8 @@
     "street": "Ashkelon 16 (HaTachana)",
     "city": "Tel Aviv",
     "address": "Ashkelon 16, Tel Aviv, Israel",
-    "lat": 32.0611,
-    "lng": 34.7627,
+    "lat": 32.058516,
+    "lng": 34.76249,
     "far": 2,
     "vibe": 3
    }
@@ -112,8 +112,8 @@
     "street": "Dizengoff 203",
     "city": "Tel Aviv",
     "address": "Dizengoff 203, Tel Aviv, Israel",
-    "lat": 32.0869,
-    "lng": 34.7746,
+    "lat": 32.087631,
+    "lng": 34.774931,
     "far": 1,
     "vibe": 2
    }
@@ -129,8 +129,8 @@
     "street": "Dizengoff 298",
     "city": "Tel Aviv",
     "address": "Dizengoff 298, Tel Aviv, Israel",
-    "lat": 32.0962,
-    "lng": 34.7762,
+    "lat": 32.094109,
+    "lng": 34.776871,
     "far": 1,
     "vibe": 2
    }
@@ -146,8 +146,8 @@
     "street": "Allenby 75",
     "city": "Tel Aviv",
     "address": "Allenby 75, Tel Aviv, Israel",
-    "lat": 32.0677,
-    "lng": 34.7712,
+    "lat": 32.067308,
+    "lng": 34.771496,
     "far": 1,
     "vibe": 2
    }
@@ -163,8 +163,8 @@
     "street": "Basel 1 (Dizengoff 248)",
     "city": "Tel Aviv",
     "address": "Basel 1, Tel Aviv, Israel",
-    "lat": 32.0905,
-    "lng": 34.7747,
+    "lat": 32.090377,
+    "lng": 34.776124,
     "far": 1,
     "vibe": 2
    }
@@ -180,8 +180,8 @@
     "street": "HaCarmel 33",
     "city": "Tel Aviv",
     "address": "HaCarmel 33, Tel Aviv, Israel",
-    "lat": 32.0673,
-    "lng": 34.769,
+    "lat": 32.067809,
+    "lng": 34.767546,
     "far": 1,
     "vibe": 2
    }
@@ -197,8 +197,8 @@
     "street": "Allenby 54",
     "city": "Tel Aviv",
     "address": "Allenby 54, Tel Aviv, Israel",
-    "lat": 32.0703,
-    "lng": 34.7697,
+    "lat": 32.070809,
+    "lng": 34.769789,
     "far": 1,
     "vibe": 3
    }
@@ -214,8 +214,8 @@
     "street": "King George 31",
     "city": "Tel Aviv",
     "address": "King George 31, Tel Aviv, Israel",
-    "lat": 32.0718,
-    "lng": 34.7733,
+    "lat": 32.071943,
+    "lng": 34.773243,
     "far": 1,
     "vibe": 0
    }
@@ -231,8 +231,8 @@
     "street": "Geula 51",
     "city": "Tel Aviv",
     "address": "Geula 51, Tel Aviv, Israel",
-    "lat": 32.0757,
-    "lng": 34.7692,
+    "lat": 32.071082,
+    "lng": 34.769607,
     "far": 1,
     "vibe": 1
    },
@@ -240,8 +240,8 @@
     "street": "Gordon 47",
     "city": "Tel Aviv",
     "address": "J. L. Gordon 47, Tel Aviv, Israel",
-    "lat": 32.0826,
-    "lng": 34.7743,
+    "lat": 32.081719,
+    "lng": 34.774828,
     "far": 1,
     "vibe": 2
    }
@@ -257,8 +257,8 @@
     "street": "Zevulun 9 (Levinsky)",
     "city": "Tel Aviv",
     "address": "Zevulun 9, Tel Aviv, Israel",
-    "lat": 32.059,
-    "lng": 34.7737,
+    "lat": 32.059956,
+    "lng": 34.773007,
     "far": 1,
     "vibe": 2
    },
@@ -266,8 +266,8 @@
     "street": "Rabbi Hanina 9",
     "city": "Jaffa",
     "address": "Rabi Hanina 9, Tel Aviv-Yafo, Israel",
-    "lat": 32.0512,
-    "lng": 34.7568,
+    "lat": 32.052261,
+    "lng": 34.75559,
     "far": 1,
     "vibe": 2
    }
@@ -287,8 +287,8 @@
     "street": "Ben Gurion 39",
     "city": "Tel Aviv",
     "address": "Sderot Ben Gurion 39, Tel Aviv, Israel",
-    "lat": 32.089,
-    "lng": 34.776,
+    "lat": 32.084742,
+    "lng": 34.773734,
     "far": 1,
     "vibe": 3
    }
@@ -308,8 +308,8 @@
     "street": "Dizengoff 174",
     "city": "Tel Aviv",
     "address": "Dizengoff 174, Tel Aviv, Israel",
-    "lat": 32.0852,
-    "lng": 34.7743,
+    "lat": 32.085002,
+    "lng": 34.774617,
     "far": 1,
     "vibe": 2
    }
@@ -332,8 +332,8 @@
     "street": "Dizengoff 171",
     "city": "Tel Aviv",
     "address": "Dizengoff 171, Tel Aviv, Israel",
-    "lat": 32.0848,
-    "lng": 34.7748,
+    "lat": 32.084694,
+    "lng": 34.774259,
     "far": 2,
     "vibe": 2
    }
