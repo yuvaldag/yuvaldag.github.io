@@ -406,13 +406,13 @@
   "description": "Light, simple ramen soup.",
   "locations": [
    {
-    "street": "Malan 39",
+    "street": "Yehia Kapah 27",
     "city": "Tel Aviv",
-    "address": "Malan 39, Tel Aviv, Israel",
+    "address": "Yehia Kapah 27, Tel Aviv, Israel",
     "far": 2,
     "vibe": 2,
-    "lat": 32.068875,
-    "lng": 34.768557
+    "lat": 32.069094,
+    "lng": 34.76794
    }
   ]
  },
