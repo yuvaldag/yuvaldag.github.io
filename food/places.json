@@ -75,6 +75,9 @@
     "far": 2,
     "vibe": 1
    }
+  ],
+  "features": [
+   "specialty"
   ]
  },
  {
@@ -101,6 +104,9 @@
     "far": 2,
     "vibe": 3
    }
+  ],
+  "features": [
+   "specialty"
   ]
  },
  {
@@ -118,6 +124,9 @@
     "far": 1,
     "vibe": 2
    }
+  ],
+  "features": [
+   "specialty"
   ]
  },
  {
@@ -135,6 +144,9 @@
     "far": 1,
     "vibe": 2
    }
+  ],
+  "features": [
+   "specialty"
   ]
  },
  {
@@ -152,6 +164,9 @@
     "far": 1,
     "vibe": 2
    }
+  ],
+  "features": [
+   "specialty"
   ]
  },
  {
@@ -169,6 +184,9 @@
     "far": 1,
     "vibe": 2
    }
+  ],
+  "features": [
+   "specialty"
   ]
  },
  {
@@ -176,6 +194,7 @@
   "name": "Kafe BaShuk",
   "type": "Coffee",
   "features": [
+   "specialty",
    "talk"
   ],
   "description": "",
@@ -206,6 +225,9 @@
     "far": 1,
     "vibe": 3
    }
+  ],
+  "features": [
+   "specialty"
   ]
  },
  {
@@ -223,6 +245,9 @@
     "far": 1,
     "vibe": 0
    }
+  ],
+  "features": [
+   "specialty"
   ]
  },
  {
@@ -249,6 +274,9 @@
     "far": 1,
     "vibe": 2
    }
+  ],
+  "features": [
+   "specialty"
   ]
  },
  {
@@ -275,6 +303,9 @@
     "far": 1,
     "vibe": 2
    }
+  ],
+  "features": [
+   "specialty"
   ]
  },
  {

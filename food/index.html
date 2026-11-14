@@ -719,9 +719,19 @@ button{font:inherit;color:inherit}
 .linkbtn:hover{text-decoration:underline}
 /* list */
 ul{list-style:none;margin:0;padding:0}
-li.item{padding:18px 0;border-top:1.5px solid var(--rule)}
+li.item{padding:10px 0;border-top:1.5px solid var(--rule)}
 li.item:last-child{border-bottom:1px solid var(--line)}
-.top{display:flex;align-items:center;gap:10px}
+.top{display:flex;align-items:center;gap:8px;cursor:pointer}
+.top .icons{margin-left:auto;gap:4px}
+.top .icons .ic{width:28px;height:28px;font-size:20px}.top .icons .ic svg{width:28px;height:28px}
+.chev{background:none;border:0;color:var(--muted);cursor:pointer;padding:4px;display:inline-flex;border-radius:8px;transition:transform .15s}
+.item.open .chev{transform:rotate(180deg)}
+.sub{font-size:.84rem;color:var(--muted);margin:2px 0 0 34px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub .dist{font-weight:600;color:var(--fg)}
+.sub .more{opacity:.85}
+.ccount{display:inline-flex;align-items:center;gap:2px;margin-left:6px;color:var(--accent);font-weight:600}.ccount svg{width:14px;height:14px}
+.details{margin:8px 0 0 34px}
+.dacts{display:flex;gap:16px;margin-top:8px}.dacts .linkbtn{display:inline-flex;align-items:center;gap:4px;font-size:.88rem}.dacts svg{width:16px;height:16px}
 .ticon{font-size:1.35rem;line-height:1;display:inline-flex;gap:2px}
 .top{flex-wrap:nowrap}
 .top .name{min-width:0}
@@ -732,9 +742,9 @@ li.item:last-child{border-bottom:1px solid var(--line)}
 .ibtn svg{width:20px;height:20px}
 .legrow{display:inline-flex;align-items:center;justify-content:center;min-width:34px;color:var(--accent)}
 .legrow svg{width:20px;height:20px}
-.name{font-weight:600;font-size:1.12rem}
+.name{font-weight:600;font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .desc{margin:6px 0 0;padding:8px 12px;border-left:3px solid var(--accent);background:var(--soft);border-radius:0 8px 8px 0;font-size:.95rem}
-.locs{margin:10px 0 0}
+.locs{margin:6px 0 0}
 .lrow2{display:flex;align-items:center;gap:12px;padding:6px 0}
 .lrow2+.lrow2{border-top:1px dashed var(--rule)}
 .where{flex:1;min-width:0;font-size:.93rem}
@@ -850,7 +860,8 @@ document.getElementById("lg-vibe").innerHTML = [0,1,2,3,4].map(n=>`<div class="l
 const KIND = {coffee:["☕","Coffee"], icecream:["🍦","Ice cream"], restaurant:["🍽️","Restaurant"], bar:["🍸","Bar"], fish:["🐟","Seafood"]};
 const LUNCH_SVG = `<svg viewBox="0 0 32 32" width="24" height="24"><path d="M4 6 H17 L28 17 L17 28 L4 15 Z" fill="#f0a63a" stroke="#b9741a" stroke-width="1.4" stroke-linejoin="round"/><circle cx="9.5" cy="11" r="2" fill="#fff" stroke="#b9741a"/><text x="17.5" y="21.5" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="700" fill="#fff">%</text></svg>`;
 const TALK_SVG = `<svg viewBox="0 0 32 32" width="24" height="24"><path d="M19 3h9a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-3l-3.5 3v-3H19a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" fill="#e8f1fb" stroke="#4a7fc1" stroke-width="1.3" stroke-linejoin="round"/><circle cx="20.5" cy="8.5" r="1.1" fill="#4a7fc1"/><circle cx="23.5" cy="8.5" r="1.1" fill="#4a7fc1"/><circle cx="26.5" cy="8.5" r="1.1" fill="#4a7fc1"/><circle cx="11" cy="20" r="9" fill="#ffd54f" stroke="#d4a017" stroke-width="1.4"/><circle cx="8" cy="18" r="1.3" fill="#5a4210"/><circle cx="14" cy="18" r="1.3" fill="#5a4210"/><path d="M7.2 22.2c1 1.6 2.3 2.4 3.8 2.4s2.8-.8 3.8-2.4" fill="none" stroke="#5a4210" stroke-width="1.5" stroke-linecap="round"/></svg>`;
-const FEAT = {lunch:[LUNCH_SVG,"Lunch deal"], talk:[TALK_SVG,"Nice for conversation"]};
+const BEAN_SVG = `<svg viewBox="0 0 32 32" width="24" height="24"><g transform="rotate(-35 16 16)"><ellipse cx="16" cy="16" rx="8.5" ry="12" fill="#7b4a2a" stroke="#4e2b14" stroke-width="1.3"/><path d="M16 4.5c-3.2 4-3.2 7.5 0 11.5s3.2 7.5 0 11.5" fill="none" stroke="#3a1f0d" stroke-width="1.8" stroke-linecap="round"/><ellipse cx="12.2" cy="11" rx="1.6" ry="3.2" fill="#a8714b" opacity=".7"/></g></svg>`;
+const FEAT = {specialty:[BEAN_SVG,"Specialty coffee"], lunch:[LUNCH_SVG,"Lunch deal"], talk:[TALK_SVG,"Nice for conversation"]};
 const TYPE_KINDS = {"coffee":["coffee"],"ice cream":["icecream"],"restaurant":["restaurant"],"bar":["bar"],"restaurant & bar":["restaurant","bar"]};
 const kindsOf = p => (Array.isArray(p.kinds) && p.kinds.length) ? p.kinds : (TYPE_KINDS[String(p.type||"").toLowerCase()] || ["restaurant"]);
 const kindsHtml = ks => ks.filter(k=>KIND[k]).map(k=>`<span role="img" aria-label="${KIND[k][1]}" title="${KIND[k][1]}">${KIND[k][0]}</span>`).join("");
@@ -860,6 +871,7 @@ const featHtml = fs => (Array.isArray(fs)?fs:[]).filter(f=>FEAT[f]).map(f=>`<spa
 const DESC_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h6"/></svg>`;
 const CMT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.4A8 8 0 1 1 21 12z"/></svg>`;
 const ADD_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.4A8 8 0 1 1 21 12z"/><path d="M12 8.5v7M8.5 12h7"/></svg>`;
+const CHEV_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`;
 const EDIT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>`;
 const MAP_SVG = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>`;
 document.getElementById("lg-kind").innerHTML = Object.values(KIND).map(([e,n])=>`<div class="lrow"><span class="ic">${e}</span><span>${n}</span></div>`).join("");
@@ -873,7 +885,7 @@ let names = {};            // per-place name drafts
 let savedName = ""; try{ savedName = localStorage.getItem("food-name")||""; }catch(e){}
 let commentsOn = false;
 const F = { type:new Set(), far:new Set(), vibe:new Set(), city:new Set() };
-const openDesc = new Set(), openCmt = new Set(), openForm = new Set();
+const openDesc = new Set(), openCmt = new Set(), openForm = new Set(), openItem = new Set();
 const drafts = {};
 
 function locsOf(p){
@@ -1050,13 +1062,13 @@ function cmtBtn(p){
 }
 function renderComments(p){
   const cs = commentsFor(p.id);
-  const open = openCmt.has(p.id), formOpen = openForm.has(p.id);
+  const open = openItem.has(p.id) && cs.length > 0, formOpen = openForm.has(p.id);
   if(!(open||formOpen)) return "";
   const items = open ? cs.map(c => `<div class="cmt">
       <div class="cmeta"><span>${esc(c.name||"Someone")}</span><span>${esc(fmtDate(c.created_at))}</span>${isOwner?`<button class="linkbtn" data-act="delc" data-c="${esc(c.id)}" data-p="${esc(p.id)}">Delete</button>`:""}</div>
       <div class="ctext">${esc(c.body)}</div></div>`).join("") : "";
   let form = "";
-  if(commentsOn){
+  if(commentsOn && formOpen){
     if(cs.length >= MAX_PER_PLACE) form = `<div class="cmeta" style="margin-top:6px">This place has reached the limit of ${MAX_PER_PLACE} comments.</div>`;
     else { const d = drafts[p.id]||"", wc = wordCount(d);
       form = `<div class="cform"><input class="cname" data-p="${esc(p.id)}" maxlength="60" placeholder="Your name" aria-label="Your name" value="${esc(names[p.id] ?? savedName)}">
@@ -1080,17 +1092,29 @@ function _renderList(){
   } else vis.sort((a,b)=> String(a.p.type||"").localeCompare(String(b.p.type||"")) || minFar(a)-minFar(b) || String(a.p.name).localeCompare(b.p.name));
   document.getElementById("fcount").textContent = anyFilter() ? `${vis.length} of ${places.length} places` : `${places.length} places`;
   if(!vis.length){ list.innerHTML = `<li class="state">Nothing matches these filters.</li>`; return; }
-  list.innerHTML = vis.map(({p,locs}) => `
-    <li class="item" id="place-${esc(p.id)}">
-      <div class="top"><span class="ticon">${kindsHtml(kindsOf(p))}</span><div class="name">${esc(p.name)}</div>${featHtml(p.features)}
-        <span class="acts">${p.description?`<button class="ibtn" data-act="td" data-p="${esc(p.id)}" aria-expanded="${openDesc.has(p.id)}" aria-label="Description" title="Description">${DESC_SVG}</button>`:""}${cmtBtn(p)}${isOwner?`<button class="ibtn" data-act="edit" data-p="${esc(p.id)}" aria-label="Edit ${esc(p.name)}" title="Edit">${EDIT_SVG}</button>`:""}</span></div>
-      ${(p.description && openDesc.has(p.id))?`<p class="desc">${esc(p.description)}</p>`:""}
-      <ul class="locs">${locs.map(l=>`<li class="lrow2">
-        <span class="where">${l.street?`<span>${esc(l.street)}</span>`:""}${l.city?`<span class="city">${l.street?", ":""}${esc(l.city)}</span>`:""}${(sortMode==="near"&&myPos)?` <span class="dist">· ${fmtKm(locKm(l))}</span>`:""}</span>
-        <span class="icons">${distIcon(l.far)}${vibeIcon(l.vibe)}</span>
-        <a class="map" href="${mapsUrl(p,l)}" target="_blank" rel="noopener" aria-label="Open ${esc(p.name)}${l.street?" on "+esc(l.street):""} in Google Maps">${MAP_SVG}Map</a></li>`).join("")}</ul>
-      ${renderComments(p)}
-    </li>`).join("");
+  const near = sortMode==="near" && myPos;
+  list.innerHTML = vis.map(({p,locs}) => {
+    const l0 = locs[0], open = openItem.has(p.id), nC = commentsFor(p.id).length;
+    const where = l => [l.street, l.city].filter(Boolean).map(esc).join(", ");
+    const sub = `${near?`<span class="dist">${fmtKm(locKm(l0))}</span> · `:""}${where(l0)}${locs.length>1?` <span class="more">+${locs.length-1} more</span>`:""}${nC?` <span class="ccount" title="${nC} comment${nC>1?"s":""}">${CMT_SVG}${nC}</span>`:""}`;
+    return `
+    <li class="item${open?" open":""}" id="place-${esc(p.id)}">
+      <div class="top" data-act="tog" data-p="${esc(p.id)}">
+        <span class="ticon">${kindsHtml(kindsOf(p))}</span><span class="name">${esc(p.name)}</span>${featHtml(p.features)}
+        <span class="icons">${distIcon(l0.far)}${vibeIcon(l0.vibe)}</span>
+        <button class="chev" data-act="tog" data-p="${esc(p.id)}" aria-expanded="${open}" aria-label="${open?"Hide":"Show"} details for ${esc(p.name)}">${CHEV_SVG}</button>
+      </div>
+      <div class="sub">${sub}</div>
+      ${open?`<div class="details">
+        ${p.description?`<p class="desc">${esc(p.description)}</p>`:""}
+        <ul class="locs">${locs.map(l=>`<li class="lrow2">
+          <span class="where">${l.street?`<span>${esc(l.street)}</span>`:""}${l.city?`<span class="city">${l.street?", ":""}${esc(l.city)}</span>`:""}${near?` <span class="dist">· ${fmtKm(locKm(l))}</span>`:""}</span>
+          <span class="icons">${distIcon(l.far)}${vibeIcon(l.vibe)}</span>
+          <a class="map" href="${mapsUrl(p,l)}" target="_blank" rel="noopener" aria-label="Open ${esc(p.name)}${l.street?" on "+esc(l.street):""} in Google Maps">${MAP_SVG}Map</a></li>`).join("")}</ul>
+        ${renderComments(p)}
+        <div class="dacts">${(commentsOn && !openForm.has(p.id))?`<button class="linkbtn" data-act="af" data-p="${esc(p.id)}">${ADD_SVG} Add a comment</button>`:""}${isOwner?`<button class="linkbtn" data-act="edit" data-p="${esc(p.id)}">${EDIT_SVG} Edit</button>`:""}</div>
+      </div>`:""}
+    </li>`;}).join("");
 }
 list.addEventListener("input", e => {
   const el=e.target, pid=el.dataset.p;
@@ -1100,10 +1124,10 @@ list.addEventListener("input", e => {
 list.addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if(!b) return;
   const pid = b.dataset.p, act = b.dataset.act;
-  if(act==="td"){ openDesc.has(pid)?openDesc.delete(pid):openDesc.add(pid); renderList(); }
+  if(act==="tog"){ if(openItem.has(pid)){ openItem.delete(pid); openForm.delete(pid); } else openItem.add(pid); renderList(); }
   else if(act==="tc"){ openCmt.has(pid)?(openCmt.delete(pid),openForm.delete(pid)):(openCmt.add(pid),openForm.add(pid)); renderList(); }
   else if(act==="af"){ if(openForm.has(pid)){ openForm.delete(pid); renderList(); return; } openForm.add(pid); renderList(); const t=list.querySelector(`textarea[data-p="${CSS.escape(pid)}"]`); t&&t.focus(); }
-  else if(act==="close"){ openForm.delete(pid); openCmt.delete(pid); renderList(); }
+  else if(act==="close"){ openForm.delete(pid); renderList(); }
   else if(act==="post") await postComment(pid, b);
   else if(act==="edit") openEditor(pid);
   else if(act==="delc"){ if(confirm("Delete this comment?")) try{ await fb.fs.deleteDoc(fb.fs.doc(fb.db,"comments",b.dataset.c)); }catch(e){ alert("Couldn't delete: "+e.message); } }
@@ -1188,7 +1212,7 @@ async function postComment(pid, btn){
   btn.disabled=true; err.textContent="";
   try{
     await fb.fs.addDoc(fb.fs.collection(fb.db,"comments"), {place:pid, name:name.slice(0,60), body:text, created_at: fb.fs.serverTimestamp()});
-    drafts[pid]=""; openCmt.add(pid); renderList();
+    drafts[pid]=""; openForm.delete(pid); openItem.add(pid); renderList();
     try{ localStorage.setItem("food-name", name); }catch(e){}
   }catch(e){ err.textContent = "Couldn't post the comment. Try again."; btn.disabled=false; }
 }
@@ -1358,6 +1382,12 @@ function showMe(minZoom=14){ if(!map||!myPos) return; if(meMarker) meMarker.remo
   meMarker=L.marker(myPos,{icon:L.divIcon({className:"",html:'<div class="mepin"></div>',iconSize:[16,16],iconAnchor:[8,8]}),title:"You are here",zIndexOffset:1000}).bindPopup("You are here").addTo(map);
   document.querySelector(".locbtn")?.classList.add("on");
   map.setView(myPos, Math.max(map.getZoom(),minZoom)); }
+document.addEventListener("click", e => {
+  const a = e.target.closest('a[href^="#place-"]'); if(!a) return;
+  e.preventDefault(); const pid = decodeURIComponent(a.getAttribute("href").slice(7));
+  openItem.add(pid); renderList();
+  document.getElementById("place-"+pid)?.scrollIntoView({behavior:"smooth", block:"center"});
+});
 /* ---------- render ---------- */
 let fitted=false;
 function renderAll(fit){ renderFilters(); renderList(); renderMap(fit || !fitted); if(places.length) fitted=true; }
