@@ -680,6 +680,9 @@
     "lat": 32.069297,
     "lng": 34.76792
    }
+  ],
+  "cuisine": [
+   "skewers"
   ]
  },
  {
@@ -784,6 +787,137 @@
     "vibe": 2,
     "lat": 32.0617378,
     "lng": 34.774758
+   }
+  ]
+ },
+ {
+  "id": "joe-gelato",
+  "name": "Joe Gelato",
+  "type": "Ice cream",
+  "description": "The best dark chocolate I've tasted in my life (from Mexican cacao), plus other excellent flavors.",
+  "locations": [
+   {
+    "street": "Versalles 78, Juárez",
+    "city": "Mexico City",
+    "address": "Versalles 78, Juárez, Mexico City, Mexico",
+    "far": 4,
+    "vibe": 2,
+    "lat": 19.4281611,
+    "lng": -99.1553946
+   }
+  ]
+ },
+ {
+  "id": "bilmonte",
+  "name": "Bilmonte",
+  "type": "Ice cream",
+  "description": "Italian gelato. Really flavorful dark chocolate and double pistachio.",
+  "locations": [
+   {
+    "street": "30 Great Windmill St, Soho",
+    "city": "London",
+    "address": "30 Great Windmill St, Soho, London, UK",
+    "far": 3,
+    "vibe": 2,
+    "lat": 51.511643,
+    "lng": -0.1346969
+   }
+  ]
+ },
+ {
+  "id": "mob-deli",
+  "name": "Mob Deli",
+  "mapsName": "מוב דלי",
+  "type": "Restaurant",
+  "cuisine": [
+   "deli",
+   "burger"
+  ],
+  "description": "Proper pastrami and Reuben, and an excellent burger.",
+  "locations": [
+   {
+    "street": "Allenby 49",
+    "city": "Tel Aviv",
+    "address": "Allenby 49, Tel Aviv, Israel",
+    "far": 2,
+    "vibe": 2,
+    "lat": 32.0701068,
+    "lng": 34.7704843
+   }
+  ]
+ },
+ {
+  "id": "holy-nata",
+  "name": "Holy Nata",
+  "type": "Bakery",
+  "kinds": [
+   "bakery"
+  ],
+  "description": "Cute store, amazing nata.",
+  "locations": [
+   {
+    "street": "8 Trinity Pl",
+    "city": "San Francisco",
+    "address": "8 Trinity Pl, San Francisco, USA",
+    "far": 1,
+    "vibe": 0,
+    "lat": 37.7902251,
+    "lng": -122.4025393
+   }
+  ]
+ },
+ {
+  "id": "pizza-gilad",
+  "name": "Pizza Gilad",
+  "mapsName": "פיצה גלעד באר טוביה",
+  "type": "Restaurant",
+  "cuisine": [
+   "pizza"
+  ],
+  "description": "Pizza Nazi: every detail made exactly right.",
+  "locations": [
+   {
+    "street": "HaRishonim",
+    "city": "Be'er Tuvia",
+    "address": "HaRishonim, Be'er Tuvia, Israel",
+    "far": 2,
+    "vibe": 2,
+    "lat": 31.7360996,
+    "lng": 34.7248078
+   }
+  ]
+ },
+ {
+  "id": "maraboo",
+  "name": "Maraboo",
+  "type": "Ice cream",
+  "description": "Natural gelato. Excellent chocolate sorbet.",
+  "locations": [
+   {
+    "street": "Archelaou 17, Pangrati",
+    "city": "Athens",
+    "address": "Archelaou 17, Pangrati, Athens, Greece",
+    "far": 3,
+    "vibe": 0,
+    "lat": 37.9714119,
+    "lng": 23.7462532
+   }
+  ]
+ },
+ {
+  "id": "django-gelato",
+  "name": "Django Gelato",
+  "type": "Ice cream",
+  "description": "",
+  "locations": [
+   {
+    "street": "Veikou 15, Koukaki",
+    "city": "Athens",
+    "address": "Veikou 15, Koukaki, Athens, Greece",
+    "far": 1,
+    "vibe": 2,
+    "lat": 37.966817,
+    "lng": 23.7279401
    }
   ]
  }
