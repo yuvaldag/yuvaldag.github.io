@@ -753,6 +753,20 @@ footer.legend h2{font-family:var(--serif);font-weight:600;font-size:1.2rem;margi
 .lgrid h3{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:600}
 .lrow{display:flex;align-items:center;gap:12px;padding:6px 0;font-size:.93rem}
 .state{color:var(--muted);padding:24px 0}
+/* locate button + location help */
+.locbtn{display:flex!important;align-items:center;justify-content:center;color:#333!important;cursor:pointer}
+.locbtn svg{width:18px;height:18px}
+.locbtn.on{color:#2a7de1!important}
+.locbtn.busy svg{animation:locspin 1s linear infinite}
+@keyframes locspin{to{transform:rotate(360deg)}}
+.lochelp{border:1px solid var(--line);border-left:4px solid #d9822b;border-radius:10px;background:var(--soft);padding:12px 14px;margin:0 0 20px;font-size:.92rem}
+.lochelp h3{margin:0 0 6px;font-size:.98rem}
+.lochelp p{margin:4px 0}
+.lochelp ol{margin:6px 0 4px;padding-left:22px}
+.lochelp li{margin:3px 0}
+.lochelp .lhsub{font-weight:600;margin-top:10px}
+.lochelp code{font-size:.82rem;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:2px 6px;word-break:break-all}
+.lochelp .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
 @media (max-width:600px){.lgrid{grid-template-columns:1fr}.wrap{padding:28px 18px 56px}#map{height:280px}.lrow2{flex-wrap:wrap;gap:8px}.where{flex-basis:100%}}
 </style>
 </head>
@@ -760,6 +774,7 @@ footer.legend h2{font-family:var(--serif);font-weight:600;font-size:1.2rem;margi
 <main class="wrap">
   <h1>Food &amp; Coffee</h1>
   <div id="mapbox"><div id="map" role="region" aria-label="Map of the places shown"></div><div class="mapnote">Tap a pin for details. Pin positions are approximate.</div></div>
+  <div id="lochelp" class="lochelp" role="alert" hidden></div>
   <section class="filters" id="filters" aria-label="Filters"></section>
   <ul id="list"><li class="state">Loading…</li></ul>
   <footer class="legend">
@@ -834,13 +849,98 @@ const R = 6371, rad = d => d*Math.PI/180;
 function km(a,b){ const dLat=rad(b[0]-a[0]), dLng=rad(b[1]-a[1]); const h=Math.sin(dLat/2)**2+Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
 const locKm = l => (myPos && typeof l.lat==="number") ? km(myPos,[l.lat,l.lng]) : Infinity;
 const fmtKm = d => !isFinite(d) ? "" : d < 1 ? `${Math.round(d*1000/10)*10} m` : `${d<10?d.toFixed(1):Math.round(d)} km`;
-function askLocation(){
-  if(!navigator.geolocation){ locMsg="Your browser can't share its location."; sortMode="default"; renderAll(false); return; }
-  locMsg="Finding your location…"; renderFilters();
+/* ---------- location ---------- */
+let myAcc = null, locBusy = false, retryLoc = null, permStatus = null;
+const UA = navigator.userAgent;
+const ENV = (() => {
+  const ios = /iPhone|iPad|iPod/.test(UA) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+  const android = /Android/.test(UA);
+  const os = ios ? "ios" : android ? "android" : /Macintosh/.test(UA) ? "mac" : /Windows/.test(UA) ? "windows" : "other";
+  const br = /Edg[A-Z]*\//.test(UA) ? "edge" : /SamsungBrowser/.test(UA) ? "samsung" : /Firefox|FxiOS/.test(UA) ? "firefox"
+           : /CriOS|Chrome\//.test(UA) ? "chrome" : /Safari\//.test(UA) ? "safari" : "other";
+  return {os, br, mobile: ios||android};
+})();
+const SITE = location.origin;
+/* Steps to allow location for this site, per browser/device. Browsers don't let pages open their settings, so we explain. */
+function siteSteps(){
+  const {os,br} = ENV;
+  if(os==="ios"){
+    if(br==="safari") return ["Tap <b>aA</b> (or the ⋯ menu) at the left of the address bar → <b>Website Settings</b>.","Set <b>Location</b> to <b>Allow</b>."];
+    return [`Open the iPhone <b>Settings</b> app → <b>Apps</b> → <b>${br==="chrome"?"Chrome":br==="firefox"?"Firefox":br==="edge"?"Edge":"your browser"}</b> → <b>Location</b>.`,"Choose <b>While Using the App</b>, then come back here."];
+  }
+  if(os==="android"){
+    if(br==="firefox") return ["Tap the lock icon at the left of the address bar.","Turn <b>Location</b> on (or clear the block)."];
+    return ["Tap the icon at the left of the address bar (it looks like sliders or a lock) → <b>Permissions</b>.","Turn <b>Location</b> on / set it to <b>Allow</b>."];
+  }
+  if(br==="firefox") return ["Click the icon at the left of the address bar (map pin / sliders).","Next to <b>Access Your Location</b>, click <b>×</b> to remove the block."];
+  if(br==="safari") return ["In the menu bar, open <b>Safari → Settings… → Websites → Location</b>.",`Set <b>${esc(location.hostname)}</b> to <b>Allow</b>.`];
+  return ["Click the icon at the left of the address bar (it looks like sliders or a lock).","Set <b>Location</b> to <b>Allow</b>."];
+}
+/* Steps to turn on location for the whole device / for the browser app. */
+function deviceSteps(){
+  const {os,br} = ENV, app = {chrome:"Google Chrome",edge:"Microsoft Edge",firefox:"Firefox",safari:"Safari",samsung:"Samsung Internet"}[br] || "your browser";
+  if(os==="ios") return [`<b>Settings</b> → <b>Privacy &amp; Security</b> → <b>Location Services</b>: turn it on, then tap <b>${br==="safari"?"Safari Websites":app}</b> → <b>While Using the App</b>.`];
+  if(os==="android") return ["Swipe down from the top of the screen and turn on <b>Location</b>.",`If it still fails: <b>Settings</b> → <b>Apps</b> → <b>${app}</b> → <b>Permissions</b> → <b>Location</b> → <b>Allow</b>.`];
+  if(os==="mac") return [`<b>Apple menu → System Settings → Privacy &amp; Security → Location Services</b>: turn it on and switch on <b>${app}</b>.`];
+  if(os==="windows") return ["<b>Start → Settings → Privacy &amp; security → Location</b>: turn on <b>Location services</b> and <b>Let desktop apps access your location</b>."];
+  return ["Make sure location services are turned on for your device and browser."];
+}
+/* A settings address the user can paste (pages can't open these themselves). */
+function settingsUrl(){
+  if(ENV.mobile) return "";
+  if(ENV.br==="chrome") return "chrome://settings/content/siteDetails?site="+encodeURIComponent(SITE);
+  if(ENV.br==="edge") return "edge://settings/content/siteDetails?site="+encodeURIComponent(SITE);
+  return "";
+}
+const helpBox = document.getElementById("lochelp");
+function hideLocHelp(){ helpBox.hidden = true; helpBox.innerHTML = ""; }
+const ol = a => `<ol>${a.map(s=>`<li>${s}</li>`).join("")}</ol>`;
+async function showLocHelp(code){
+  let state = ""; try{ state = (await navigator.permissions.query({name:"geolocation"})).state; }catch(e){}
+  let html;
+  if(code===0) html = `<h3>Your browser can't share its location</h3><p>Try opening this page in a recent version of Chrome, Safari, Firefox or Edge.</p>`;
+  else if(code===1 && state==="prompt") html = `<h3>Location wasn't shared</h3><p>The browser asked for permission but it wasn't allowed. Tap <b>Try again</b> and choose <b>Allow</b>.</p>`;
+  else if(code===1){
+    const u = settingsUrl();
+    html = `<h3>Location is blocked for this site</h3><p>To allow it:</p>${ol(siteSteps())}
+      ${u?`<p>Or paste this into the address bar: <code>${esc(u)}</code> <button class="linkbtn" data-lh="copy">Copy</button></p>`:""}
+      <p class="lhsub">Still not working? Location may be off for your ${ENV.mobile?"phone":"computer"}:</p>${ol(deviceSteps())}
+      <p>This page will try again by itself once location is allowed${ENV.os==="ios"?" (or tap Try again)":""}.</p>`;
+  } else if(code===2) html = `<h3>Your ${ENV.mobile?"phone":"computer"} couldn't find its location</h3><p>Location seems to be turned off for the device or the browser:</p>${ol(deviceSteps())}`;
+  else html = `<h3>Finding your location took too long</h3><p>Check that location is on, move somewhere with better signal, and try again.</p>`;
+  helpBox.innerHTML = html + `<div class="row">${code?`<button class="btn" data-lh="retry">Try again</button>`:""}<button class="linkbtn" data-lh="close">Dismiss</button></div>`;
+  helpBox.hidden = false;
+  helpBox.scrollIntoView({block:"nearest", behavior:"smooth"});
+}
+helpBox.addEventListener("click", e => {
+  const a = e.target.closest("[data-lh]")?.dataset.lh;
+  if(a==="close"){ hideLocHelp(); retryLoc = null; }
+  else if(a==="retry" && retryLoc) retryLoc();
+  else if(a==="copy"){ const b=e.target; navigator.clipboard?.writeText(settingsUrl()).then(()=>{ b.textContent="Copied"; },()=>{}); }
+});
+/* Retry automatically when the user allows location in the browser's settings. */
+try{ navigator.permissions.query({name:"geolocation"}).then(st => { permStatus = st;
+  st.onchange = () => { if(st.state==="granted" && retryLoc && !helpBox.hidden) retryLoc(); }; }).catch(()=>{}); }catch(e){}
+function setLocBusy(b){ locBusy=b; const el=document.querySelector(".locbtn"); if(el) el.classList.toggle("busy",b); }
+function locate(onOk, onFail){
+  retryLoc = () => locate(onOk, onFail);
+  if(!navigator.geolocation){ showLocHelp(0); onFail&&onFail(); return; }
+  if(locBusy) return;
+  setLocBusy(true); hideLocHelp();
   navigator.geolocation.getCurrentPosition(pos => {
-    myPos=[pos.coords.latitude,pos.coords.longitude]; locMsg=""; sortMode="near"; renderAll(false); showMe();
-  }, () => { locMsg="Couldn't get your location. Allow location access in your browser and try again."; sortMode="default"; renderAll(false); },
-  {enableHighAccuracy:false, timeout:15000, maximumAge:300000});
+    setLocBusy(false); retryLoc = null;
+    myPos=[pos.coords.latitude,pos.coords.longitude]; myAcc=pos.coords.accuracy; onOk();
+  }, err => { setLocBusy(false); showLocHelp(err.code||2); onFail&&onFail(); },
+  {enableHighAccuracy:false, timeout:15000, maximumAge:60000});
+}
+function askLocation(){
+  locMsg="Finding your location…"; renderFilters();
+  locate(() => { locMsg=""; sortMode="near"; renderAll(false); showMe(); },
+         () => { locMsg=""; sortMode="default"; renderAll(false); });
+}
+/* Map button: go to my location (does not change the sort). */
+function goToMe(){
+  locate(() => { if(sortMode==="near") renderList(); showMe(15); });
 }
 const anyFilter = () => F.type.size+F.far.size+F.vibe.size+F.city.size > 0;
 function visible(){
@@ -988,6 +1088,26 @@ function initMap(){
   map = L.map("map",{zoomControl:true,attributionControl:true,scrollWheelZoom:false,zoomSnap:0.5}).setView([32.08,34.78],12);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
   layer = L.layerGroup().addTo(map);
+  const Loc = L.Control.extend({ options:{position:"topleft"}, onAdd(){
+    const div = L.DomUtil.create("div","leaflet-bar leaflet-control");
+    div.innerHTML = `<a href="#" class="locbtn" role="button" title="Go to my location" aria-label="Go to my location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg></a>`;
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.on(div.firstChild, "click", e => { L.DomEvent.preventDefault(e); goToMe(); });
+    return div; }});
+  new Loc().addTo(map);
+  /* Trackpad pinch (sent by browsers as wheel + ctrlKey) zooms the map under the cursor;
+     a plain two-finger scroll still scrolls the page. Phone pinch is handled by Leaflet's touchZoom. */
+  const box = map.getContainer(); let pinch = 0;
+  box.addEventListener("wheel", e => {
+    if(!e.ctrlKey) return;
+    e.preventDefault();
+    pinch -= e.deltaY * (e.deltaMode ? 0.3 : 0.012);   // accumulate small pinch steps
+    const step = Math.trunc(pinch / 0.5) * 0.5;          // map snaps to half zoom levels
+    if(!step) return;
+    pinch -= step;
+    const z = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), map.getZoom() + step));
+    map.setZoomAround(map.mouseEventToContainerPoint(e), z, {animate:false});
+  }, {passive:false});
 }
 function renderMap(fit){
   if(!map) return;
@@ -1003,10 +1123,12 @@ function renderMap(fit){
   if(fit && pts.length){ pts.length===1 ? map.setView(pts[0],15) : map.fitBounds(pts,{padding:[28,28],maxZoom:15}); }
 }
 
-let meMarker=null;
-function showMe(){ if(!map||!myPos) return; if(meMarker) meMarker.remove();
+let meMarker=null, meCircle=null;
+function showMe(minZoom=14){ if(!map||!myPos) return; if(meMarker) meMarker.remove(); if(meCircle) meCircle.remove();
+  if(myAcc && myAcc < 3000) meCircle=L.circle(myPos,{radius:myAcc,color:"#2a7de1",weight:1,fillOpacity:.1,interactive:false}).addTo(map);
   meMarker=L.marker(myPos,{icon:L.divIcon({className:"",html:'<div class="mepin"></div>',iconSize:[16,16],iconAnchor:[8,8]}),title:"You are here",zIndexOffset:1000}).bindPopup("You are here").addTo(map);
-  map.setView(myPos, Math.max(map.getZoom(),14)); }
+  document.querySelector(".locbtn")?.classList.add("on");
+  map.setView(myPos, Math.max(map.getZoom(),minZoom)); }
 /* ---------- render ---------- */
 let fitted=false;
 function renderAll(fit){ renderFilters(); renderList(); renderMap(fit || !fitted); if(places.length) fitted=true; }
