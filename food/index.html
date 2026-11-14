@@ -670,9 +670,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	}
 </style>
 <style>
-:root{--bg:#fff;--fg:#1d2433;--muted:#5d6678;--line:#e6e8ee;--accent:#1f4e8c;--soft:#eef3fa;--sea:#dbe8f3;--land:#f6f3ec;--border:#cfc8b8;
+:root{--rule:#b9c0cc;--bg:#fff;--fg:#1d2433;--muted:#5d6678;--line:#e6e8ee;--accent:#1f4e8c;--soft:#eef3fa;--sea:#dbe8f3;--land:#f6f3ec;--border:#cfc8b8;
   --serif:"Source Serif 4",Georgia,serif;--sans:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif}
-@media (prefers-color-scheme:dark){:root{--bg:#11151c;--fg:#e4e7ee;--muted:#9aa3b5;--line:#262d3a;--accent:#8fb4ea;--soft:#1a2433;--sea:#16202c;--land:#232a35;--border:#3a4352}}
+@media (prefers-color-scheme:dark){:root{--rule:#4a5466;--bg:#11151c;--fg:#e4e7ee;--muted:#9aa3b5;--line:#262d3a;--accent:#8fb4ea;--soft:#1a2433;--sea:#16202c;--land:#232a35;--border:#3a4352}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
 .wrap{max-width:760px;margin:0 auto;padding:40px 24px 64px}
@@ -690,14 +690,28 @@ button{font:inherit;color:inherit}
 .leaflet-popup-content .pi .ic{width:26px;height:26px;font-size:18px}
 .leaflet-popup-content .pi .ic svg{width:24px;height:24px}
 /* filters */
-.filters{display:flex;flex-direction:column;gap:10px;padding:14px 0;border-top:1px solid var(--line)}
-.fgroup{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-.flabel{font-size:.74rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;width:100%}
+.filters{border:1.5px solid var(--rule);border-radius:12px;padding:10px 12px 12px;margin:0 0 6px;background:var(--soft)}
+.ftitle{font-family:var(--serif);font-weight:600;font-size:1.05rem;margin:0 0 8px}
+.fgroups{display:flex;flex-wrap:wrap;gap:8px}
+.fgroup{display:flex;flex-direction:column;gap:5px;border:1px solid var(--line);border-radius:10px;padding:6px 8px 8px;background:var(--bg)}
+.fchips{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.flabel{font-size:.68rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.chip.ico{padding:3px 7px;min-width:38px;justify-content:center;font-size:1.05rem}
+@media (max-width:600px){
+  .filters{padding:8px 10px 10px}
+  .fgroups{flex-direction:column;gap:5px}
+  .fgroup{flex-direction:row;align-items:center;gap:8px;padding:5px 8px}
+  .flabel{flex:0 0 58px}
+  .fchips{gap:4px}
+  .chip{min-height:32px}
+  .chip.ico{min-width:34px;padding:2px 5px}
+  .chip .ic,.chip .ic svg{width:22px;height:22px}
+}
 .chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:3px 11px;font-size:.86rem;cursor:pointer;min-height:34px}
 .chip[aria-pressed="true"]{background:var(--soft);border-color:var(--accent);color:var(--accent);font-weight:600}
 .chip .ic{width:24px;height:24px;font-size:18px}
 .chip .ic svg{width:24px;height:24px}
-.fbar{display:flex;justify-content:space-between;align-items:center;font-size:.85rem;color:var(--muted);gap:10px;flex-wrap:wrap}
+.fbar{display:flex;justify-content:space-between;align-items:center;font-size:.85rem;color:var(--muted);gap:10px;flex-wrap:wrap;margin-top:8px}
 .sortrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .dist{font-size:.8rem;color:var(--muted);white-space:nowrap}
 .mepin{width:16px;height:16px;border-radius:50%;background:#2a7de1;border:3px solid #fff;box-shadow:0 0 0 2px rgba(42,125,225,.35)}
@@ -705,7 +719,7 @@ button{font:inherit;color:inherit}
 .linkbtn:hover{text-decoration:underline}
 /* list */
 ul{list-style:none;margin:0;padding:0}
-li.item{padding:18px 0;border-top:1px solid var(--line)}
+li.item{padding:18px 0;border-top:1.5px solid var(--rule)}
 li.item:last-child{border-bottom:1px solid var(--line)}
 .top{display:flex;align-items:center;gap:10px}
 .ticon{font-size:1.35rem;line-height:1;display:inline-flex;gap:2px}
@@ -722,7 +736,7 @@ li.item:last-child{border-bottom:1px solid var(--line)}
 .desc{margin:6px 0 0;padding:8px 12px;border-left:3px solid var(--accent);background:var(--soft);border-radius:0 8px 8px 0;font-size:.95rem}
 .locs{margin:10px 0 0}
 .lrow2{display:flex;align-items:center;gap:12px;padding:6px 0}
-.lrow2+.lrow2{border-top:1px dashed var(--line)}
+.lrow2+.lrow2{border-top:1px dashed var(--rule)}
 .where{flex:1;min-width:0;font-size:.93rem}
 .where .city{color:var(--muted)}
 .icons{display:flex;gap:10px;flex-shrink:0;align-items:center}
@@ -990,23 +1004,25 @@ function visible(){
 }
 function commentsFor(pid){ return allComments.filter(c => c && c.place===pid); }
 /* ---------- filters ---------- */
-function chip(group, value, inner, label){
+function chip(group, value, inner, label, ico){
   const on = F[group].has(value);
-  return `<button class="chip" data-g="${group}" data-v="${esc(String(value))}" aria-pressed="${on}" aria-label="${esc(label)}" title="${esc(label)}">${inner}</button>`;
+  return `<button class="chip${ico?" ico":""}" data-g="${group}" data-v="${esc(String(value))}" aria-pressed="${on}" aria-label="${esc(label)}" title="${esc(label)}">${inner}</button>`;
 }
 function renderFilters(){
   const types=[...new Set(places.map(p=>String(p.type||"")).filter(Boolean))].sort();
   const cities=[...new Set(places.flatMap(p=>locsOf(p).map(l=>String(l.city||""))).filter(Boolean))].sort();
   const el=document.getElementById("filters");
   el.innerHTML = `
-    <div class="fgroup"><span class="flabel">Type</span>${types.map(t=>chip("type",t,`${tIcon(t)} ${esc(t)}`,t)).join("")}</div>
-    <div class="fgroup"><span class="flabel">How far</span>${[1,2,3,4].map(n=>chip("far",n,distIcon(n),DIST_TXT[n])).join("")}</div>
-    <div class="fgroup"><span class="flabel">Vibe</span>${[0,1,2,3,4].map(n=>chip("vibe",n,vibeIcon(n),VIBE_TXT[n])).join("")}</div>
-    <div class="fgroup"><span class="flabel">City</span>${cities.map(c=>chip("city",c,esc(c),c)).join("")}</div>
-    <div class="fgroup"><span class="flabel">Sort</span><span class="sortrow">
-      <button class="chip" id="sortdef" aria-pressed="${sortMode==="default"}">By type</button>
-      <button class="chip" id="sortnear" aria-pressed="${sortMode==="near"}">📍 Closest first</button>
-      ${locMsg?`<span class="dist">${esc(locMsg)}</span>`:""}</span></div>
+    <div class="ftitle">Filters</div><div class="fgroups">
+    <div class="fgroup"><span class="flabel">Type</span><div class="fchips">${types.map(t=>chip("type",t,tIcon(t),t,1)).join("")}</div></div>
+    <div class="fgroup"><span class="flabel">How far</span><div class="fchips">${[1,2,3,4].map(n=>chip("far",n,distIcon(n),DIST_TXT[n],1)).join("")}</div></div>
+    <div class="fgroup"><span class="flabel">Vibe</span><div class="fchips">${[0,1,2,3,4].map(n=>chip("vibe",n,vibeIcon(n),VIBE_TXT[n],1)).join("")}</div></div>
+    <div class="fgroup"><span class="flabel">City</span><div class="fchips">${cities.map(c=>chip("city",c,esc(c),c)).join("")}</div></div>
+    <div class="fgroup"><span class="flabel">Sort</span><div class="fchips sortrow">
+      <button class="chip ico" id="sortdef" aria-pressed="${sortMode==="default"}" title="Sort by type" aria-label="Sort by type">🏷️</button>
+      <button class="chip ico" id="sortnear" aria-pressed="${sortMode==="near"}" title="Closest first" aria-label="Closest first">📍</button></div></div>
+    </div>
+    ${locMsg?`<div class="dist" style="margin-top:6px">${esc(locMsg)}</div>`:""}
     <div class="fbar"><span id="fcount"></span>${anyFilter()?`<button class="linkbtn" id="fclear">Clear filters</button>`:""}</div>`;
 }
 document.getElementById("filters").addEventListener("click", e => {
