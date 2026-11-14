@@ -478,5 +478,112 @@
     "lng": 34.771261
    }
   ]
+ },
+ {
+  "id": "thai-underground",
+  "name": "The Thai Underground",
+  "mapsName": "המחתרת התאילנדית",
+  "type": "Restaurant",
+  "cuisine": [
+   "thai"
+  ],
+  "description": "Thai restaurant with vegetables grown in its own garden.",
+  "locations": [
+   {
+    "street": "HaHagana 1",
+    "city": "Pardes Hanna-Karkur",
+    "address": "HaHagana 1, Pardes Hanna-Karkur, Israel",
+    "far": 2,
+    "vibe": 3,
+    "lat": 32.474763,
+    "lng": 34.9793372
+   }
+  ]
+ },
+ {
+  "id": "thai-house",
+  "name": "Thai House",
+  "type": "Restaurant",
+  "cuisine": [
+   "thai"
+  ],
+  "features": [
+   "lunch"
+  ],
+  "description": "Famous, big and excellent Thai place.",
+  "locations": [
+   {
+    "street": "Bograshov 8",
+    "city": "Tel Aviv",
+    "address": "Bograshov 8, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 3,
+    "lat": 32.0776757,
+    "lng": 34.7682139
+   }
+  ]
+ },
+ {
+  "id": "thai-at-the-shuk",
+  "name": "The Thai at the Shuk",
+  "mapsName": "התאילנדית בשוק חיפה",
+  "type": "Restaurant",
+  "cuisine": [
+   "thai"
+  ],
+  "description": "Authentic Thai. Always full: no reservations, so wait in line.",
+  "locations": [
+   {
+    "street": "Luntz 4 (Talpiot Market)",
+    "city": "Haifa",
+    "address": "Luntz 4 (Talpiot Market), Haifa, Israel",
+    "far": 2,
+    "vibe": 3,
+    "lat": 32.8080602,
+    "lng": 35.0020323
+   }
+  ]
+ },
+ {
+  "id": "bun-cha",
+  "name": "Bun Cha",
+  "mapsName": "בון צ'ה חיפה",
+  "type": "Restaurant",
+  "cuisine": [
+   "vietnamese"
+  ],
+  "description": "Authentic Vietnamese.",
+  "locations": [
+   {
+    "street": "Luntz 7 (Talpiot Market)",
+    "city": "Haifa",
+    "address": "Luntz 7 (Talpiot Market), Haifa, Israel",
+    "far": 2,
+    "vibe": 2,
+    "lat": 32.8081,
+    "lng": 35.0021
+   }
+  ]
+ },
+ {
+  "id": "mrs-kutiao",
+  "name": "Mrs. Kutiao",
+  "mapsName": "גברת קוטייאו",
+  "type": "Restaurant",
+  "cuisine": [
+   "thai"
+  ],
+  "description": "Kutiao soup. The meat broth has been simmering on the stove for years (!) without spoiling, as in the original recipe.",
+  "locations": [
+   {
+    "street": "Yom Tov 1 (Carmel Market)",
+    "city": "Tel Aviv",
+    "address": "Yom Tov 1 (Carmel Market), Tel Aviv, Israel",
+    "far": 2,
+    "vibe": 2,
+    "lat": 32.0679,
+    "lng": 34.767349
+   }
+  ]
  }
 ]
