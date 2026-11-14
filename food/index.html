@@ -1384,7 +1384,12 @@ function renderMap(fit){
       m.addTo(layer); pts.push([l.lat,l.lng]);
     }
   }
-  if(fit && pts.length){ pts.length===1 ? map.setView(pts[0],15) : map.fitBounds(pts,{padding:[28,28],maxZoom:15}); }
+  if(fit && pts.length){
+    // With no city filter, open on Israel rather than zooming out to show places abroad.
+    const home = pts.filter(([la,ln]) => la>29 && la<33.6 && ln>34 && ln<36);
+    const show = (!F.city.size && home.length) ? home : pts;
+    show.length===1 ? map.setView(show[0],15) : map.fitBounds(show,{padding:[28,28],maxZoom:15});
+  }
 }
 
 let meMarker=null, meCircle=null;
