@@ -789,6 +789,8 @@ footer.legend h2{font-family:var(--serif);font-weight:600;font-size:1.2rem;margi
 </main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
+/* Browsers only give location to secure (https) pages. */
+if(location.protocol==="http:" && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) location.replace("https:"+location.href.slice(5));
 const list = document.getElementById("list");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const legs = c => `<path d="M8 17 L5 29 M24 17 L27 29" stroke="${c}" stroke-width="2.2" stroke-linecap="round" fill="none"/>`;
@@ -902,7 +904,7 @@ function settingsUrl(){
 const helpBox = document.getElementById("lochelp");
 function hideLocHelp(){ helpBox.hidden = true; helpBox.innerHTML = ""; }
 const ol = a => `<ol>${a.map(s=>`<li>${s}</li>`).join("")}</ol>`;
-async function showLocHelp(code){
+async function showLocHelp(code, detail){
   let state = ""; try{ state = (await navigator.permissions.query({name:"geolocation"})).state; }catch(e){}
   let html;
   if(code===0) html = `<h3>Your browser can't share its location</h3><p>Try opening this page in a recent version of Chrome, Safari, Firefox or Edge.</p>`;
@@ -915,6 +917,7 @@ async function showLocHelp(code){
       <p>This page will try again by itself once location is allowed${ENV.os==="ios"?" (or tap Try again)":""}.</p>`;
   } else if(code===2) html = `<h3>Your ${ENV.mobile?"phone":"computer"} couldn't find its location</h3><p>Location seems to be turned off for the device or the browser:</p>${ol(deviceSteps())}${sysBtn()}`;
   else html = `<h3>Finding your location took too long</h3><p>Check that location is on, move somewhere with better signal, and try again.</p>`;
+  if(detail) html += `<p style="color:var(--muted);font-size:.8rem">Browser said: ${esc(detail)}</p>`;
   helpBox.innerHTML = html + `<div class="row">${code?`<button class="btn" data-lh="retry">Try again</button>`:""}<button class="linkbtn" data-lh="close">Dismiss</button></div>`;
   helpBox.hidden = false;
   helpBox.scrollIntoView({block:"nearest", behavior:"smooth"});
@@ -937,7 +940,7 @@ function locate(onOk, onFail){
   navigator.geolocation.getCurrentPosition(pos => {
     setLocBusy(false); retryLoc = null;
     myPos=[pos.coords.latitude,pos.coords.longitude]; myAcc=pos.coords.accuracy; onOk();
-  }, err => { setLocBusy(false); showLocHelp(err.code||2); onFail&&onFail(); },
+  }, err => { setLocBusy(false); showLocHelp(err.code||2, err.message); onFail&&onFail(); },
   {enableHighAccuracy:false, timeout:15000, maximumAge:60000});
 }
 function askLocation(){
