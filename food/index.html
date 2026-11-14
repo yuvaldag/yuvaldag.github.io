@@ -1117,7 +1117,7 @@ async function initFirebase(){
     if(snap.empty){ if(!snap.metadata.fromCache){ fbPlacesEmpty = true; maybeSeed(); } return; }
     fbPlacesEmpty = false;
     places = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-    renderAll(false);
+    renderAll(false); runMigrations();
   }, err => console.warn("places:", err.message));
   // Comments: live.
   fs.onSnapshot(fs.query(fs.collection(fb.db,"comments"), fs.orderBy("created_at"), fs.limit(5000)), snap => {
@@ -1127,9 +1127,30 @@ async function initFirebase(){
   au.onAuthStateChanged(fb.auth, async u => {
     user = u; isOwner = false;
     if(u){ try{ await fs.getDoc(fs.doc(fb.db,"meta","owner")); isOwner = true; }catch(e){ isOwner = false; } }
-    renderOwner(); renderList(); maybeSeed();
+    renderOwner(); renderList(); await maybeSeed(); runMigrations();
   });
   renderOwner(); renderList();
+}
+/* One-time changes to the Firebase data, applied automatically the next time the owner is signed in.
+   Each runs once (recorded in meta/migrations). */
+const MIGRATIONS = [
+  { id:"2026-11-kafe-bashuk-talk", place:"kafe-bashuk", addFeatures:["talk"] },
+];
+let migrating = false;
+async function runMigrations(){
+  if(!isOwner || migrating || fbPlacesEmpty) return;
+  migrating = true;
+  try{
+    const fs = fb.fs, mref = fs.doc(fb.db,"meta","migrations");
+    const done = (await fs.getDoc(mref)).data()?.done || [];
+    for(const m of MIGRATIONS.filter(m => !done.includes(m.id))){
+      const pref = fs.doc(fb.db,"places",m.place);
+      if(!(await fs.getDoc(pref)).exists()) continue;
+      if(m.addFeatures) await fs.updateDoc(pref, {features: fs.arrayUnion(...m.addFeatures)});
+      await fs.setDoc(mref, {done: fs.arrayUnion(m.id)}, {merge:true});
+    }
+  }catch(e){ console.warn("migrations:", e.message); }
+  migrating = false;
 }
 async function maybeSeed(){
   if(!isOwner || !fbPlacesEmpty || seeding || !seedPlaces.length) return;
