@@ -373,5 +373,22 @@
     "vibe": 2
    }
   ]
+ },
+ {
+  "id": "neopolitan",
+  "name": "NeoPolitan",
+  "type": "Restaurant",
+  "description": "Seasonal Neapolitan pizzas.",
+  "locations": [
+   {
+    "street": "HaNamal 37",
+    "city": "Haifa",
+    "address": "HaNamal 37, Haifa, Israel",
+    "far": 3,
+    "vibe": 3,
+    "lat": 32.8182072,
+    "lng": 35.001269
+   }
+  ]
  }
 ]
