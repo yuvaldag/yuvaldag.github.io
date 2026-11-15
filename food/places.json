@@ -183,6 +183,33 @@
     "lng": 34.776124,
     "far": 1,
     "vibe": 2
+   },
+   {
+    "street": "Sirkin 26 (Talpiot Market)",
+    "city": "Haifa",
+    "address": "Sirkin 26 (Talpiot Market), Haifa, Israel",
+    "lat": 32.81215,
+    "lng": 34.99605,
+    "far": 1,
+    "vibe": 2
+   },
+   {
+    "street": "HaNassi 89 (Tikotin Museum)",
+    "city": "Haifa",
+    "address": "HaNassi 89 (Tikotin Museum), Haifa, Israel",
+    "lat": 32.81475,
+    "lng": 34.98685,
+    "far": 1,
+    "vibe": 2
+   },
+   {
+    "street": "Sderot HaPalyam",
+    "city": "Haifa",
+    "address": "Sderot HaPalyam, Haifa, Israel",
+    "lat": 32.81745,
+    "lng": 34.99955,
+    "far": 1,
+    "vibe": 2
    }
   ],
   "features": [
