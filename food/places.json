@@ -1815,26 +1815,6 @@
   ]
  },
  {
-  "id": "taco-santos",
-  "name": "Taco Santos",
-  "mapsName": "Taco Santos Rothschild",
-  "type": "Restaurant",
-  "cuisine": [
-   "mexican"
-  ],
-  "wantToGo": true,
-  "description": "",
-  "locations": [
-   {
-    "street": "Rothschild Blvd",
-    "city": "Tel Aviv",
-    "address": "Rothschild Boulevard, Tel Aviv, Israel",
-    "lat": 32.067792,
-    "lng": 34.778052
-   }
-  ]
- },
- {
   "id": "eddiy",
   "name": "Eddiy Soft Serve",
   "mapsName": "HaYarkon 145 Tel Aviv",
@@ -1852,22 +1832,42 @@
   ]
  },
  {
+  "id": "taco-santos",
+  "name": "Santos Tacos",
+  "mapsName": "סנטוס טאקוס",
+  "type": "Restaurant",
+  "cuisine": [
+   "mexican"
+  ],
+  "wantToGo": true,
+  "description": "The famous kiosk on Rothschild, now a taco stand: six kinds of big tacos, including birria with broth for dipping.",
+  "locations": [
+   {
+    "street": "Rothschild Blvd, corner of Herzl (kiosk)",
+    "city": "Tel Aviv",
+    "address": "Rothschild Boulevard & Herzl, Tel Aviv, Israel",
+    "lat": 32.06285,
+    "lng": 34.76935
+   }
+  ]
+ },
+ {
   "id": "apiza",
-  "name": "Apiza",
-  "mapsName": "אפיצה גבעתיים",
+  "name": "Apizza",
+  "mapsName": "Apizza הפיצה גבעתיים",
   "type": "Restaurant",
   "cuisine": [
    "pizza"
   ],
   "wantToGo": true,
-  "description": "",
+  "description": "New York style pizza.",
   "locations": [
    {
-    "street": "",
+    "street": "Weizmann 13",
     "city": "Givatayim",
-    "address": "Givatayim, Israel",
-    "lat": 32.0729606,
-    "lng": 34.8113279
+    "address": "Weizmann 13, Givatayim, Israel",
+    "lat": 32.0747799,
+    "lng": 34.8086946
    }
   ]
  }
