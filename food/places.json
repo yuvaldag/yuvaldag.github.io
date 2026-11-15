@@ -544,7 +544,8 @@
    "thai"
   ],
   "features": [
-   "lunch"
+   "lunch",
+   "expensive"
   ],
   "description": "Famous, big and excellent Thai place.",
   "locations": [
@@ -1702,6 +1703,50 @@
     "address": "Tuval 15, Ramat Gan, Israel",
     "lat": 32.0861469,
     "lng": 34.8030371
+   }
+  ]
+ },
+ {
+  "id": "taizu",
+  "name": "Taizu",
+  "type": "Restaurant",
+  "cuisine": [
+   "asian"
+  ],
+  "features": [
+   "lunch",
+   "expensive"
+  ],
+  "description": "",
+  "locations": [
+   {
+    "street": "Menachem Begin 23",
+    "city": "Tel Aviv",
+    "address": "Menachem Begin 23, Tel Aviv, Israel",
+    "far": 1,
+    "lat": 32.06385,
+    "lng": 34.7797765
+   }
+  ]
+ },
+ {
+  "id": "brasserie-r48",
+  "name": "Brasserie R48",
+  "mapsName": "R48 Brasserie Rothschild 48",
+  "type": "Restaurant",
+  "features": [
+   "fancy",
+   "expensive",
+   "lunch"
+  ],
+  "description": "Excellent food.",
+  "locations": [
+   {
+    "street": "Rothschild 48",
+    "city": "Tel Aviv",
+    "address": "Rothschild 48, Tel Aviv, Israel",
+    "lat": 32.0638911,
+    "lng": 34.7749395
    }
   ]
  }
