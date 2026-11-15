@@ -738,6 +738,8 @@ li.item:last-child{border-bottom:1px solid var(--line)}
 .top .name{min-width:0}
 .want{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#7b5cd6;color:#fff;font-weight:800;font-size:13px;line-height:1;font-family:Inter,Arial,sans-serif;flex-shrink:0}
 .chip .want{width:22px;height:22px;font-size:14px}
+.want.been{background:#2e9e5b}
+.want.both{background:linear-gradient(90deg,#2e9e5b 50%,#7b5cd6 50%);font-size:11px;letter-spacing:-1px}
 .pin{position:relative}
 .pin.wantpin{border-style:dashed}
 .pinq{position:absolute;top:-6px;right:-6px;width:15px;height:15px;border-radius:50%;background:#7b5cd6;color:#fff;font:800 10px/15px Inter,Arial,sans-serif;text-align:center;border:1.5px solid #fff}
@@ -904,7 +906,10 @@ let allComments = [];
 let names = {};            // per-place name drafts
 let savedName = ""; try{ savedName = localStorage.getItem("food-name")||""; }catch(e){}
 let commentsOn = false;
-let showWant = true; try{ showWant = localStorage.getItem("food-want") !== "0"; }catch(e){}
+/* Which places to show: "been" (visited), "want" (want to go) or "both". */
+let showMode = "both"; try{ const v = localStorage.getItem("food-show"); if(v==="been"||v==="want") showMode = v; }catch(e){}
+const shown = p => showMode==="both" || (showMode==="want") === isWant(p);
+const SHOW_OPTS = [["been","!","Places I've been"],["want","?","Places I want to go"],["both","!?","Both"]];
 const F = { type:new Set(), far:new Set(), vibe:new Set(), city:new Set() };
 const openDesc = new Set(), openCmt = new Set(), openForm = new Set(), openItem = new Set();
 const drafts = {};
@@ -1033,7 +1038,7 @@ function goToMe(){
 }
 const anyFilter = () => F.type.size+F.far.size+F.vibe.size+F.city.size > 0;
 function visible(){
-  return places.filter(p => showWant || !isWant(p)).map(p => ({p, locs: locsOf(p).filter(l => locMatch(p,l))})).filter(x => x.locs.length);
+  return places.filter(shown).map(p => ({p, locs: locsOf(p).filter(l => locMatch(p,l))})).filter(x => x.locs.length);
 }
 function commentsFor(pid){ return allComments.filter(c => c && c.place===pid); }
 /* ---------- filters ---------- */
@@ -1050,8 +1055,8 @@ function renderFilters(){
     <div class="fgroup"><span class="flabel">Type</span><div class="fchips">${types.map(t=>chip("type",t,tIcon(t),t,1)).join("")}</div></div>
     <div class="fgroup"><span class="flabel">How far</span><div class="fchips">${[1,2,3,4].map(n=>chip("far",n,distIcon(n),DIST_TXT[n],1)).join("")}</div></div>
     <div class="fgroup"><span class="flabel">Vibe</span><div class="fchips">${[0,1,2,3,4].map(n=>chip("vibe",n,vibeIcon(n),VIBE_TXT[n],1)).join("")}</div></div>
-    <div class="fgroup"><span class="flabel">Want to go</span><div class="fchips">
-      <button class="chip ico" id="wanttog" aria-pressed="${showWant}" title="${showWant?"Hide":"Show"} places I want to go to" aria-label="${showWant?"Hide":"Show"} places I want to go to">${WANT_ICON}</button></div></div>
+    <div class="fgroup"><span class="flabel">Visited</span><div class="fchips" role="radiogroup" aria-label="Visited">${SHOW_OPTS.map(([v,ic,t])=>
+      `<button class="chip ico" data-show="${v}" role="radio" aria-checked="${showMode===v}" aria-pressed="${showMode===v}" title="${t}" aria-label="${t}"><span class="want ${v}">${ic}</span></button>`).join("")}</div></div>
     <div class="fgroup"><span class="flabel">City</span><div class="fchips">${cities.map(c=>chip("city",c,esc(c),c)).join("")}</div></div>
     <div class="fgroup"><span class="flabel">Sort</span><div class="fchips sortrow">
       <button class="chip ico" id="sortdef" aria-pressed="${sortMode==="default"}" title="Sort by type" aria-label="Sort by type">🏷️</button>
@@ -1072,7 +1077,8 @@ document.getElementById("filters").addEventListener("click", e => {
     renderAll(true); return; }
   const s=e.target.closest("#sortdef,#sortnear");
   if(s){ if(s.id==="sortdef"){ sortMode="default"; renderAll(false); } else askLocation(); return; }
-  if(e.target.closest("#wanttog")){ showWant=!showWant; try{ localStorage.setItem("food-want", showWant?"1":"0"); }catch(e2){} renderAll(true); return; }
+  const sh = e.target.closest("[data-show]");
+  if(sh){ showMode = sh.dataset.show; try{ localStorage.setItem("food-show", showMode); }catch(e2){} renderAll(true); return; }
   if(e.target.id==="fclear"){ for(const k in F) F[k].clear(); renderAll(true); }
 });
 
@@ -1114,7 +1120,7 @@ function _renderList(){
     for(const x of vis) x.locs = x.locs.slice().sort((a,b)=>locKm(a)-locKm(b));
     vis.sort((a,b)=> locKm(a.locs[0])-locKm(b.locs[0]) || String(a.p.name).localeCompare(b.p.name));
   } else vis.sort((a,b)=> String(a.p.type||"").localeCompare(String(b.p.type||"")) || minFar(a)-minFar(b) || String(a.p.name).localeCompare(b.p.name));
-  const total = places.filter(p => showWant || !isWant(p)).length;
+  const total = places.filter(shown).length;
   document.getElementById("fcount").textContent = anyFilter() ? `${vis.length} of ${total} places` : `${total} places`;
   if(!vis.length){ list.innerHTML = `<li class="state">Nothing matches these filters.</li>`; return; }
   const near = sortMode==="near" && myPos;
