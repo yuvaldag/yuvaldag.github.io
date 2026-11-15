@@ -168,8 +168,8 @@
     "street": "Ashtori HaFarhi 20 (Basel)",
     "city": "Tel Aviv",
     "address": "Ashtori HaFarhi 20, Tel Aviv, Israel",
-    "lat": 32.0911,
-    "lng": 34.7781,
+    "lat": 32.09046,
+    "lng": 34.780395,
     "far": 1,
     "vibe": 2
    }
@@ -196,29 +196,29 @@
    {
     "street": "Sirkin 26 (Talpiot Market)",
     "city": "Haifa",
-    "address": "Sirkin 26 (Talpiot Market), Haifa, Israel",
-    "lat": 32.81215,
-    "lng": 34.99605,
+    "address": "Sirkin 26, Haifa, Israel",
     "far": 1,
-    "vibe": 2
+    "vibe": 2,
+    "lat": 32.8098515,
+    "lng": 35.0001562
    },
    {
-    "street": "HaNassi 89 (Tikotin Museum)",
+    "street": "Tikotin Museum (HaNassi 89)",
     "city": "Haifa",
-    "address": "HaNassi 89 (Tikotin Museum), Haifa, Israel",
-    "lat": 32.81475,
-    "lng": 34.98685,
+    "address": "Tikotin Museum, Haifa, Israel",
     "far": 1,
-    "vibe": 2
+    "vibe": 2,
+    "lat": 32.8093487,
+    "lng": 34.985385
    },
    {
-    "street": "Sderot HaPalyam",
+    "street": "Pal-Yam Blvd (Downtown)",
     "city": "Haifa",
-    "address": "Sderot HaPalyam, Haifa, Israel",
-    "lat": 32.81745,
-    "lng": 34.99955,
+    "address": "Sderot Pal-Yam, Haifa, Israel",
     "far": 1,
-    "vibe": 2
+    "vibe": 2,
+    "lat": 32.8146347,
+    "lng": 35.0021992
    }
   ],
   "features": [
@@ -974,16 +974,16 @@
     "street": "Sheinkin 26",
     "city": "Tel Aviv",
     "address": "Sheinkin 26, Tel Aviv, Israel",
-    "lat": 32.06866,
-    "lng": 34.77225,
+    "lat": 32.069219,
+    "lng": 34.772956,
     "far": 2
    },
    {
     "street": "Chlenov 22",
     "city": "Tel Aviv",
     "address": "Chlenov 22, Tel Aviv, Israel",
-    "lat": 32.05835,
-    "lng": 34.77165,
+    "lat": 32.057673,
+    "lng": 34.77493,
     "far": 2
    }
   ]
@@ -1002,8 +1002,8 @@
     "street": "HaMoshav 42",
     "city": "Pardes Hanna-Karkur",
     "address": "HaMoshav 42, Pardes Hanna-Karkur, Israel",
-    "lat": 32.4735,
-    "lng": 34.9985,
+    "lat": 32.473599,
+    "lng": 34.993391,
     "far": 1
    }
   ]
@@ -1021,8 +1021,8 @@
     "street": "Ibn Gabirol 54",
     "city": "Tel Aviv",
     "address": "Ibn Gabirol 54, Tel Aviv, Israel",
-    "lat": 32.0789,
-    "lng": 34.78145,
+    "lat": 32.077957,
+    "lng": 34.781539,
     "far": 1
    }
   ]
@@ -1041,8 +1041,8 @@
     "street": "HaShomer 1",
     "city": "Tel Aviv",
     "address": "HaShomer 1, Tel Aviv, Israel",
-    "lat": 32.06855,
-    "lng": 34.76835,
+    "lat": 32.068786,
+    "lng": 34.769323,
     "far": 1
    }
   ]
@@ -1061,8 +1061,8 @@
     "street": "Walter Moses 10",
     "city": "Tel Aviv",
     "address": "Walter Moses 10, Tel Aviv, Israel",
-    "lat": 32.0667,
-    "lng": 34.7978,
+    "lat": 32.068569,
+    "lng": 34.795117,
     "far": 1
    }
   ]
@@ -1101,8 +1101,8 @@
     "street": "HaRakevet 12",
     "city": "Tel Aviv",
     "address": "HaRakevet 12, Tel Aviv, Israel",
-    "lat": 32.06205,
-    "lng": 34.77335,
+    "lat": 32.063376,
+    "lng": 34.776859,
     "far": 1
    }
   ]
@@ -1181,8 +1181,8 @@
     "street": "Ibn Gabirol 8",
     "city": "Tel Aviv",
     "address": "Ibn Gabirol 8, Tel Aviv, Israel",
-    "lat": 32.0752,
-    "lng": 34.78155,
+    "lat": 32.072074,
+    "lng": 34.782064,
     "far": 1
    }
   ]
@@ -1200,8 +1200,8 @@
     "street": "Kikar Kedumim 10",
     "city": "Jaffa",
     "address": "Kikar Kedumim 10, Jaffa, Israel",
-    "lat": 32.05455,
-    "lng": 34.75185,
+    "lat": 32.054459,
+    "lng": 34.751553,
     "far": 1,
     "vibe": 3
    }
@@ -1241,8 +1241,8 @@
     "street": "Dizengoff 201",
     "city": "Tel Aviv",
     "address": "Dizengoff 201, Tel Aviv, Israel",
-    "lat": 32.08775,
-    "lng": 34.77455
+    "lat": 32.08749,
+    "lng": 34.774902
    }
   ]
  },
@@ -1261,8 +1261,8 @@
     "street": "Nahalat Binyamin 25",
     "city": "Tel Aviv",
     "address": "Nahalat Binyamin 25, Tel Aviv, Israel",
-    "lat": 32.06745,
-    "lng": 34.77025
+    "lat": 32.066933,
+    "lng": 34.770387
    }
   ]
  },
@@ -1281,8 +1281,8 @@
     "street": "HaYarkon 18",
     "city": "Tel Aviv",
     "address": "HaYarkon 18, Tel Aviv, Israel",
-    "lat": 32.0745,
-    "lng": 34.7669
+    "lat": 32.070251,
+    "lng": 34.765138
    }
   ]
  },
@@ -1318,8 +1318,8 @@
     "street": "Chlenov 22",
     "city": "Tel Aviv",
     "address": "Chlenov 22, Tel Aviv, Israel",
-    "lat": 32.05825,
-    "lng": 34.7718
+    "lat": 32.057673,
+    "lng": 34.77493
    }
   ]
  },
@@ -1358,8 +1358,8 @@
     "street": "Aza 19",
     "city": "Jerusalem",
     "address": "Aza 19, Jerusalem, Israel",
-    "lat": 31.7738,
-    "lng": 35.2128
+    "lat": 31.772694,
+    "lng": 35.214573
    }
   ]
  },
@@ -1417,8 +1417,8 @@
     "street": "HaBosem 6",
     "city": "Ashdod",
     "address": "HaBosem 6, Ashdod, Israel",
-    "lat": 31.8155,
-    "lng": 34.664
+    "lat": 31.820217,
+    "lng": 34.66646
    }
   ]
  },
@@ -1457,15 +1457,15 @@
     "street": "Levinsky 30",
     "city": "Tel Aviv",
     "address": "Levinsky 30, Tel Aviv, Israel",
-    "lat": 32.05965,
-    "lng": 34.77455
+    "lat": 32.059711,
+    "lng": 34.771428
    },
    {
     "street": "Dizengoff 93",
     "city": "Tel Aviv",
     "address": "Dizengoff 93, Tel Aviv, Israel",
-    "lat": 32.0789,
-    "lng": 34.77385
+    "lat": 32.078846,
+    "lng": 34.7738
    }
   ]
  },
@@ -1487,8 +1487,8 @@
     "street": "Ben Yehuda 155",
     "city": "Tel Aviv",
     "address": "Ben Yehuda 155, Tel Aviv, Israel",
-    "lat": 32.09045,
-    "lng": 34.77335
+    "lat": 32.08833,
+    "lng": 34.773334
    }
   ]
  },
@@ -1507,8 +1507,8 @@
     "street": "Sderot KKL 1 (winery compound)",
     "city": "Kfar Tavor",
     "address": "Sderot KKL 1 (winery compound), Kfar Tavor, Israel",
-    "lat": 32.687,
-    "lng": 35.4185
+    "lat": 32.686346,
+    "lng": 35.428439
    }
   ]
  },
@@ -1526,8 +1526,8 @@
     "street": "Shlomzion HaMalka 11",
     "city": "Jerusalem",
     "address": "Shlomzion HaMalka 11, Jerusalem, Israel",
-    "lat": 31.77955,
-    "lng": 35.22345
+    "lat": 31.77908,
+    "lng": 35.222532
    }
   ]
  },
@@ -1542,8 +1542,8 @@
     "street": "Kikar Kedumim 6",
     "city": "Jaffa",
     "address": "Kikar Kedumim 6, Jaffa, Israel",
-    "lat": 32.0546,
-    "lng": 34.7521
+    "lat": 32.054712,
+    "lng": 34.751741
    }
   ]
  },
@@ -1587,8 +1587,8 @@
     "street": "Beit Lechem 3",
     "city": "Tel Aviv",
     "address": "Beit Lechem 3, Tel Aviv, Israel",
-    "lat": 32.07085,
-    "lng": 34.7707
+    "lat": 32.07086,
+    "lng": 34.770941
    }
   ]
  },
@@ -1604,8 +1604,8 @@
     "street": "Gvulot 5",
     "city": "Tel Aviv",
     "address": "Gvulot 5, Tel Aviv, Israel",
-    "lat": 32.0566,
-    "lng": 34.7703
+    "lat": 32.059148,
+    "lng": 34.767734
    }
   ]
  },
@@ -1620,8 +1620,8 @@
     "street": "Lunz 7",
     "city": "Haifa",
     "address": "Lunz 7, Haifa, Israel",
-    "lat": 32.8125,
-    "lng": 34.9963
+    "lat": 32.80806,
+    "lng": 35.002032
    }
   ]
  }
