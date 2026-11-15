@@ -676,6 +676,15 @@
     "vibe": 2,
     "lat": 32.064803,
     "lng": 34.76928
+   },
+   {
+    "street": "Tuval 15 (roastery, Diamond Exchange)",
+    "city": "Ramat Gan",
+    "address": "Tuval 15, Ramat Gan, Israel",
+    "far": 1,
+    "vibe": 2,
+    "lat": 32.0859389,
+    "lng": 34.8028616
    }
   ],
   "features": [
