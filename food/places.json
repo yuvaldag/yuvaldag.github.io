@@ -1813,5 +1813,62 @@
     "lng": -122.475687
    }
   ]
+ },
+ {
+  "id": "taco-santos",
+  "name": "Taco Santos",
+  "mapsName": "Taco Santos Rothschild",
+  "type": "Restaurant",
+  "cuisine": [
+   "mexican"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Rothschild Blvd",
+    "city": "Tel Aviv",
+    "address": "Rothschild Boulevard, Tel Aviv, Israel",
+    "lat": 32.067792,
+    "lng": 34.778052
+   }
+  ]
+ },
+ {
+  "id": "eddiy",
+  "name": "Eddiy Soft Serve",
+  "mapsName": "HaYarkon 145 Tel Aviv",
+  "type": "Ice cream",
+  "wantToGo": true,
+  "description": "Soft-serve ice cream.",
+  "locations": [
+   {
+    "street": "HaYarkon 145",
+    "city": "Tel Aviv",
+    "address": "HaYarkon 145, Tel Aviv, Israel",
+    "lat": 32.0841,
+    "lng": 34.7693
+   }
+  ]
+ },
+ {
+  "id": "apiza",
+  "name": "Apiza",
+  "mapsName": "אפיצה גבעתיים",
+  "type": "Restaurant",
+  "cuisine": [
+   "pizza"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "",
+    "city": "Givatayim",
+    "address": "Givatayim, Israel",
+    "lat": 32.0729606,
+    "lng": 34.8113279
+   }
+  ]
  }
 ]
