@@ -1637,5 +1637,25 @@
     "lng": 34.9929605
    }
   ]
+ },
+ {
+  "id": "caffe-naima",
+  "name": "Caffe Naima",
+  "mapsName": "קפה נעימה",
+  "type": "Coffee",
+  "features": [
+   "specialty"
+  ],
+  "description": "Excellent quality coffee.",
+  "locations": [
+   {
+    "street": "Derech Yafo 49 (Downtown)",
+    "city": "Haifa",
+    "address": "Derech Yafo 49, Haifa, Israel",
+    "far": 2,
+    "lat": 32.820106,
+    "lng": 34.9965103
+   }
+  ]
  }
 ]
