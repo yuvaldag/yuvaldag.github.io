@@ -923,5 +923,670 @@
     "lng": 23.7279401
    }
   ]
+ },
+ {
+  "id": "alon-shabo",
+  "name": "Alon Shabo",
+  "mapsName": "Alon Shabo",
+  "type": "Bakery",
+  "kinds": [
+   "bakery"
+  ],
+  "description": "One of the best bakeries, excellent doughs and special cakes and pastries.",
+  "locations": [
+   {
+    "street": "Sheinkin 26",
+    "city": "Tel Aviv",
+    "address": "Sheinkin 26, Tel Aviv, Israel",
+    "lat": 32.06866,
+    "lng": 34.77225,
+    "far": 2
+   },
+   {
+    "street": "Chlenov 22",
+    "city": "Tel Aviv",
+    "address": "Chlenov 22, Tel Aviv, Israel",
+    "lat": 32.05835,
+    "lng": 34.77165,
+    "far": 2
+   }
+  ]
+ },
+ {
+  "id": "izakaya-karkur",
+  "name": "Izakaya",
+  "mapsName": "איזקאיה כרכור",
+  "type": "Restaurant",
+  "cuisine": [
+   "japanese"
+  ],
+  "description": "Nice simple restaurant, not fancy, healthy.",
+  "locations": [
+   {
+    "street": "HaMoshav 42",
+    "city": "Pardes Hanna-Karkur",
+    "address": "HaMoshav 42, Pardes Hanna-Karkur, Israel",
+    "lat": 32.4735,
+    "lng": 34.9985,
+    "far": 1
+   }
+  ]
+ },
+ {
+  "id": "coffee-brands",
+  "name": "Coffee Brands",
+  "type": "Coffee",
+  "features": [
+   "specialty"
+  ],
+  "description": "",
+  "locations": [
+   {
+    "street": "Ibn Gabirol 54",
+    "city": "Tel Aviv",
+    "address": "Ibn Gabirol 54, Tel Aviv, Israel",
+    "lat": 32.0789,
+    "lng": 34.78145,
+    "far": 1
+   }
+  ]
+ },
+ {
+  "id": "hataco",
+  "name": "HaTaco",
+  "mapsName": "הטאקו שוק הכרמל",
+  "type": "Restaurant",
+  "cuisine": [
+   "mexican"
+  ],
+  "description": "Nice outside taco at the shuk.",
+  "locations": [
+   {
+    "street": "HaShomer 1",
+    "city": "Tel Aviv",
+    "address": "HaShomer 1, Tel Aviv, Israel",
+    "lat": 32.06855,
+    "lng": 34.76835,
+    "far": 1
+   }
+  ]
+ },
+ {
+  "id": "cafetish",
+  "name": "Cafetish",
+  "mapsName": "קפטיש",
+  "type": "Coffee",
+  "features": [
+   "specialty"
+  ],
+  "description": "",
+  "locations": [
+   {
+    "street": "Walter Moses 10",
+    "city": "Tel Aviv",
+    "address": "Walter Moses 10, Tel Aviv, Israel",
+    "lat": 32.0667,
+    "lng": 34.7978,
+    "far": 1
+   }
+  ]
+ },
+ {
+  "id": "chatuchak",
+  "name": "Chatuchak",
+  "type": "Restaurant",
+  "cuisine": [
+   "thai"
+  ],
+  "description": "",
+  "locations": [
+   {
+    "street": "HaMelacha 4",
+    "city": "Netanya",
+    "address": "HaMelacha 4, Netanya, Israel",
+    "lat": 32.3175,
+    "lng": 34.863,
+    "far": 2
+   }
+  ]
+ },
+ {
+  "id": "wat-sang",
+  "name": "Wat Sang",
+  "mapsName": "Wat Sang Sushi & More",
+  "type": "Restaurant",
+  "cuisine": [
+   "sushi",
+   "japanese"
+  ],
+  "description": "",
+  "locations": [
+   {
+    "street": "HaRakevet 12",
+    "city": "Tel Aviv",
+    "address": "HaRakevet 12, Tel Aviv, Israel",
+    "lat": 32.06205,
+    "lng": 34.77335,
+    "far": 1
+   }
+  ]
+ },
+ {
+  "id": "knafeh-kaak",
+  "name": "Knafeh Kaak",
+  "mapsName": "כנאפה כעכ",
+  "type": "Bakery",
+  "kinds": [
+   "dessert"
+  ],
+  "description": "Excellent Arabic desserts, light not heavy.",
+  "locations": [
+   {
+    "street": "Farmers' Market, Tel Aviv Port (Hangar 12)",
+    "city": "Tel Aviv",
+    "address": "Farmers' Market, Tel Aviv Port (Hangar 12), Tel Aviv, Israel",
+    "lat": 32.0984,
+    "lng": 34.7746,
+    "far": 2
+   }
+  ]
+ },
+ {
+  "id": "factory-54-cafe",
+  "name": "Factory 54 Cafe",
+  "mapsName": "Factory 54 Cafe",
+  "type": "Coffee",
+  "features": [
+   "specialty"
+  ],
+  "description": "",
+  "locations": [
+   {
+    "street": "Ramat Aviv Mall, Einstein 40",
+    "city": "Tel Aviv",
+    "address": "Ramat Aviv Mall, Einstein 40, Tel Aviv, Israel",
+    "lat": 32.1124,
+    "lng": 34.7966,
+    "far": 1
+   }
+  ]
+ },
+ {
+  "id": "agro-cafe",
+  "name": "Agro Cafe",
+  "mapsName": "אגרו קפה",
+  "type": "Coffee",
+  "features": [
+   "specialty"
+  ],
+  "description": "Really big roastery where you can also drink, buy lots of specialty coffee for cheap and see the roasting process.",
+  "locations": [
+   {
+    "street": "Sarigim Li-On commercial center",
+    "city": "Sarigim Li-On",
+    "address": "Sarigim Li-On commercial center, Sarigim Li-On, Israel",
+    "lat": 31.6735,
+    "lng": 34.93,
+    "far": 2
+   }
+  ]
+ },
+ {
+  "id": "poets-hummus",
+  "name": "The Poet's Hummus",
+  "mapsName": "חומוס המשורר",
+  "type": "Restaurant",
+  "cuisine": [
+   "hummus"
+  ],
+  "description": "",
+  "locations": [
+   {
+    "street": "Ibn Gabirol 8",
+    "city": "Tel Aviv",
+    "address": "Ibn Gabirol 8, Tel Aviv, Israel",
+    "lat": 32.0752,
+    "lng": 34.78155,
+    "far": 1
+   }
+  ]
+ },
+ {
+  "id": "kalamata",
+  "name": "Kalamata",
+  "type": "Restaurant",
+  "cuisine": [
+   "greek"
+  ],
+  "description": "Authentic Greek restaurant with great sea views.",
+  "locations": [
+   {
+    "street": "Kikar Kedumim 10",
+    "city": "Jaffa",
+    "address": "Kikar Kedumim 10, Jaffa, Israel",
+    "lat": 32.05455,
+    "lng": 34.75185,
+    "far": 1,
+    "vibe": 3
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "pizza-farino",
+  "name": "Pizza Farino",
+  "mapsName": "פיצה פארינו אשדוד",
+  "type": "Restaurant",
+  "cuisine": [
+   "pizza"
+  ],
+  "locations": [
+   {
+    "street": "Tzahal 5",
+    "city": "Ashdod",
+    "address": "Tzahal 5, Ashdod, Israel",
+    "lat": 31.7965,
+    "lng": 34.645
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "ligori",
+  "name": "Ligori",
+  "type": "Restaurant",
+  "cuisine": [
+   "deli"
+  ],
+  "locations": [
+   {
+    "street": "Dizengoff 201",
+    "city": "Tel Aviv",
+    "address": "Dizengoff 201, Tel Aviv, Israel",
+    "lat": 32.08775,
+    "lng": 34.77455
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "vermuteria",
+  "name": "Vermuteria",
+  "type": "Restaurant & Bar",
+  "kinds": [
+   "restaurant",
+   "bar"
+  ],
+  "locations": [
+   {
+    "street": "Nahalat Binyamin 25",
+    "city": "Tel Aviv",
+    "address": "Nahalat Binyamin 25, Tel Aviv, Israel",
+    "lat": 32.06745,
+    "lng": 34.77025
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "goloso-deli",
+  "name": "Goloso Deli",
+  "mapsName": "גולוסו דלי",
+  "type": "Restaurant",
+  "cuisine": [
+   "deli"
+  ],
+  "locations": [
+   {
+    "street": "HaYarkon 18",
+    "city": "Tel Aviv",
+    "address": "HaYarkon 18, Tel Aviv, Israel",
+    "lat": 32.0745,
+    "lng": 34.7669
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "tirza",
+  "name": "Tirza Wine Bar",
+  "mapsName": "Tirza",
+  "type": "Bar",
+  "kinds": [
+   "bar"
+  ],
+  "locations": [
+   {
+    "street": "HaHalutzim 3",
+    "city": "Tel Aviv",
+    "address": "HaHalutzim 3, Tel Aviv, Israel",
+    "lat": 32.059,
+    "lng": 34.766
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "gastro-mechanico",
+  "name": "Gastro Mechanico",
+  "mapsName": "גסטרו מכניקו",
+  "type": "Restaurant",
+  "locations": [
+   {
+    "street": "Chlenov 22",
+    "city": "Tel Aviv",
+    "address": "Chlenov 22, Tel Aviv, Israel",
+    "lat": 32.05825,
+    "lng": 34.7718
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "pizza-pizzini",
+  "name": "Pizza Pizzini Boutique",
+  "mapsName": "פיצה פיציני בוטיק",
+  "type": "Restaurant",
+  "cuisine": [
+   "pizza"
+  ],
+  "locations": [
+   {
+    "street": "Arba'at ha-Minim 6",
+    "city": "Jerusalem",
+    "address": "Arba'at ha-Minim 6, Jerusalem, Israel",
+    "lat": 31.796,
+    "lng": 35.19
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "azia-19",
+  "name": "Azia 19",
+  "mapsName": "אזיה 19",
+  "type": "Restaurant",
+  "cuisine": [
+   "japanese"
+  ],
+  "locations": [
+   {
+    "street": "Aza 19",
+    "city": "Jerusalem",
+    "address": "Aza 19, Jerusalem, Israel",
+    "lat": 31.7738,
+    "lng": 35.2128
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "sandra-pastry",
+  "name": "Sandra Pastry Shop",
+  "type": "Bakery",
+  "kinds": [
+   "bakery"
+  ],
+  "locations": [
+   {
+    "street": "Sderot Tel Hai 19",
+    "city": "Ashdod",
+    "address": "Sderot Tel Hai 19, Ashdod, Israel",
+    "lat": 31.795,
+    "lng": 34.64
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "kafrit-batabun",
+  "name": "Kafrit BaTabun",
+  "mapsName": "כפרית בטאבון",
+  "type": "Restaurant",
+  "cuisine": [
+   "pizza"
+  ],
+  "locations": [
+   {
+    "street": "Havatzelet HaSharon",
+    "city": "Berekhya",
+    "address": "Havatzelet HaSharon, Berekhya, Israel",
+    "lat": 31.6705,
+    "lng": 34.6115
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "idi-fish",
+  "name": "Idi Fish",
+  "mapsName": "אידי דגים",
+  "type": "Restaurant",
+  "cuisine": [
+   "fish"
+  ],
+  "locations": [
+   {
+    "street": "HaBosem 6",
+    "city": "Ashdod",
+    "address": "HaBosem 6, Ashdod, Israel",
+    "lat": 31.8155,
+    "lng": 34.664
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "hayizreelit",
+  "name": "HaYizreelit",
+  "mapsName": "היזרעאלית",
+  "type": "Restaurant",
+  "cuisine": [
+   "pizza"
+  ],
+  "locations": [
+   {
+    "street": "Kfar Gideon",
+    "city": "Kfar Gideon",
+    "address": "Kfar Gideon, Kfar Gideon, Israel",
+    "lat": 32.63,
+    "lng": 35.315
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "garger-hazahav",
+  "name": "Garger HaZahav",
+  "mapsName": "גרגר הזהב",
+  "type": "Restaurant",
+  "cuisine": [
+   "hummus"
+  ],
+  "locations": [
+   {
+    "street": "Levinsky 30",
+    "city": "Tel Aviv",
+    "address": "Levinsky 30, Tel Aviv, Israel",
+    "lat": 32.05965,
+    "lng": 34.77455
+   },
+   {
+    "street": "Dizengoff 93",
+    "city": "Tel Aviv",
+    "address": "Dizengoff 93, Tel Aviv, Israel",
+    "lat": 32.0789,
+    "lng": 34.77385
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "kohi",
+  "name": "Kohi Coffee Shop",
+  "mapsName": "Kohi",
+  "type": "Coffee",
+  "cuisine": [
+   "japanese"
+  ],
+  "features": [
+   "specialty"
+  ],
+  "locations": [
+   {
+    "street": "Ben Yehuda 155",
+    "city": "Tel Aviv",
+    "address": "Ben Yehuda 155, Tel Aviv, Israel",
+    "lat": 32.09045,
+    "lng": 34.77335
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "reut-coffee",
+  "name": "Reut – Coffee Place",
+  "mapsName": "רעות - מקום של קפה",
+  "type": "Coffee",
+  "features": [
+   "specialty"
+  ],
+  "locations": [
+   {
+    "street": "Sderot KKL 1 (winery compound)",
+    "city": "Kfar Tavor",
+    "address": "Sderot KKL 1 (winery compound), Kfar Tavor, Israel",
+    "lat": 32.687,
+    "lng": 35.4185
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "tacos-luis",
+  "name": "Tacos Luis",
+  "type": "Restaurant",
+  "cuisine": [
+   "mexican"
+  ],
+  "locations": [
+   {
+    "street": "Shlomzion HaMalka 11",
+    "city": "Jerusalem",
+    "address": "Shlomzion HaMalka 11, Jerusalem, Israel",
+    "lat": 31.77955,
+    "lng": 35.22345
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "kabakeh",
+  "name": "Kabakeh",
+  "type": "Restaurant",
+  "locations": [
+   {
+    "street": "Kikar Kedumim 6",
+    "city": "Jaffa",
+    "address": "Kikar Kedumim 6, Jaffa, Israel",
+    "lat": 32.0546,
+    "lng": 34.7521
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "cafe-antilia",
+  "name": "Cafe Antilia",
+  "mapsName": "אנטיליה בר יין ופסטה יפואי",
+  "type": "Restaurant & Bar",
+  "kinds": [
+   "restaurant",
+   "bar"
+  ],
+  "cuisine": [
+   "italian"
+  ],
+  "locations": [
+   {
+    "street": "Rabbi Pinchas 4",
+    "city": "Jaffa",
+    "address": "Rabbi Pinchas 4, Jaffa, Israel",
+    "lat": 32.05,
+    "lng": 34.756
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "beit-lechem-3",
+  "name": "Beit Lechem 3",
+  "mapsName": "בית לחם 3",
+  "type": "Restaurant & Bar",
+  "kinds": [
+   "restaurant",
+   "bar"
+  ],
+  "locations": [
+   {
+    "street": "Beit Lechem 3",
+    "city": "Tel Aviv",
+    "address": "Beit Lechem 3, Tel Aviv, Israel",
+    "lat": 32.07085,
+    "lng": 34.7707
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "joz-ve-loz",
+  "name": "Joz ve Loz",
+  "mapsName": "ג'וז ולוז",
+  "type": "Restaurant",
+  "locations": [
+   {
+    "street": "Gvulot 5",
+    "city": "Tel Aviv",
+    "address": "Gvulot 5, Tel Aviv, Israel",
+    "lat": 32.0566,
+    "lng": 34.7703
+   }
+  ]
+ },
+ {
+  "wantToGo": true,
+  "description": "",
+  "id": "arabeska",
+  "name": "Arabeska",
+  "type": "Restaurant",
+  "locations": [
+   {
+    "street": "Lunz 7",
+    "city": "Haifa",
+    "address": "Lunz 7, Haifa, Israel",
+    "lat": 32.8125,
+    "lng": 34.9963
+   }
+  ]
  }
 ]
