@@ -1624,5 +1624,25 @@
     "lng": 35.002032
    }
   ]
+ },
+ {
+  "id": "shawarma-emil",
+  "name": "Shawarma Emil",
+  "mapsName": "שווארמה אמיל",
+  "type": "Restaurant",
+  "cuisine": [
+   "shawarma"
+  ],
+  "description": "The best and most famous shawarma in Israel. It has a single shawarma stick and closes when it's done. Not many topping options, so nothing masks the shawarma taste.",
+  "locations": [
+   {
+    "street": "Sderot HaMeginim 68",
+    "city": "Haifa",
+    "address": "Sderot HaMeginim 68, Haifa, Israel",
+    "far": 3,
+    "lat": 32.820649,
+    "lng": 34.9929605
+   }
+  ]
  }
 ]
