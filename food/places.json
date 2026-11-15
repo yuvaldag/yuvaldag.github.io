@@ -165,11 +165,11 @@
     "vibe": 2
    },
    {
-    "street": "Kikar Basel (Basel compound)",
+    "street": "Ashtori HaFarhi 20 (Basel)",
     "city": "Tel Aviv",
-    "address": "Basel, Tel Aviv, Israel",
-    "lat": 32.09045,
-    "lng": 34.77775,
+    "address": "Ashtori HaFarhi 20, Tel Aviv, Israel",
+    "lat": 32.0911,
+    "lng": 34.7781,
     "far": 1,
     "vibe": 2
    }
