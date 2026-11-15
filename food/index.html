@@ -1219,7 +1219,7 @@ const MIGRATIONS = [
 async function refineLoc(l){
   if(!l.street || !l.city || typeof l.lat!=="number") return l;
   try{
-    const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&countrycodes=il&q="+encodeURIComponent(`${l.street}, ${l.city}`));
+    const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&countrycodes=il&q="+encodeURIComponent(`${l.street}, ${l.city}`), {signal: AbortSignal.timeout(8000)});
     const [hit] = await r.json();
     if(hit && hit.address && hit.address.house_number && km([l.lat,l.lng],[+hit.lat,+hit.lon]) < 3)
       return {...l, lat:+(+hit.lat).toFixed(6), lng:+(+hit.lon).toFixed(6)};
@@ -1228,36 +1228,52 @@ async function refineLoc(l){
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let migrating = false;
+function migStatus(t){ const el=document.getElementById("migstat"); if(el) el.textContent=t; }
 async function runMigrations(){
   if(!isOwner || migrating || fbPlacesEmpty) return;
   migrating = true;
+  const refine = [];   // [docRef, location street|city] to sharpen afterwards
   try{
     const fs = fb.fs, mref = fs.doc(fb.db,"meta","migrations");
     const done = (await fs.getDoc(mref)).data()?.done || [];
-    for(const m of MIGRATIONS.filter(m => !done.includes(m.id))){
+    const todo = MIGRATIONS.filter(m => !done.includes(m.id));
+    if(todo.length) migStatus("Applying updates…");
+    for(const m of todo){
       if(m.addPlaces){
         for(const pid of m.addPlaces){
           const src = seedPlaces.find(x => x.id===pid), pref = fs.doc(fb.db,"places",pid);
           if(!src || (await fs.getDoc(pref)).exists()) continue;
-          const {id, ...data} = src, locs = [];
-          for(const l of data.locations||[]){ locs.push(await refineLoc(l)); await sleep(1100); }
-          await fs.setDoc(pref, {...data, locations:locs});
+          const {id, ...data} = src;
+          await fs.setDoc(pref, data);
+          refine.push([pref,null]);
         }
-        await fs.setDoc(mref, {done: fs.arrayUnion(m.id)}, {merge:true});
-        continue;
-      }
-      const pref = fs.doc(fb.db,"places",m.place);
-      if(!(await fs.getDoc(pref)).exists()) continue;
-      if(m.addFeatures) await fs.updateDoc(pref, {features: fs.arrayUnion(...m.addFeatures)});
-      if(m.addLocations){
-        const cur = (await fs.getDoc(pref)).data().locations || [], key = l => `${l.street}|${l.city}`;
-        const add = []; for(const l of m.addLocations) if(!cur.some(c => key(c)===key(l))){ add.push(await refineLoc(l)); await sleep(1100); }
-        if(add.length) await fs.updateDoc(pref, {locations: [...cur, ...add]});
+      } else {
+        const pref = fs.doc(fb.db,"places",m.place);
+        if((await fs.getDoc(pref)).exists()){
+          if(m.addFeatures) await fs.updateDoc(pref, {features: fs.arrayUnion(...m.addFeatures)});
+          if(m.addLocations){
+            const cur = (await fs.getDoc(pref)).data().locations || [], key = l => `${l.street}|${l.city}`;
+            const add = m.addLocations.filter(l => !cur.some(c => key(c)===key(l)));
+            if(add.length){ await fs.updateDoc(pref, {locations: [...cur, ...add]}); refine.push([pref, add.map(key)]); }
+          }
+        }
       }
       await fs.setDoc(mref, {done: fs.arrayUnion(m.id)}, {merge:true});
     }
-  }catch(e){ console.warn("migrations:", e.message); }
+    if(todo.length) migStatus("Updates applied ✓");
+  }catch(e){ console.warn("migrations:", e.message); migStatus("Couldn't apply updates: "+e.message); }
   migrating = false;
+  // Sharpen the new pins in the background (OpenStreetMap allows ~1 lookup a second).
+  const lkey = l => `${l.street}|${l.city}`;
+  for(const [pref, only] of refine){
+    try{
+      const snap = await fb.fs.getDoc(pref); if(!snap.exists()) continue;
+      const locs = snap.data().locations || [], out = [];
+      let changed = false;
+      for(const l of locs){ if(only && !only.includes(lkey(l))){ out.push(l); continue; } const r = await refineLoc(l); if(r!==l) changed = true; out.push(r); await sleep(1100); }
+      if(changed) await fb.fs.updateDoc(pref, {locations: out});
+    }catch(e){}
+  }
 }
 async function maybeSeed(){
   if(!isOwner || !fbPlacesEmpty || seeding || !seedPlaces.length) return;
@@ -1289,7 +1305,7 @@ function renderOwner(){
   if(!fb){ bar.hidden = true; foot.innerHTML = ""; return; }
   if(isOwner){
     bar.hidden = false;
-    bar.innerHTML = `<span>Editing as ${esc(user.email)}</span><button class="btn" id="addplace">＋ Add place</button><button class="linkbtn" id="signout">Sign out</button>`;
+    bar.innerHTML = `<span>Editing as ${esc(user.email)}</span><span id="migstat" class="cmeta"></span><button class="btn" id="addplace">＋ Add place</button><button class="linkbtn" id="signout">Sign out</button>`;
     foot.innerHTML = "";
   } else {
     bar.hidden = true;
