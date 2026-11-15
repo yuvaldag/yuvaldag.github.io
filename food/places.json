@@ -1152,6 +1152,14 @@
     "lat": 32.0984,
     "lng": 34.7746,
     "far": 2
+   },
+   {
+    "street": "Elifelet (HaTachana)",
+    "city": "Tel Aviv",
+    "address": "Elifelet, Tel Aviv, Israel",
+    "far": 2,
+    "lat": 32.05873,
+    "lng": 34.7622875
    }
   ]
  },
