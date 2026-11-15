@@ -163,6 +163,15 @@
     "lng": 34.771496,
     "far": 1,
     "vibe": 2
+   },
+   {
+    "street": "Kikar Basel (Basel compound)",
+    "city": "Tel Aviv",
+    "address": "Basel, Tel Aviv, Israel",
+    "lat": 32.09045,
+    "lng": 34.77775,
+    "far": 1,
+    "vibe": 2
    }
   ],
   "features": [
