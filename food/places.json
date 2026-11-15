@@ -678,13 +678,31 @@
     "lng": 34.76928
    },
    {
-    "street": "Tuval 15 (roastery, Diamond Exchange)",
+    "street": "Tuval 15 (Bursa, roastery)",
     "city": "Ramat Gan",
     "address": "Tuval 15, Ramat Gan, Israel",
     "far": 1,
     "vibe": 2,
     "lat": 32.0859389,
     "lng": 34.8028616
+   },
+   {
+    "street": "HaHilazon 9 (One Tower)",
+    "city": "Ramat Gan",
+    "address": "HaHilazon 9, Ramat Gan, Israel",
+    "far": 1,
+    "vibe": 2,
+    "lat": 32.0862195,
+    "lng": 34.8041435
+   },
+   {
+    "street": "David Elazar 16 (Okoko, Sarona Park)",
+    "city": "Tel Aviv",
+    "address": "David Elazar 16, Tel Aviv, Israel",
+    "far": 1,
+    "vibe": 2,
+    "lat": 32.0716,
+    "lng": 34.7878
    }
   ],
   "features": [
@@ -1664,6 +1682,26 @@
     "far": 2,
     "lat": 32.820106,
     "lng": 34.9965103
+   }
+  ]
+ },
+ {
+  "id": "papale",
+  "name": "Papa'le Handmade Pizza",
+  "mapsName": "פאפא׳לה פיצה",
+  "type": "Restaurant",
+  "cuisine": [
+   "pizza"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Tuval 15 (Bursa)",
+    "city": "Ramat Gan",
+    "address": "Tuval 15, Ramat Gan, Israel",
+    "lat": 32.0861469,
+    "lng": 34.8030371
    }
   ]
  }

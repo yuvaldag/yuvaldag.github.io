@@ -910,7 +910,7 @@ let commentsOn = false;
 let showMode = "both"; try{ const v = localStorage.getItem("food-show"); if(v==="been"||v==="want") showMode = v; }catch(e){}
 const shown = p => showMode==="both" || (showMode==="want") === isWant(p);
 const SHOW_OPTS = [["been","!","Places I've been"],["want","?","Places I want to go"],["both","!?","Both"]];
-const F = { type:new Set(), far:new Set(), vibe:new Set(), city:new Set() };
+const F = { type:new Set(), cuis:new Set(), far:new Set(), vibe:new Set(), city:new Set() };
 const openDesc = new Set(), openCmt = new Set(), openForm = new Set(), openItem = new Set();
 const drafts = {};
 
@@ -926,7 +926,8 @@ const mapsUrl = (p,l) => l.gmaps ? l.gmaps
     ? `https://www.google.com/maps/search/${encodeURIComponent(mapsName(p))}/@${l.lat},${l.lng},18z`
     : "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent([mapsName(p), l.street, l.city].filter(Boolean).join(", "));
 const locMatch = (p,l) =>
-  (!F.type.size || F.type.has(String(p.type||""))) &&
+  (!F.type.size || kindsOf(p).some(k => F.type.has(k))) &&
+  (!F.cuis.size || cuisineOf(p).some(k => F.cuis.has(k))) &&
   (!F.far.size  || F.far.has(Number(l.far))) &&
   (!F.vibe.size || F.vibe.has(Number(l.vibe))) &&
   (!F.city.size || F.city.has(String(l.city||"")));
@@ -1036,7 +1037,7 @@ function askLocation(){
 function goToMe(){
   locate(() => { if(sortMode==="near") renderList(); showMe(15); });
 }
-const anyFilter = () => F.type.size+F.far.size+F.vibe.size+F.city.size > 0;
+const anyFilter = () => F.type.size+F.cuis.size+F.far.size+F.vibe.size+F.city.size > 0;
 function visible(){
   return places.filter(shown).map(p => ({p, locs: locsOf(p).filter(l => locMatch(p,l))})).filter(x => x.locs.length);
 }
@@ -1047,12 +1048,15 @@ function chip(group, value, inner, label, ico){
   return `<button class="chip${ico?" ico":""}" data-g="${group}" data-v="${esc(String(value))}" aria-pressed="${on}" aria-label="${esc(label)}" title="${esc(label)}">${inner}</button>`;
 }
 function renderFilters(){
-  const types=[...new Set(places.map(p=>String(p.type||"")).filter(Boolean))].sort();
+  // One chip per kind of place (a "restaurant & bar" shows under both), in the index order.
+  const used = new Set(places.flatMap(kindsOf)), types = Object.keys(KIND).filter(k => used.has(k));
+  const usedC = new Set(places.flatMap(cuisineOf)), cuisines = Object.keys(CUISINE).filter(k => usedC.has(k));
   const cities=[...new Set(places.flatMap(p=>locsOf(p).map(l=>String(l.city||""))).filter(Boolean))].sort();
   const el=document.getElementById("filters");
   el.innerHTML = `
     <div class="ftitle">Filters</div><div class="fgroups">
-    <div class="fgroup"><span class="flabel">Type</span><div class="fchips">${types.map(t=>chip("type",t,tIcon(t),t,1)).join("")}</div></div>
+    <div class="fgroup"><span class="flabel">Type</span><div class="fchips">${types.map(k=>chip("type",k,KIND[k][0],KIND[k][1],1)).join("")}</div></div>
+    <div class="fgroup"><span class="flabel">Restaurant type</span><div class="fchips">${cuisines.map(k=>chip("cuis",k,CUISINE[k][0],CUISINE[k][1],1)).join("")}</div></div>
     <div class="fgroup"><span class="flabel">How far</span><div class="fchips">${[1,2,3,4].map(n=>chip("far",n,distIcon(n),DIST_TXT[n],1)).join("")}</div></div>
     <div class="fgroup"><span class="flabel">Vibe</span><div class="fchips">${[0,1,2,3,4].map(n=>chip("vibe",n,vibeIcon(n),VIBE_TXT[n],1)).join("")}</div></div>
     <div class="fgroup"><span class="flabel">Visited</span><div class="fchips" role="radiogroup" aria-label="Visited">${SHOW_OPTS.map(([v,ic,t])=>
