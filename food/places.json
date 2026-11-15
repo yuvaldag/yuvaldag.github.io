@@ -1870,5 +1870,25 @@
     "lng": 34.8086946
    }
   ]
+ },
+ {
+  "id": "boudo",
+  "name": "Boudo Specialty Coffee",
+  "mapsName": "Boudo Specialty Coffee Geulim",
+  "type": "Coffee",
+  "features": [
+   "specialty"
+  ],
+  "wantToGo": true,
+  "description": "New coffee cart among the trees, with beans from Sybaris Roastery (Jerusalem), plus fresh pastries, sandwiches and toasts. Sun–Thu 7:30–17:00, Fri 7:30–15:00.",
+  "locations": [
+   {
+    "street": "Moshav Geulim",
+    "city": "Geulim",
+    "address": "Geulim, Israel",
+    "lat": 32.2962452,
+    "lng": 34.9474014
+   }
+  ]
  }
 ]
