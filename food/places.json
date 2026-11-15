@@ -1749,5 +1749,61 @@
     "lng": 34.7749395
    }
   ]
+ },
+ {
+  "id": "thai-table",
+  "name": "Thai Table",
+  "type": "Restaurant",
+  "cuisine": [
+   "thai"
+  ],
+  "description": "Cute, with fresh ingredients: excellent seafood, vegetables and more!",
+  "locations": [
+   {
+    "street": "913 University Ave",
+    "city": "Berkeley",
+    "address": "913 University Ave, Berkeley, USA",
+    "far": 2,
+    "lat": 37.8684698,
+    "lng": -122.2962127,
+    "vibe": 3
+   }
+  ]
+ },
+ {
+  "id": "matcha-toko",
+  "name": "Matcha Toko",
+  "mapsName": "Matcha Cafe Maiko",
+  "type": "Ice cream",
+  "cuisine": [
+   "japanese"
+  ],
+  "description": "Strong Japanese flavors in soft-serve ice cream.",
+  "locations": [
+   {
+    "street": "1581 Webster St (Japantown)",
+    "city": "San Francisco",
+    "address": "1581 Webster St, San Francisco, USA",
+    "far": 2,
+    "lat": 37.78488,
+    "lng": -122.4317191
+   },
+   {
+    "street": "754 Grant Ave (Chinatown)",
+    "city": "San Francisco",
+    "address": "754 Grant Ave, San Francisco, USA",
+    "far": 2,
+    "lat": 37.7942201,
+    "lng": -122.406239
+   },
+   {
+    "street": "3251 20th Ave (Stonestown)",
+    "city": "San Francisco",
+    "address": "3251 20th Ave, San Francisco, USA",
+    "far": 2,
+    "lat": 37.7289115,
+    "lng": -122.475687
+   }
+  ]
  }
 ]
