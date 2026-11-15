@@ -697,6 +697,20 @@ button{font:inherit;color:inherit}
 .fchips{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
 .flabel{font-size:.68rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .chip.ico{padding:3px 7px;min-width:38px;justify-content:center;font-size:1.05rem}
+.ddwrap{position:relative}
+.ddbtn{gap:6px;padding:3px 10px}
+.ddbtn .sel{display:inline-flex;gap:3px;font-size:1.05rem}
+.ddbtn .car{color:var(--muted);transition:transform .15s}
+.ddbtn[aria-expanded="true"] .car{transform:rotate(180deg)}
+.ddmenu{position:absolute;z-index:1000;top:calc(100% + 6px);left:0;width:min(300px,calc(100vw - 48px));max-height:320px;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px}
+.ddopt{display:flex;align-items:center;gap:10px;width:100%;padding:7px 8px;border:0;background:none;color:var(--fg);font:inherit;font-size:.92rem;border-radius:8px;cursor:pointer;text-align:left}
+.ddopt:hover{background:var(--soft)}
+.ddopt .ic{width:26px;height:22px;font-size:18px}
+.ddopt .tick{margin-left:auto;color:var(--accent);font-weight:700;visibility:hidden}
+.ddopt[aria-checked="true"] .tick{visibility:visible}
+.ddopt[aria-checked="true"]{font-weight:600}
+@media (max-width:600px){.fgroup{position:relative}.ddwrap{position:static}.ddmenu{left:8px;right:8px;width:auto}}
+.ddfoot{display:flex;justify-content:space-between;padding:6px 8px 2px;border-top:1px solid var(--line);margin-top:4px}
 @media (max-width:600px){
   .filters{padding:8px 10px 10px}
   .fgroups{flex-direction:column;gap:5px}
@@ -910,6 +924,7 @@ let commentsOn = false;
 let showMode = "both"; try{ const v = localStorage.getItem("food-show"); if(v==="been"||v==="want") showMode = v; }catch(e){}
 const shown = p => showMode==="both" || (showMode==="want") === isWant(p);
 const SHOW_OPTS = [["been","!","Places I've been"],["want","?","Places I want to go"],["both","!?","Both"]];
+let cuisOpen = false;
 const F = { type:new Set(), cuis:new Set(), far:new Set(), vibe:new Set(), city:new Set() };
 const openDesc = new Set(), openCmt = new Set(), openForm = new Set(), openItem = new Set();
 const drafts = {};
@@ -1056,7 +1071,11 @@ function renderFilters(){
   el.innerHTML = `
     <div class="ftitle">Filters</div><div class="fgroups">
     <div class="fgroup"><span class="flabel">Type</span><div class="fchips">${types.map(k=>chip("type",k,KIND[k][0],KIND[k][1],1)).join("")}</div></div>
-    <div class="fgroup"><span class="flabel">Restaurant type</span><div class="fchips">${cuisines.map(k=>chip("cuis",k,CUISINE[k][0],CUISINE[k][1],1)).join("")}</div></div>
+    <div class="fgroup"><span class="flabel">Restaurant type</span><div class="fchips ddwrap">
+      <button class="chip ddbtn" id="cuisbtn" aria-haspopup="true" aria-expanded="${cuisOpen}" aria-pressed="${F.cuis.size>0}">${F.cuis.size?`<span class="sel">${[...F.cuis].map(k=>CUISINE[k]?.[0]||"").join("")}</span>`:"All types"}<span class="car">▾</span></button>
+      ${cuisOpen?`<div class="ddmenu" role="menu" aria-label="Restaurant type">${cuisines.map(k=>`<button class="ddopt" role="menuitemcheckbox" data-cuis="${k}" aria-checked="${F.cuis.has(k)}"><span class="ic">${CUISINE[k][0]}</span>${CUISINE[k][1]}<span class="tick">✓</span></button>`).join("")}
+        <div class="ddfoot"><button class="linkbtn" id="cuisclear">Clear</button><button class="linkbtn" id="cuisdone">Done</button></div></div>`:""}
+    </div></div>
     <div class="fgroup"><span class="flabel">How far</span><div class="fchips">${[1,2,3,4].map(n=>chip("far",n,distIcon(n),DIST_TXT[n],1)).join("")}</div></div>
     <div class="fgroup"><span class="flabel">Vibe</span><div class="fchips">${[0,1,2,3,4].map(n=>chip("vibe",n,vibeIcon(n),VIBE_TXT[n],1)).join("")}</div></div>
     <div class="fgroup"><span class="flabel">Visited</span><div class="fchips" role="radiogroup" aria-label="Visited">${SHOW_OPTS.map(([v,ic,t])=>
@@ -1070,6 +1089,11 @@ function renderFilters(){
     <div class="fbar"><span id="fcount"></span>${anyFilter()?`<button class="linkbtn" id="fclear">Clear filters</button>`:""}</div>`;
 }
 document.getElementById("filters").addEventListener("click", e => {
+  if(e.target.closest("#cuisbtn")){ cuisOpen = !cuisOpen; renderFilters(); renderList(); return; }
+  const co = e.target.closest("[data-cuis]");
+  if(co){ const k = co.dataset.cuis; F.cuis.has(k) ? F.cuis.delete(k) : F.cuis.add(k); renderAll(true); return; }
+  if(e.target.id==="cuisclear"){ F.cuis.clear(); renderAll(true); return; }
+  if(e.target.id==="cuisdone"){ cuisOpen = false; renderFilters(); renderList(); return; }
   const b = e.target.closest(".chip[data-g]");
   if(b){ const g=b.dataset.g; let v=b.dataset.v; if(g==="far"||g==="vibe") v=Number(v);
     if(g==="far"||g==="vibe"){
@@ -1485,6 +1509,10 @@ document.addEventListener("click", e => {
   openItem.add(pid); renderList();
   document.getElementById("place-"+pid)?.scrollIntoView({behavior:"smooth", block:"center"});
 });
+document.addEventListener("click", e => {
+  if(cuisOpen && !e.target.closest(".ddwrap")){ cuisOpen = false; renderFilters(); renderList(); }
+});
+document.addEventListener("keydown", e => { if(e.key==="Escape" && cuisOpen){ cuisOpen = false; renderFilters(); renderList(); document.getElementById("cuisbtn")?.focus(); } });
 /* ---------- render ---------- */
 let fitted=false;
 function renderAll(fit){ renderFilters(); renderList(); renderMap(fit || !fitted); if(places.length) fitted=true; }
