@@ -2060,20 +2060,39 @@
  },
  {
   "id": "kraft",
-  "name": "Kraft",
-  "mapsName": "Kraft Jerusalem",
+  "name": "Craft Pizza",
+  "mapsName": "Craft Pizza קראפט פיצה",
   "type": "Restaurant",
   "wantToGo": true,
-  "description": "",
+  "description": "Kosher pizza bistro.",
   "locations": [
    {
-    "street": "",
+    "street": "Shlomtzion HaMalka 1",
     "city": "Jerusalem",
     "country": "Israel",
-    "address": "Jerusalem, Israel",
-    "lat": 31.7788472,
-    "lng": 35.2257856
+    "address": "Shlomtzion HaMalka 1, Jerusalem, Israel",
+    "lat": 31.7804384,
+    "lng": 35.2215655
+   },
+   {
+    "street": "HaYarkon 169 (Atarim Square)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "HaYarkon 169, Tel Aviv, Israel",
+    "lat": 32.0859813,
+    "lng": 34.7701938
+   },
+   {
+    "street": "Menachem Begin 21 (Terrace Buchman)",
+    "city": "Modi'in",
+    "country": "Israel",
+    "address": "Menachem Begin 21, Modi'in, Israel",
+    "lat": 31.8813479,
+    "lng": 35.0133015
    }
+  ],
+  "cuisine": [
+   "pizza"
   ]
  },
  {
@@ -2092,6 +2111,9 @@
     "lat": 32.0595101,
     "lng": 34.7728557
    }
+  ],
+  "cuisine": [
+   "fish"
   ]
  },
  {
