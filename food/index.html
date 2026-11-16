@@ -771,6 +771,15 @@ li.item:last-child{border-bottom:1px solid var(--line)}
 .pgal img{width:230px;height:150px;object-fit:cover;border-radius:8px;scroll-snap-align:start;flex:none;cursor:zoom-in}
 .pgalnote{font-size:.72rem;color:var(--muted)}
 .dishes{list-style:none;margin:10px 0 0;padding:0}
+.mealhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mealhead h4{margin:0}
+.phload{width:52px;height:52px;border-radius:8px;background:var(--soft);flex:none}
+.faces{display:flex;flex-wrap:wrap;gap:6px}
+.faces label{white-space:nowrap;padding:6px 10px!important}
+.faces label{flex-direction:row!important;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;color:var(--fg)!important;font-weight:400!important}
+.faces input{width:auto}
+.faces label:has(input:checked){border-color:var(--accent);background:var(--soft);font-weight:600!important}
+.mprev{max-width:120px;max-height:120px;border-radius:8px;display:block;margin-top:6px}
 .dishes h4{margin:0 0 4px;font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 .dish{display:flex;align-items:center;gap:10px;padding:6px 0}
 .dish+.dish{border-top:1px dashed var(--line)}
@@ -954,11 +963,32 @@ function galleryHtml(p){
   const ph = photosOf(p); if(!ph.length) return "";
   return `<div class="gallery" role="list" aria-label="Photos of ${esc(p.name)}">${ph.map((u,i)=>`<img role="listitem" loading="lazy" src="${esc(photoSrc(u))}" alt="${esc(p.name)} photo ${i+1}" data-lb="${esc(p.id)}" data-i="${i}">`).join("")}</div>`;
 }
+/* Price as written; a bare number gets ₪. "when" is "YYYY-MM", shown as MM/YY. */
+const fmtPrice = v => { const t = String(v??"").trim(); return !t ? "" : /^[\d.,]+$/.test(t) ? "₪"+t.replace(/\.00$/,"") : t; };
+const fmtWhen = w => { const m = /^(\d{4})-(\d{2})/.exec(String(w||"")); return m ? `${m[2]}/${m[1].slice(2)}` : ""; };
+const priceLine = d => { const pr = fmtPrice(d.price); return pr ? `<div class="cmeta">${esc(pr)}${fmtWhen(d.when)?` · ${fmtWhen(d.when)}`:""}</div>` : ""; };
+const thisMonth = () => new Date().toISOString().slice(0,7);
+let allMeals = [];                 // visitors' meals (live from Firestore)
+const mealPhotos = {};             // meal id -> data URL, fetched when a place is opened
+const mealsFor = pid => allMeals.filter(m => m.place===pid);
+function mealsHtml(p){
+  const ms = mealsFor(p.id);
+  const head = `<div class="mealhead"><h4>Meals from visitors</h4>${commentsOn?`<button class="linkbtn" data-act="addmeal" data-p="${esc(p.id)}">＋ Add meal</button>`:""}</div>`;
+  if(!ms.length) return commentsOn ? `<div class="dishes">${head}</div>` : "";
+  return `<ul class="dishes">${head}${ms.map((m,i)=>{ const f = DISH_FACE[m.rating]||DISH_FACE[2], src = mealPhotos[m.id];
+    return `<li class="dish"><span class="face" role="img" aria-label="${f[1]}" title="${f[1]}">${f[0]}</span><span class="dn">${esc(m.name)}${priceLine(m)}<div class="cmeta">by ${esc(m.author||"someone")}${(isOwner || (user && user.uid===m.uid))?` · <button class="linkbtn" data-act="delmeal" data-m="${esc(m.id)}" style="font-size:inherit">Delete</button>`:""}</div></span>${m.hasPhoto?(src?`<img src="${src}" alt="${esc(m.name)}" data-lbm="${esc(p.id)}" data-i="${i}">`:`<span class="phload" aria-hidden="true"></span>`):""}</li>`; }).join("")}</ul>`;
+}
+async function loadMealPhotos(pid){
+  const need = mealsFor(pid).filter(m => m.hasPhoto && !mealPhotos[m.id]);
+  if(!need.length || !fb) return;
+  await Promise.all(need.map(async m => { try{ const d = await fb.fs.getDoc(fb.fs.doc(fb.db,"mealPhotos",m.id)); if(d.exists()) mealPhotos[m.id] = d.data().img; }catch(e){} }));
+  renderList();
+}
 function dishesHtml(p){
   const ds = dishesOf(p); if(!ds.length) return "";
   return `<ul class="dishes"><h4>Dishes</h4>${ds.map((d,i)=>{ const f = DISH_FACE[d.rating]||DISH_FACE[2];
     const nm = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.name)} ↗</a>` : esc(d.name);
-    return `<li class="dish"><span class="face" role="img" aria-label="${f[1]}" title="${f[1]}">${f[0]}</span><span class="dn">${nm}${d.note?`<div class="cmeta">${esc(d.note)}</div>`:""}</span>${d.photo?`<img loading="lazy" src="${esc(photoSrc(d.photo))}" alt="${esc(d.name)}" data-lbd="${esc(p.id)}" data-i="${i}">`:""}</li>`; }).join("")}</ul>`;
+    return `<li class="dish"><span class="face" role="img" aria-label="${f[1]}" title="${f[1]}">${f[0]}</span><span class="dn">${nm}${priceLine(d)}${d.note?`<div class="cmeta">${esc(d.note)}</div>`:""}</span>${d.photo?`<img loading="lazy" src="${esc(photoSrc(d.photo))}" alt="${esc(d.name)}" data-lbd="${esc(p.id)}" data-i="${i}">`:""}</li>`; }).join("")}</ul>`;
 }
 /* Full-screen photo viewer: swipe or use the arrows; Esc or × closes. */
 function openLightbox(srcs, start, caps){
@@ -979,6 +1009,9 @@ function openLightbox(srcs, start, caps){
 }
 document.addEventListener("click", e => {
   const g = e.target.closest("img[data-lb]"), d = e.target.closest("img[data-lbd]");
+  const mm = e.target.closest("img[data-lbm]");
+  if(mm){ const ms = mealsFor(mm.dataset.lbm).filter(m => mealPhotos[m.id]); const cur = mealsFor(mm.dataset.lbm)[+mm.dataset.i];
+    openLightbox(ms.map(m=>mealPhotos[m.id]), Math.max(0, ms.indexOf(cur)), ms.map(m=>m.name)); return; }
   if(g){ const p = places.find(x=>x.id===g.dataset.lb); if(p) openLightbox(photosOf(p).map(photoSrc), +g.dataset.i); }
   else if(d){ const p = places.find(x=>x.id===d.dataset.lbd); if(!p) return; const ds = dishesOf(p).filter(x=>x.photo);
     const i = ds.indexOf(dishesOf(p)[+d.dataset.i]); openLightbox(ds.map(x=>photoSrc(x.photo)), Math.max(0,i), ds.map(x=>x.name)); }
@@ -1257,6 +1290,7 @@ function _renderList(){
           <span class="icons">${distIcon(l.far)}${vibeIcon(l.vibe)}</span>
           <a class="map" href="${mapsUrl(p,l)}" target="_blank" rel="noopener" aria-label="Open ${esc(p.name)}${l.street?" on "+esc(l.street):""} in Google Maps">${MAP_SVG}Map</a></li>`).join("")}</ul>
         ${dishesHtml(p)}
+        ${mealsHtml(p)}
         ${renderComments(p)}
         <div class="dacts">${(commentsOn && !openForm.has(p.id))?`<button class="linkbtn" data-act="af" data-p="${esc(p.id)}">${ADD_SVG} Add a comment</button>`:""}${isOwner?`<button class="linkbtn" data-act="edit" data-p="${esc(p.id)}">${EDIT_SVG} Edit</button>`:""}</div>
       </div>`:""}
@@ -1270,7 +1304,9 @@ list.addEventListener("input", e => {
 list.addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if(!b) return;
   const pid = b.dataset.p, act = b.dataset.act;
-  if(act==="tog"){ if(openItem.has(pid)){ openItem.delete(pid); openForm.delete(pid); } else openItem.add(pid); renderList(); }
+  if(act==="tog"){ if(openItem.has(pid)){ openItem.delete(pid); openForm.delete(pid); } else { openItem.add(pid); loadMealPhotos(pid); } renderList(); }
+  else if(act==="addmeal") openMealForm(pid);
+  else if(act==="delmeal"){ if(confirm("Delete this meal?")) try{ const id = b.dataset.m; await fb.fs.deleteDoc(fb.fs.doc(fb.db,"meals",id)); try{ await fb.fs.deleteDoc(fb.fs.doc(fb.db,"mealPhotos",id)); }catch(e){} }catch(e){ alert("Couldn't delete: "+e.message); } }
   else if(act==="tc"){ openCmt.has(pid)?(openCmt.delete(pid),openForm.delete(pid)):(openCmt.add(pid),openForm.add(pid)); renderList(); }
   else if(act==="af"){ if(openForm.has(pid)){ openForm.delete(pid); renderList(); return; } openCommentForm(pid); }
   else if(act==="close"){ openForm.delete(pid); renderList(); }
@@ -1307,6 +1343,10 @@ async function initFirebase(){
     renderAll(false); runMigrations();
   }, err => console.warn("places:", err.message));
   // Comments: live.
+  fs.onSnapshot(fs.query(fs.collection(fb.db,"meals"), fs.orderBy("created_at"), fs.limit(5000)), snap => {
+    allMeals = snap.docs.map(d => ({ id:d.id, ...d.data({serverTimestamps:"estimate"}) }));
+    renderList(); openItem.forEach(loadMealPhotos);
+  }, err => console.warn("meals:", err.message));
   fs.onSnapshot(fs.query(fs.collection(fb.db,"comments"), fs.orderBy("created_at"), fs.limit(5000)), snap => {
     allComments = snap.docs.map(d => { const c = d.data({serverTimestamps:"estimate"}); return { id:d.id, place:c.place, name:c.name, body:c.body, created_at: c.created_at?.toDate?.().toISOString() || "" }; });
     renderList();
@@ -1404,7 +1444,7 @@ async function maybeSeed(){
 }
 /* Commenting needs a signed-in user; signed-out visitors are asked to sign in first. */
 function openCommentForm(pid){
-  if(!user){ sgCommentPid = pid; sgWantsSuggest = false; openSg("signin"); return; }
+  if(!user){ sgCommentPid = pid; sgMealPid = null; sgWantsSuggest = false; openSg("signin"); return; }
   if(names[pid]===undefined && !savedName && user.displayName) names[pid] = user.displayName;
   openForm.add(pid); openItem.add(pid); renderList();
   const t = list.querySelector(`textarea[data-p="${CSS.escape(pid)}"]`); t && t.focus();
@@ -1440,14 +1480,68 @@ function renderOwner(){
 }
 document.addEventListener("click", async e => {
   const id = e.target.closest("button")?.id;
-  if(id==="signin"){ sgCommentPid = null; openSg("signin", false); }
+  if(id==="signin"){ sgCommentPid = null; sgMealPid = null; openSg("signin", false); }
   else if(id==="signout") fb.au.signOut(fb.auth);
   else if(id==="addplace") openEditor(null);
-  else if(id==="suggestbtn"){ sgCommentPid = null; if(!fb) return alert("Suggestions are unavailable right now. Try again later."); isOwner ? openEditor(null) : openSg(user ? "suggest" : "signin", true); }
+  else if(id==="suggestbtn"){ sgCommentPid = null; sgMealPid = null; if(!fb) return alert("Suggestions are unavailable right now. Try again later."); isOwner ? openEditor(null) : openSg(user ? "suggest" : "signin", true); }
   else if(id==="sgview") openSgList();
 });
 /* ---------- sign-in + "add a place" suggestions (everyone) ---------- */
 const sgd = document.getElementById("sgdlg"), sgf = document.getElementById("sgform");
+/* Visitors' meals: name, rating, optional price + month, optional photo (shrunk in the browser). */
+let sgMealPid = null, mealImg = null;
+function shrinkPhoto(file){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => { const k = Math.min(1, 800 / Math.max(im.naturalWidth, im.naturalHeight));
+      const c = document.createElement("canvas"); c.width = Math.round(im.naturalWidth*k); c.height = Math.round(im.naturalHeight*k);
+      c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      let out = c.toDataURL("image/webp", 0.6); if(!out.startsWith("data:image/webp")) out = c.toDataURL("image/jpeg", 0.65);
+      res(out); };
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error("Couldn't read that image.")); };
+    im.src = url;
+  });
+}
+function openMealForm(pid){
+  if(!user){ sgMealPid = pid; sgCommentPid = null; sgWantsSuggest = false; openSg("signin"); return; }
+  const p = places.find(x=>x.id===pid); mealImg = null; sgMealPid = pid;
+  sgf.dataset.mode = "meal";
+  sgf.innerHTML = `<h2 id="sg-title">Add a meal at ${esc(p?.name||"")}</h2>
+    <label>Meal<input name="mname" maxlength="80" required></label>
+    <div><span class="cmeta" style="font-weight:600">How was it?</span><div class="faces" role="radiogroup" aria-label="How was it">${[3,2,1].map(n=>`<label><input type="radio" name="mrating" value="${n}"${n===3?" checked":""}>${DISH_FACE[n][0]} ${DISH_FACE[n][1]}</label>`).join("")}</div></div>
+    <div class="g2"><label>Price (optional)<input name="mprice" inputmode="decimal" maxlength="20" placeholder="e.g. 89"></label>
+    <label>Month<input name="mwhen" type="month" value="${thisMonth()}" max="${thisMonth()}"></label></div>
+    <label>Photo (optional)<input name="mphoto" type="file" accept="image/*"></label><img class="mprev" id="mprev" hidden alt="">
+    <label>Your name<input name="mauthor" maxlength="60" value="${esc(savedName || user.displayName || "")}"></label>
+    <div class="row foot"><button type="submit" class="btn">Add meal</button><button type="button" class="linkbtn" data-sg="close">Cancel</button><span class="err" id="sg-err"></span></div>`;
+  if(!sgd.open) sgd.showModal();
+  sgf.querySelector("input[name=mname]").focus();
+}
+sgf.addEventListener("change", async e => {
+  if(e.target.name !== "mphoto") return;
+  const f = e.target.files[0], pv = document.getElementById("mprev"), err = document.getElementById("sg-err");
+  mealImg = null; pv.hidden = true; if(!f) return;
+  err.textContent = "Preparing photo…";
+  try{ mealImg = await shrinkPhoto(f); pv.src = mealImg; pv.hidden = false; err.textContent = ""; }
+  catch(x){ err.textContent = x.message; }
+});
+sgf.addEventListener("submit", async e => {
+  if(sgf.dataset.mode !== "meal") return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const f = new FormData(sgf), err = document.getElementById("sg-err");
+  const name = String(f.get("mname")||"").trim(), price = String(f.get("mprice")||"").trim(), when = String(f.get("mwhen")||""), author = String(f.get("mauthor")||"").trim().slice(0,60);
+  if(!name){ err.textContent = "Please write the meal's name."; return; }
+  if(!author){ err.textContent = "Please add your name."; return; }
+  if(mealImg && mealImg.length > 700000){ err.textContent = "That photo is too large — try another one."; return; }
+  err.textContent = "Saving…";
+  try{
+    const data = {place:sgMealPid, name, rating:Number(f.get("mrating")||2), price, when: price ? (when || thisMonth()) : "", author, uid:user.uid, hasPhoto: !!mealImg, created_at: fb.fs.serverTimestamp()};
+    const ref = await fb.fs.addDoc(fb.fs.collection(fb.db,"meals"), data);
+    if(mealImg){ await fb.fs.setDoc(fb.fs.doc(fb.db,"mealPhotos",ref.id), {img:mealImg, uid:user.uid}); mealPhotos[ref.id] = mealImg; }
+    savedName = author; try{ localStorage.setItem("food-name", author); }catch(x){}
+    openItem.add(sgMealPid); sgd.close(); renderList();
+  }catch(x){ err.textContent = "Couldn't save the meal: "+(x.code||x.message); }
+}, true);
 const G_SVG = `<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>`;
 let sgWantsSuggest = false, sgCreate = false, sgCommentPid = null;
 function authErr(x){
@@ -1463,7 +1557,7 @@ function authErr(x){
 function openSg(mode, wantsSuggest){
   if(wantsSuggest !== undefined) sgWantsSuggest = wantsSuggest;
   if(mode==="signin"){
-    sgf.innerHTML = `<h2 id="sg-title">${sgWantsSuggest?"Sign in to recommend a place":sgCommentPid?"Sign in to comment":"Sign in"}</h2>
+    sgf.innerHTML = `<h2 id="sg-title">${sgWantsSuggest?"Sign in to recommend a place":sgCommentPid?"Sign in to comment":sgMealPid?"Sign in to add a meal":"Sign in"}</h2>
       ${sgWantsSuggest?`<p class="cmeta">Anyone can recommend a place — just sign in first so I know who it's from.</p>`:""}
       <button type="button" class="gbtn" data-sg="google">${G_SVG} Continue with Google</button>
       <div class="orline">or with email</div>
@@ -1492,6 +1586,7 @@ function openSg(mode, wantsSuggest){
 async function afterSignIn(){
   // isOwner is worked out by onAuthStateChanged; wait briefly for it.
   for(let i=0;i<20 && (!user || ownerCheckPending);i++) await new Promise(r=>setTimeout(r,100));
+  if(sgMealPid && !sgWantsSuggest){ const pid = sgMealPid; sgd.close(); openMealForm(pid); return; }
   if(sgCommentPid){ const pid = sgCommentPid; sgCommentPid = null; sgd.close(); openCommentForm(pid); return; }
   if(isOwner){ sgd.close(); if(sgWantsSuggest) openEditor(null); }
   else if(sgWantsSuggest) openSg("suggest");
@@ -1583,6 +1678,8 @@ function dishFields(d){
   return `<fieldset class="dishf"><legend>Dish</legend>
     <div class="g2"><label>Name<input name="dname" value="${esc(d.name||"")}"></label>
     <label>Rating<select name="drating">${[3,2,1].map(n=>opt(n,d.rating??2,DISH_FACE[n].join(" "))).join("")}</select></label></div>
+    <div class="g2"><label>Price (optional)<input name="dprice" value="${esc(d.price||"")}" placeholder="e.g. 89"></label>
+    <label>Month bought<input name="dwhen" type="month" value="${esc(d.when||thisMonth())}"></label></div>
     <div class="g2"><label>Photo (optional path)<input name="dphoto" value="${esc(d.photo||"")}"></label>
     <label>Link (optional)<input name="durl" value="${esc(d.url||"")}"></label></div>
     <div class="row"><button type="button" class="linkbtn" data-ed="rmdish" style="margin-left:auto;color:#c0392b">Remove dish</button></div></fieldset>`;
@@ -1659,7 +1756,7 @@ edf.addEventListener("submit", async e => {
   if(f.get("want")) data.wantToGo = true;
   const photos = String(f.get("photos")||"").split("\n").map(x=>x.trim()).filter(Boolean); if(photos.length) data.photos = photos;
   const dishes = [...document.querySelectorAll("#ed-dishes fieldset")].map(fs => { const g = n => fs.querySelector(`[name="${n}"]`).value.trim();
-    const d = {name:g("dname"), rating:Number(g("drating"))}; if(g("dphoto")) d.photo = g("dphoto"); if(g("durl")) d.url = g("durl"); return d; }).filter(d => d.name);
+    const d = {name:g("dname"), rating:Number(g("drating"))}; if(g("dphoto")) d.photo = g("dphoto"); if(g("dprice")){ d.price = g("dprice"); d.when = g("dwhen") || thisMonth(); } if(g("durl")) d.url = g("durl"); return d; }).filter(d => d.name);
   if(dishes.length) data.dishes = dishes;
   let id = edId;
   if(!id){ id = slug(data.name); let i = 2; while(places.some(x=>x.id===id)) id = slug(data.name)+"-"+(i++); }
