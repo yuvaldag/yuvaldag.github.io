@@ -1970,5 +1970,58 @@
     "lng": 34.7692289
    }
   ]
+ },
+ {
+  "id": "hudson",
+  "name": "Hudson",
+  "mapsName": "Hudson Brasserie",
+  "type": "Restaurant",
+  "cuisine": [
+   "meat",
+   "burger"
+  ],
+  "features": [
+   "expensive"
+  ],
+  "description": "Great steaks and great burgers.",
+  "locations": [
+   {
+    "street": "HaBarzel 27 (Ramat HaHayal)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "HaBarzel 27, Tel Aviv, Israel",
+    "lat": 32.109707,
+    "lng": 34.840481
+   },
+   {
+    "street": "Lilienblum 41",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Lilienblum 41, Tel Aviv, Israel",
+    "lat": 32.062618,
+    "lng": 34.772667
+   }
+  ]
+ },
+ {
+  "id": "triger",
+  "name": "Triger",
+  "mapsName": "טריגר בשר ויין",
+  "type": "Restaurant",
+  "cuisine": [
+   "meat"
+  ],
+  "description": "Excellent and special steaks.",
+  "locations": [
+   {
+    "street": "Montefiore 21",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Montefiore 21, Tel Aviv, Israel",
+    "lat": 32.0652524,
+    "lng": 34.771668,
+    "far": 2
+   }
+  ]
  }
 ]
