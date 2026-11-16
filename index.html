@@ -1,1 +1,334 @@
-hello world
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yuval Dagan</title>
+<meta name="description" content="Yuval Dagan — Assistant Professor (Senior Lecturer), School of Computer Science, Tel Aviv University. Machine Learning Theory.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff;--fg:#1d2433;--muted:#5d6678;--line:#e6e8ee;--accent:#1f4e8c;--soft:#eef3fa;
+  --serif:"Source Serif 4",Georgia,serif;--sans:Inter,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#11151c;--fg:#e4e7ee;--muted:#9aa3b5;--line:#262d3a;--accent:#8fb4ea;--soft:#1a2433}
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.6}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+main{max-width:860px;margin:0 auto;padding:48px 16px 64px}
+
+/* Header */
+header.hero{display:flex;gap:32px;align-items:center;margin-bottom:36px}
+header.hero img{width:180px;height:198px;object-fit:cover;border-radius:12px;flex-shrink:0;border:1px solid var(--line)}
+h1{font-family:var(--serif);font-weight:600;font-size:2.4rem;line-height:1.15;margin:0 0 10px}
+.role{margin:0;font-size:1.05rem}
+.role .dept{color:var(--muted)}
+.research{margin:14px 0 0;display:inline-block;background:var(--soft);color:var(--accent);font-weight:500;padding:4px 12px;border-radius:999px;font-size:.95rem}
+.quick{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px 18px;font-size:.95rem}
+
+/* Dropdown sections */
+details{border-top:1px solid var(--line)}
+details:last-of-type{border-bottom:1px solid var(--line)}
+summary{cursor:pointer;list-style:none;padding:16px 4px;font-family:var(--serif);font-weight:600;font-size:1.3rem;display:flex;align-items:center;justify-content:space-between;gap:12px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"";width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s;margin-right:6px;flex-shrink:0}
+details[open]>summary::after{transform:rotate(-135deg)}
+summary:hover{color:var(--accent)}
+summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.body{padding:0 4px 22px}
+.body h3{font-family:var(--sans);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 0 8px}
+.body h3:first-child{margin-top:0}
+.body p{margin:0 0 10px}
+.body ul{margin:0;padding-left:20px}
+.body li{margin:0 0 8px}
+.muted{color:var(--muted)}
+.empty{color:var(--muted);font-style:italic}
+
+dl.contact{display:grid;grid-template-columns:max-content 1fr;gap:6px 20px;margin:0}
+dl.contact dt{color:var(--muted)}
+dl.contact dd{margin:0}
+
+/* Students table */
+.table-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}
+
+/* Publications */
+ol.pubs{list-style:none;padding:0;margin:0}
+ol.pubs li{margin:0 0 16px}
+.pt{font-weight:600}
+.pa{color:var(--fg)}
+.pa b{font-weight:600}
+.pv{color:var(--muted)}
+.pl a{margin-right:12px;font-size:.92rem}
+.note{font-size:.92rem;color:var(--muted)}
+
+.food{display:inline-flex;align-items:center;gap:8px;margin-top:28px;padding:10px 18px;border:1px solid var(--line);border-radius:999px;font-weight:500}
+.food:hover{background:var(--soft);text-decoration:none}
+footer{margin-top:40px;color:var(--muted);font-size:.85rem}
+
+@media (max-width:600px){
+  main{padding-top:28px}
+  header.hero{flex-direction:column;align-items:flex-start;gap:20px}
+  header.hero img{width:140px;height:154px}
+  h1{font-size:2rem}
+}
+</style>
+</head>
+<body>
+<main>
+
+<header class="hero">
+  <img src="images/yuval-dagan.jpg" alt="Photo of Yuval Dagan">
+  <div>
+    <h1>Yuval Dagan</h1>
+    <p class="role">Assistant Professor (Senior Lecturer)<br>
+      <span class="dept">School of Computer Science, Tel Aviv University</span></p>
+    <p class="research">Research: Machine Learning Theory</p>
+    <div class="quick">
+      <a href="mailto:ydagan@tauex.tau.ac.il">ydagan@tauex.tau.ac.il</a>
+      <a href="https://yuvaldagan.wordpress.com/wp-content/uploads/2025/10/cv-2.pdf">CV</a>
+    </div>
+  </div>
+</header>
+
+<details>
+  <summary>Contact</summary>
+  <div class="body">
+    <dl class="contact">
+      <dt>Email</dt><dd><a href="mailto:ydagan@tauex.tau.ac.il">ydagan@tauex.tau.ac.il</a></dd>
+      <dt>Office</dt><dd>Check Point Building, Room 344<br><span class="muted">School of Computer Science, Tel Aviv University</span></dd>
+    </dl>
+  </div>
+</details>
+
+<details>
+  <summary>Bio</summary>
+  <div class="body">
+    <p>I am a Senior Lecturer (equivalent to Assistant Professor) at the School of Computer Science, Tel Aviv University. My research is in Machine Learning Theory, with connections to probability theory, game theory, statistics, complexity, privacy and applied machine learning.</p>
+
+    <h3>Education</h3>
+    <ul>
+      <li><b>Ph.D. in Computer Science</b>, Massachusetts Institute of Technology (MIT), EECS, 2018–2023. Advisor: <a href="http://people.csail.mit.edu/costis/">Prof. Constantinos Daskalakis</a>.
+        <br><span class="muted">Recipient of the <a href="https://research.fb.com/fellows/?dateYear=2021">Facebook Research Fellowship</a> (Machine Learning), 2021–2022.</span>
+        <br><span class="muted">Thesis received the <a href="https://www.eecs.mit.edu/eecs-2024-awards/">George M. Sprowls PhD Thesis Award</a> in Artificial Intelligence and Decision Making.</span></li>
+      <li><b>M.Sc. in Computer Science</b>, Technion – Israel Institute of Technology, 2015–2017. Advisor: <a href="https://yuvalfilmus.cs.technion.ac.il/">Prof. Yuval Filmus</a>.</li>
+      <li><b>B.Sc. in Computer Science</b>, Technion – Israel Institute of Technology, 2011–2015.</li>
+    </ul>
+
+    <h3>Postdoctoral studies</h3>
+    <ul>
+      <li><b>Postdoctoral Researcher</b>, UC Berkeley, 2023–2024. Studied learning theory under the Machine Learning Pod of the Simons Institute for the Theory of Computing and the Foundations of Data Science Institute (FODSI).</li>
+    </ul>
+  </div>
+</details>
+
+<details>
+  <summary>Research interests</summary>
+  <div class="body">
+    <p class="empty">Coming soon.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Awards and grants</summary>
+  <div class="body">
+    <h3>Awards</h3>
+    <ul>
+      <li><b>Recognition Award for Early-Career Faculty</b>, Israeli Computer Science Association, 2026. Awarded for research excellence and outstanding achievements in computer science.
+        <a href="https://sites.google.com/view/israel-cs-association/%D7%A7%D7%94%D7%99%D7%9C%D7%94-%D7%90%D7%A7%D7%93%D7%9E%D7%99%D7%AA/%D7%A4%D7%A8%D7%A1%D7%99%D7%9D-%D7%95%D7%A7%D7%95%D7%9C%D7%95%D7%AA-%D7%A7%D7%95%D7%A8%D7%90%D7%99%D7%9D?authuser=0">Announcement (Hebrew)</a></li>
+      <li><b>George M. Sprowls PhD Thesis Award in Artificial Intelligence and Decision Making</b>, MIT EECS, 2024.
+        <a href="https://www.eecs.mit.edu/eecs-2024-awards/">Award page</a></li>
+    </ul>
+
+    <h3>Grants and fellowships</h3>
+    <ul>
+      <li><b>Israel Science Foundation (ISF)</b>: personal research grant and equipment grant, 2025–2030.</li>
+      <li><b>Facebook Research Fellowship</b> (Machine Learning), 2021–2022. One of 3 Machine Learning fellowships awarded that year, out of 26 across all categories.
+        <a href="https://research.fb.com/fellows/?dateYear=2021">Fellows page</a></li>
+    </ul>
+  </div>
+</details>
+
+<details>
+  <summary>Students</summary>
+  <div class="body">
+    <h3>Master's students</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>From</th><th>Degree</th><th>Graduated</th></tr></thead>
+        <tbody>
+          <!-- TODO: fill in graduation years -->
+          <tr><td><a href="https://www.mit.edu/people/assos/index.html">Angelos Assos</a></td><td>MIT <span class="muted">(co-advised with Constantinos Daskalakis)</span></td><td>M.Eng.</td><td class="muted">—</td></tr>
+          <tr><td>Rui Yao</td><td>MIT <span class="muted">(helped Constantinos Daskalakis with advising)</span></td><td>Master's</td><td class="muted">—</td></tr>
+          <tr><td>Maya Baruch</td><td>Tel Aviv University</td><td>M.Sc.</td><td class="muted">—</td></tr>
+          <tr><td>Amnon Levy</td><td>Tel Aviv University</td><td>M.Sc.</td><td class="muted">—</td></tr>
+          <tr><td>Lior Ben-Yaakov</td><td>Tel Aviv University</td><td>M.Sc.</td><td class="muted">—</td></tr>
+          <tr><td>Uri Aviad</td><td>Tel Aviv University</td><td>M.Sc.</td><td class="muted">—</td></tr>
+          <tr><td>Sivan Khermosh</td><td>Tel Aviv University</td><td>M.Sc.</td><td class="muted">—</td></tr>
+          <tr><td>Nadav Eisen</td><td>Tel Aviv University</td><td>M.Sc.</td><td class="muted">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>PhD students I mentored as a senior collaborator</h3>
+    <ul>
+      <li><a href="https://vardiskandiros.com/">Vardis Kandiros</a> (MIT)</li>
+      <li><a href="http://maxkfish.com/">Maxwell Fishelson</a> (MIT)</li>
+    </ul>
+  </div>
+</details>
+
+<details>
+  <summary>Publications</summary>
+  <div class="body">
+    <ol class="pubs">
+      <li><div class="pt">Breaking the T<sup>2/3</sup> Barrier for Sequential Calibration</div>
+        <div class="pa"><b>Yuval Dagan</b>, Constantinos Daskalakis, Maxwell Fishelson, Noah Golowich, Robert Kleinberg, Princewill Okoroafor</div>
+        <div class="pv">STOC 2025. <span class="note">Invited to the STOC 2025 special issue.</span></div></li>
+
+      <li><div class="pt">Intractability of Strategizing against Online Learners</div>
+        <div class="pa">Angelos Assos, <b>Yuval Dagan</b>, Nived Rajaraman</div>
+        <div class="pv">COLT 2025</div></li>
+
+      <li><div class="pt">Maximizing Utility in Multi-Agent Environments by Anticipating the Behavior of Other Learners</div>
+        <div class="pa">Angelos Assos, <b>Yuval Dagan</b>, Constantinos Daskalakis</div>
+        <div class="pv">NeurIPS 2024</div></li>
+
+      <li><div class="pt">Dimension-free Private Mean Estimation for Anisotropic Distributions</div>
+        <div class="pa"><b>Yuval Dagan</b>, Michael I. Jordan, Xuelin Yang, Lydia Zakynthinou, Nikita Zhivotovskiy</div>
+        <div class="pv">NeurIPS 2024</div></li>
+
+      <li><div class="pt">From External to Swap Regret 2.0: An Efficient Reduction and Oblivious Adversary for Large Action Spaces</div>
+        <div class="pa"><b>Yuval Dagan</b>, Constantinos Daskalakis, Maxwell Fishelson, Noah Golowich</div>
+        <div class="pv">STOC 2024. <span class="note">Invited to the STOC 2024 special issue.</span></div>
+        <div class="pl"><a href="https://www.youtube.com/watch?v=58ob2ITmfJk&amp;t=2s">Lecture (Natalie Collina, in Aaron Roth's class)</a></div></li>
+
+      <li><div class="pt">Consistent Diffusion Models: Mitigating Sampling Drift by Learning to be Consistent</div>
+        <div class="pa">Giannis Daras, <b>Yuval Dagan</b>, Alexandros G. Dimakis, Constantinos Daskalakis</div>
+        <div class="pv">NeurIPS 2023</div>
+        <div class="pl"><a href="https://arxiv.org/abs/2302.09057">arXiv</a></div></li>
+
+      <li><div class="pt">Ambient Diffusion: Learning Clean Distributions from Corrupted Data</div>
+        <div class="pa">Giannis Daras, Kulin Shah, <b>Yuval Dagan</b>, Aravind Gollakota, Alexandros G. Dimakis, Adam R. Klivans</div>
+        <div class="pv">NeurIPS 2023</div>
+        <div class="pl"><a href="https://arxiv.org/abs/2305.19256">arXiv</a></div></li>
+
+      <li><div class="pt">Online Learning and Solving Infinite Games with an ERM Oracle</div>
+        <div class="pa">Angelos Assos, Idan Attias, <b>Yuval Dagan</b>, Constantinos Daskalakis, Maxwell Fishelson</div>
+        <div class="pv">COLT 2023</div>
+        <div class="pl"><a href="https://arxiv.org/abs/2307.01689">arXiv</a></div></li>
+
+      <li><div class="pt">Learning and Testing Latent-Tree Ising Models Efficiently</div>
+        <div class="pa">Davin Choo, <b>Yuval Dagan</b>, Constantinos Daskalakis, Anthimos Vardis Kandiros</div>
+        <div class="pv">COLT 2023</div>
+        <div class="pl"><a href="https://arxiv.org/abs/2211.13291">arXiv</a></div></li>
+
+      <li><div class="pt">EM's Convergence in Gaussian Latent Tree Models</div>
+        <div class="pa"><b>Yuval Dagan</b>, Anthimos Vardis Kandiros, Constantinos Daskalakis</div>
+        <div class="pv">COLT 2022</div>
+        <div class="pl"><a href="https://arxiv.org/abs/2211.11904">arXiv</a></div></li>
+
+      <li><div class="pt">Smoothed Online Learning is as Easy as Statistical Learning</div>
+        <div class="pa">Adam Block, <b>Yuval Dagan</b>, Noah Golowich, Alexander Rakhlin</div>
+        <div class="pv">COLT 2022</div>
+        <div class="pl"><a href="https://arxiv.org/abs/2202.04690">arXiv</a><a href="https://slideslive.com/38985588">Video (Block)</a></div></li>
+
+      <li><div class="pt">A Bounded-Noise Mechanism for Differential Privacy</div>
+        <div class="pa"><b>Yuval Dagan</b>, Gil Kur</div>
+        <div class="pv">COLT 2022. <span class="note">Resolves an open problem from <a href="https://differentialprivacy.org/open-problem-avoid-union/">differentialprivacy.org</a>.</span></div>
+        <div class="pl"><a href="https://arxiv.org/abs/2012.03817">arXiv</a><a href="https://slideslive.com/38985588">Video</a></div></li>
+
+      <li><div class="pt">Score-Guided Intermediate Level Optimization: Fast Langevin Mixing for Inverse Problems</div>
+        <div class="pa">Giannis Daras, <b>Yuval Dagan</b>, Alexandros G. Dimakis, Constantinos Daskalakis</div>
+        <div class="pv">ICML 2022</div>
+        <div class="pl"><a href="https://arxiv.org/abs/2206.09104">arXiv</a><a href="https://slideslive.com/38983619">Video (Daras)</a></div></li>
+
+      <li><div class="pt">Adversarial Laws of Large Numbers and Optimal Regret in Online Classification</div>
+        <div class="pa">Noga Alon, Omri Ben-Eliezer, <b>Yuval Dagan</b>, Shay Moran, Moni Naor, Eylon Yogev</div>
+        <div class="pv">STOC 2021. <span class="note">Invited to the STOC 2021 special issue.</span></div>
+        <div class="pl"><a href="https://arxiv.org/abs/2101.09054">arXiv</a><a href="https://www.youtube.com/watch?v=DmR9aDqxVuI">Video</a></div></li>
+
+      <li><div class="pt">Learning Ising Models from One or Multiple Samples</div>
+        <div class="pa"><b>Yuval Dagan</b>, Constantinos Daskalakis, Nishanth Dikkala, Anthimos Vardis Kandiros</div>
+        <div class="pv">STOC 2021</div>
+        <div class="pl"><a href="https://arxiv.org/abs/2004.09370">arXiv</a><a href="https://www.youtube.com/watch?v=XPC-mqN4FXE">Video (Daskalakis, 66 min)</a><a href="https://www.youtube.com/watch?v=jE8KgEyrgJk">Video (Kandiros, 22 min)</a></div></li>
+
+      <li><div class="pt">Majorizing Measures, Sequential Complexities, and Online Learning</div>
+        <div class="pa">Adam Block, <b>Yuval Dagan</b>, Alexander Rakhlin</div>
+        <div class="pv">COLT 2021</div>
+        <div class="pl"><a href="https://arxiv.org/abs/2102.01729">arXiv</a><a href="https://www.learningtheory.org/colt2021/virtual/poster_1318.html">Video (Block)</a></div></li>
+
+      <li><div class="pt">Statistical Estimation from Dependent Data</div>
+        <div class="pa">Anthimos Vardis Kandiros, <b>Yuval Dagan</b>, Nishanth Dikkala, Surbhi Goel, Constantinos Daskalakis</div>
+        <div class="pv">ICML 2021</div>
+        <div class="pl"><a href="https://arxiv.org/abs/2107.09773">arXiv</a><a href="https://slideslive.com/38959530">Video (Kandiros)</a></div></li>
+
+      <li><div class="pt">The Entropy of Lies: Playing Twenty Questions with a Liar</div>
+        <div class="pa"><b>Yuval Dagan</b>, Yuval Filmus, Daniel Kane, Shay Moran</div>
+        <div class="pv">ITCS 2021</div>
+        <div class="pl"><a href="https://yuvaldagan.wordpress.com/wp-content/uploads/2018/11/lies.pdf">PDF</a><a href="https://www.youtube.com/watch?v=FxKKVvtyLDw&amp;t=1111s">Video</a></div></li>
+
+      <li><div class="pt">Interaction is Necessary for Distributed Learning with Privacy or Communication Constraints</div>
+        <div class="pa"><b>Yuval Dagan</b>, Vitaly Feldman</div>
+        <div class="pv">STOC 2020. <span class="note">Resolves a COLT 2019 open problem.</span></div>
+        <div class="pl"><a href="https://arxiv.org/abs/1911.04014">arXiv</a><a href="https://www.youtube.com/watch?v=AWgzaFOU_HM">Video</a></div></li>
+
+      <li><div class="pt">PAC Learning with Stable and Private Predictions</div>
+        <div class="pa"><b>Yuval Dagan</b>, Vitaly Feldman</div>
+        <div class="pv">COLT 2020</div>
+        <div class="pl"><a href="https://arxiv.org/abs/1911.10541">arXiv</a><a href="https://www.youtube.com/watch?v=jZlgmBUQ4nU">Video</a></div></li>
+
+      <li><div class="pt">Space Lower Bounds for Linear Prediction in the Streaming Model</div>
+        <div class="pa"><b>Yuval Dagan</b>, Gil Kur, Ohad Shamir</div>
+        <div class="pv">COLT 2019</div>
+        <div class="pl"><a href="https://arxiv.org/abs/1902.03498">arXiv</a><a href="https://www.youtube.com/watch?v=E8UGWwEiY18">Video</a></div></li>
+
+      <li><div class="pt">Learning from Weakly Dependent Data under Dobrushin's Condition</div>
+        <div class="pa"><b>Yuval Dagan</b>, Constantinos Daskalakis, Nishanth Dikkala, Siddhartha Jayanti</div>
+        <div class="pv">COLT 2019</div>
+        <div class="pl"><a href="https://arxiv.org/abs/1906.09247">arXiv</a><a href="https://www.youtube.com/watch?v=OdAonWHU7js">Video</a></div></li>
+
+      <li><div class="pt">The Log-Concave Maximum Likelihood Estimator is Optimal in High Dimensions</div>
+        <div class="pa"><b>Yuval Dagan</b>, Gil Kur</div>
+        <div class="pl"><a href="https://arxiv.org/abs/1903.05315">arXiv</a></div></li>
+
+      <li><div class="pt">Detecting Correlations with Little Memory and Communication</div>
+        <div class="pa"><b>Yuval Dagan</b>, Ohad Shamir</div>
+        <div class="pv">COLT 2018</div>
+        <div class="pl"><a href="https://arxiv.org/abs/1803.01420">arXiv</a><a href="https://www.youtube.com/watch?v=AfBi62kxpbw">Video</a></div></li>
+
+      <li><div class="pt">A Better Resource Allocation Algorithm with Semi-Bandit Feedback</div>
+        <div class="pa"><b>Yuval Dagan</b>, Koby Crammer</div>
+        <div class="pv">ALT 2018</div></li>
+
+      <li><div class="pt">Twenty (Simple) Questions</div>
+        <div class="pa"><b>Yuval Dagan</b>, Yuval Filmus, Ariel Gabizon, Shay Moran</div>
+        <div class="pv">STOC 2017. <span class="note">Invited presentation at Highlights of Algorithms 2018.</span></div>
+        <div class="pl"><a href="https://arxiv.org/abs/1611.01655">arXiv</a><a href="https://www.youtube.com/watch?v=lc1-DUyUkJ8">Video</a></div></li>
+
+      <li><div class="pt">Trading Information Complexity for Error</div>
+        <div class="pa"><b>Yuval Dagan</b>, Yuval Filmus, Hamed Hatami, Yaqiao Li</div>
+        <div class="pv">CCC 2017. <span class="note">CCC 2017 special issue (Theory of Computing).</span></div>
+        <div class="pl"><a href="https://theoryofcomputing.org/articles/v014a006/">Journal</a><a href="https://www.youtube.com/watch?v=vQf7bfWYr_k">Video (Hatami)</a></div></li>
+
+      <li><div class="pt">There is No Online Sparse Regressor with Sublinear Regret</div>
+        <div class="pa"><b>Yuval Dagan</b>, Saar Zehavi</div>
+        <div class="pv">Course project, "Advanced Topics in Machine Learning", Technion, 2015. <span class="note">Resolves an open problem from COLT 2014.</span></div>
+        <div class="pl"><a href="https://yuvaldagan.wordpress.com/wp-content/uploads/2017/11/daganzehavi.pdf">PDF</a></div></li>
+    </ol>
+  </div>
+</details>
+
+<a class="food" href="food/">🍽️ Food recommendations!</a>
+
+<footer>© Yuval Dagan</footer>
+</main>
+</body>
+</html>
