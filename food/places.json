@@ -48,6 +48,19 @@
     "far": 3,
     "vibe": 3
    }
+  ],
+  "photos": [
+   "photos/shamna/outside.webp",
+   "photos/shamna/counter.webp"
+  ],
+  "dishes": [
+   {
+    "name": "Yogurt and dark chocolate ice cream",
+    "rating": 2,
+    "photo": "photos/shamna/yogurt-dark-chocolate.webp",
+    "price": "26",
+    "when": "2026-11"
+   }
   ]
  },
  {

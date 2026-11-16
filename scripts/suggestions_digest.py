@@ -59,10 +59,22 @@ def main():
         place, city, why = val(f.get("place")), val(f.get("city")), val(f.get("why"))
         who = val(f.get("name")), val(f.get("email"))
         by = f"{who[0]} <{who[1]}>" if who[0] else who[1]
-        items_txt.append(f"• {place} — {city}\n  {why}\n  From: {by}\n")
+        faces = {"3": "😋", "2": "🙂", "1": "😐"}
+        dishes = []
+        for dv in f.get("dishes", {}).get("arrayValue", {}).get("values", []):
+            m = dv.get("mapValue", {}).get("fields", {})
+            line = f"{faces.get(str(m.get('rating', {}).get('integerValue', '2')), '🙂')} {val(m.get('name'))}"
+            if val(m.get("price")):
+                line += f" — {val(m.get('price'))}"
+            if m.get("hasPhoto", {}).get("booleanValue"):
+                line += " (photo)"
+            dishes.append(line)
+        dish_txt = "".join(f"  Dish: {x}\n" for x in dishes)
+        items_txt.append(f"• {place} — {city}\n  {why}\n{dish_txt}  From: {by}\n")
         items_html.append(f"<li><b>{html.escape(place)}</b> — {html.escape(city)}<br>"
-                          f"<span style='white-space:pre-wrap'>{html.escape(why)}</span><br>"
-                          f"<small>From: {html.escape(by)}</small></li>")
+                          f"<span style='white-space:pre-wrap'>{html.escape(why)}</span>"
+                          + "".join(f"<br>Dish: {html.escape(x)}" for x in dishes) +
+                          f"<br><small>From: {html.escape(by)}</small></li>")
     n = len(new)
     subject = f"{n} new place suggestion{'s' if n > 1 else ''} for your food page"
     text = f"{subject}:\n\n" + "\n".join(items_txt) + f"\nSign in at {SITE} → Suggestions to add or dismiss them.\n"

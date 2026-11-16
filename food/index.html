@@ -1511,13 +1511,26 @@ document.addEventListener("click", async e => {
   if(id==="signin"){ sgCommentPid = null; sgMealPid = null; openSg("signin", false); }
   else if(id==="signout") fb.au.signOut(fb.auth);
   else if(id==="addplace") openEditor(null);
-  else if(id==="suggestbtn"){ sgCommentPid = null; sgMealPid = null; if(!fb) return alert("Suggestions are unavailable right now. Try again later."); isOwner ? openEditor(null) : openSg(user ? "suggest" : "signin", true); }
+  else if(id==="suggestbtn"){ sgCommentPid = null; sgMealPid = null; if(!fb) return alert("Suggestions are unavailable right now. Try again later."); openSg(user ? "suggest" : "signin", true); }
   else if(id==="sgview") openSgList();
 });
 /* ---------- sign-in + "add a place" suggestions (everyone) ---------- */
 const sgd = document.getElementById("sgdlg"), sgf = document.getElementById("sgform");
 /* Visitors' meals: name, rating, optional price + month, optional photo (shrunk in the browser). */
-let sgMealPid = null, mealImg = null;
+let sgMealPid = null, mealImg = null, sgDishN = 0;
+/* A dish block inside the "recommend a place" form — same fields as "Add meal". */
+function addSgDish(){
+  const box = document.getElementById("sg-dishes"); if(!box || box.children.length >= 6) return;
+  const i = ++sgDishN;
+  box.insertAdjacentHTML("beforeend", `<fieldset class="sgdish dishf"><legend>Dish</legend>
+    <label>Dish<input name="sdname" maxlength="80"></label>
+    <div class="faces" role="radiogroup" aria-label="How was it">${[3,2,1].map(n=>`<label><input type="radio" name="sdr${i}" value="${n}"${n===3?" checked":""}>${DISH_FACE[n][0]} ${DISH_FACE[n][1]}</label>`).join("")}</div>
+    <div class="g2"><label>Price (optional)<input name="sdprice" inputmode="decimal" maxlength="20" placeholder="e.g. 89"></label>
+    <label>Month<input name="sdwhen" type="month" value="${thisMonth()}" max="${thisMonth()}"></label></div>
+    <label>Photo (optional)<input name="sdphoto" type="file" accept="image/*"></label><img class="mprev" hidden alt="">
+    <div class="row"><button type="button" class="linkbtn" data-sg="rmsgdish" style="margin-left:auto;color:#c0392b">Remove dish</button></div></fieldset>`);
+  box.lastElementChild.querySelector("input[name=sdname]").focus();
+}
 function shrinkPhoto(file){
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(file), im = new Image();
@@ -1546,6 +1559,13 @@ function openMealForm(pid){
   sgf.querySelector("input[name=mname]").focus();
 }
 sgf.addEventListener("change", async e => {
+  if(e.target.name === "sdphoto"){
+    const fs = e.target.closest(".sgdish"), pv = fs.querySelector(".mprev"), f = e.target.files[0], err = document.getElementById("sg-err");
+    fs.dataset.img = ""; pv.hidden = true; if(!f) return;
+    err.textContent = "Preparing photo…";
+    try{ const img = await shrinkPhoto(f); fs.dataset.img = img; pv.src = img; pv.hidden = false; err.textContent = ""; }catch(x){ err.textContent = x.message; }
+    return;
+  }
   if(e.target.name !== "mphoto") return;
   const f = e.target.files[0], pv = document.getElementById("mprev"), err = document.getElementById("sg-err");
   mealImg = null; pv.hidden = true; if(!f) return;
@@ -1601,6 +1621,8 @@ function openSg(mode, wantsSuggest){
       <label>Place name<input name="place" maxlength="100" required></label>
       <label>City<input name="city" maxlength="80" required></label>
       <label>Why I like it<textarea name="why" maxlength="2000" required></textarea></label>
+      <div id="sg-dishes"></div>
+      <div><button type="button" class="linkbtn" data-sg="adddish">＋ Add a dish</button> <span class="cmeta">optional — what you ate there</span></div>
       <label>Your name (optional)<input name="name" maxlength="60" value="${esc(savedName)}"></label>
       <div class="row foot"><button type="submit" class="btn">Send recommendation</button><button type="button" class="linkbtn" data-sg="close">Cancel</button><span class="err" id="sg-err"></span></div>`;
   } else {
@@ -1616,7 +1638,8 @@ async function afterSignIn(){
   for(let i=0;i<20 && (!user || ownerCheckPending);i++) await new Promise(r=>setTimeout(r,100));
   if(sgMealPid && !sgWantsSuggest){ const pid = sgMealPid; sgd.close(); openMealForm(pid); return; }
   if(sgCommentPid){ const pid = sgCommentPid; sgCommentPid = null; sgd.close(); openCommentForm(pid); return; }
-  if(isOwner){ sgd.close(); if(sgWantsSuggest) openEditor(null); }
+  if(sgWantsSuggest){ openSg("suggest"); return; }
+  if(isOwner){ sgd.close(); }
   else if(sgWantsSuggest) openSg("suggest");
   else sgd.close();
 }
@@ -1626,6 +1649,8 @@ sgf.addEventListener("click", async e => {
   if(a==="close") sgd.close();
   else if(a==="toggle"){ sgCreate = !sgCreate; openSg("signin"); }
   else if(a==="another") openSg("suggest");
+  else if(a==="adddish") addSgDish();
+  else if(a==="rmsgdish") e.target.closest(".sgdish").remove();
   else if(a==="google"){
     try{ await fb.au.signInWithPopup(fb.auth, new fb.au.GoogleAuthProvider()); await afterSignIn(); }
     catch(x){ if(err) err.textContent = authErr(x); }
@@ -1649,7 +1674,13 @@ sgf.addEventListener("submit", async e => {
     if(!user?.email){ err.textContent = "Your account has no email address — try signing in with Google."; return; }
     err.textContent = "Sending…";
     try{
-      await fb.fs.addDoc(fb.fs.collection(fb.db,"suggestions"), {place, city, why, name, email:user.email, uid:user.uid, created_at: fb.fs.serverTimestamp(), notified:false});
+      const blocks = [...sgf.querySelectorAll(".sgdish")].filter(fs => fs.querySelector("[name=sdname]").value.trim());
+      const dishes = blocks.map(fs => { const price = fs.querySelector("[name=sdprice]").value.trim();
+        return {name: fs.querySelector("[name=sdname]").value.trim().slice(0,80), rating: Number(fs.querySelector("input[type=radio]:checked")?.value||2),
+                price, when: price ? (fs.querySelector("[name=sdwhen]").value || thisMonth()) : "", hasPhoto: !!fs.dataset.img}; });
+      const ref = await fb.fs.addDoc(fb.fs.collection(fb.db,"suggestions"), {place, city, why, name, dishes, email:user.email, uid:user.uid, created_at: fb.fs.serverTimestamp(), notified:false});
+      for(const [i,fs] of blocks.entries()) if(fs.dataset.img)
+        await fb.fs.setDoc(fb.fs.doc(fb.db,"suggestionPhotos",`${ref.id}-${i}`), {img:fs.dataset.img, uid:user.uid, sid:ref.id});
       if(name){ savedName = name; try{ localStorage.setItem("food-name", name); }catch(x){} }
       openSg("thanks");
     }catch(x){ err.textContent = "Couldn't send it: "+(x.code||x.message); }
@@ -1669,6 +1700,7 @@ function openSgList(){
   sgf.innerHTML = `<h2 id="sg-title">Suggestions</h2>
     ${sgDocs.length ? `<div class="sglist">${sgDocs.map(d=>`<div class="sgitem"><b>${esc(d.place)}</b> — ${esc(d.city)}
       <p style="margin:6px 0;white-space:pre-wrap">${esc(d.why)}</p>
+      ${(d.dishes||[]).length?`<ul class="dishes">${d.dishes.map(x=>`<li class="dish"><span class="face">${(DISH_FACE[x.rating]||DISH_FACE[2])[0]}</span><span class="dn">${esc(x.name)}${priceLine(x)}</span>${x.hasPhoto?`<span class="cmeta">📷</span>`:""}</li>`).join("")}</ul>`:""}
       <div class="cmeta">${esc(d.name||"")}${d.name?" · ":""}${esc(d.email)}${d.created_at?.toDate?" · "+esc(fmtDate(d.created_at.toDate().toISOString())):""}</div>
       <div class="row"><button type="button" class="btn" data-sgl="add" data-id="${esc(d.id)}">Add as place</button><button type="button" class="linkbtn" data-sgl="del" data-id="${esc(d.id)}" style="color:#c0392b">Dismiss</button></div></div>`).join("")}</div>`
       : `<p class="cmeta">No suggestions right now.</p>`}
@@ -1678,7 +1710,11 @@ function openSgList(){
 sgf.addEventListener("click", async e => {
   const b = e.target.closest("[data-sgl]"); if(!b) return;
   const d = sgDocs.find(x => x.id===b.dataset.id); if(!d) return;
-  if(b.dataset.sgl==="add"){ sgd.close(); openEditor(null, {name:d.place, city:d.city, description:d.why}); }
+  if(b.dataset.sgl==="add"){
+    const dishes = await Promise.all((d.dishes||[]).map(async (x,i) => { const o = {name:x.name, rating:x.rating, price:x.price||"", when:x.when||""};
+      if(x.hasPhoto) try{ const ph = await fb.fs.getDoc(fb.fs.doc(fb.db,"suggestionPhotos",`${d.id}-${i}`)); if(ph.exists()) o.photo = ph.data().img; }catch(e){}
+      return o; }));
+    sgd.close(); openEditor(null, {name:d.place, city:d.city, description:d.why, dishes}); }
   else if(confirm(`Dismiss the suggestion "${d.place}"?`)){
     try{ await fb.fs.deleteDoc(fb.fs.doc(fb.db,"suggestions",d.id)); sgDocs = sgDocs.filter(x=>x.id!==d.id); sgCount = sgDocs.length; renderOwner(); openSgList(); }
     catch(x){ alert("Couldn't dismiss: "+x.message); }
@@ -1709,12 +1745,12 @@ function dishFields(d){
     <label>Rating<select name="drating">${[3,2,1].map(n=>opt(n,d.rating??2,DISH_FACE[n].join(" "))).join("")}</select></label></div>
     <div class="g2"><label>Price (optional)<input name="dprice" value="${esc(d.price||"")}" placeholder="e.g. 89"></label>
     <label>Month bought<input name="dwhen" type="month" value="${esc(d.when||thisMonth())}"></label></div>
-    <div class="g2"><label>Photo (optional path)<input name="dphoto" value="${esc(d.photo||"")}"></label>
+    <div class="g2">${String(d.photo||"").startsWith("data:")?`<label>Photo (from the recommendation)<input type="hidden" name="dphoto" value="${esc(d.photo)}"><img class="mprev" src="${esc(d.photo)}" alt=""></label>`:`<label>Photo (optional path)<input name="dphoto" value="${esc(d.photo||"")}"></label>`}
     <label>Link (optional)<input name="durl" value="${esc(d.url||"")}"></label></div>
     <div class="row"><button type="button" class="linkbtn" data-ed="rmdish" style="margin-left:auto;color:#c0392b">Remove dish</button></div></fieldset>`;
 }
 function openEditor(pid, pre){
-  const p = pid ? places.find(x=>x.id===pid) : (pre ? {name:pre.name, description:pre.description, locations:[{city:pre.city}]} : null); edId = pid && p ? p.id : null;
+  const p = pid ? places.find(x=>x.id===pid) : (pre ? {name:pre.name, description:pre.description, dishes:pre.dishes||[], locations:[{city:pre.city}]} : null); edId = pid && p ? p.id : null;
   const types = [...new Set(places.map(x=>String(x.type||"")).filter(Boolean))].sort();
   const ks = Array.isArray(p?.kinds) ? p.kinds : [];
   edf.innerHTML = `<h2 id="ed-title">${edId?"Edit place":"Add place"}</h2>
