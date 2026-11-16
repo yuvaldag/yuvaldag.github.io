@@ -2023,5 +2023,26 @@
     "far": 2
    }
   ]
+ },
+ {
+  "id": "pizza-fresca",
+  "name": "Pizza Fresca",
+  "mapsName": "פרסקה פיצריה נאפוליטנית אפיקים",
+  "type": "Restaurant",
+  "cuisine": [
+   "pizza"
+  ],
+  "wantToGo": true,
+  "description": "Neapolitan pizzeria, opened in 2012.",
+  "locations": [
+   {
+    "street": "Kibbutz Afikim",
+    "city": "Afikim",
+    "country": "Israel",
+    "address": "Afikim, Israel",
+    "lat": 32.681369,
+    "lng": 35.5783318
+   }
+  ]
  }
 ]
