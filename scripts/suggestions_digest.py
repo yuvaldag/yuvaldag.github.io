@@ -69,11 +69,21 @@ def main():
             if m.get("hasPhoto", {}).get("booleanValue"):
                 line += " (photo)"
             dishes.append(line)
-        dish_txt = "".join(f"  Dish: {x}\n" for x in dishes)
+        sid = d["name"].split("/")[-1]
+        nphotos = 0
+        for i in range(4):
+            try:
+                call(f"{DOCS}/suggestionPhotos/{sid}-p{i}", token=token)
+                nphotos += 1
+            except SystemExit:
+                break
+        if nphotos:
+            dishes.insert(0, f"📷 {nphotos} photo{'s' if nphotos > 1 else ''} of the place")
+        dish_txt = "".join(f"  {x}\n" if x.startswith("📷") else f"  Dish: {x}\n" for x in dishes)
         items_txt.append(f"• {place} — {city}\n  {why}\n{dish_txt}  From: {by}\n")
         items_html.append(f"<li><b>{html.escape(place)}</b> — {html.escape(city)}<br>"
                           f"<span style='white-space:pre-wrap'>{html.escape(why)}</span>"
-                          + "".join(f"<br>Dish: {html.escape(x)}" for x in dishes) +
+                          + "".join(f"<br>{html.escape(x)}" if x.startswith("📷") else f"<br>Dish: {html.escape(x)}" for x in dishes) +
                           f"<br><small>From: {html.escape(by)}</small></li>")
     n = len(new)
     subject = f"{n} new place suggestion{'s' if n > 1 else ''} for your food page"
