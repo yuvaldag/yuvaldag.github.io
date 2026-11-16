@@ -1947,6 +1947,19 @@
     "lat": 32.477858,
     "lng": 34.978874
    }
+  ],
+  "photos": [
+   "photos/blooms/cart.webp",
+   "photos/blooms/seating.webp"
+  ],
+  "dishes": [
+   {
+    "name": "Cortado",
+    "rating": 2,
+    "photo": "photos/blooms/cortado.webp",
+    "price": "15",
+    "when": "2026-11"
+   }
   ]
  },
  {
