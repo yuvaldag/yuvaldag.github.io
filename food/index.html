@@ -924,10 +924,8 @@ const TABLE = {
   3: `<svg viewBox="0 0 32 32">${legs("#7a4a26")}<rect x="2.5" y="17" width="27" height="4.5" rx="1" fill="#a8703f" stroke="#6e4220" stroke-width="1"/><path d="M11 17 L12 12 H20 L21 17 Z" fill="#c8693a"/><path d="M16 12 C16 8 13 5 9 4 C10 8 12 11 16 12 Z M16 12 C16 8 19 4 24 3 C23 8 20 11 16 12 Z M16 12 V6" fill="#3f9a4f" stroke="#2c7a3b" stroke-width=".8"/></svg>`,
   4: `<svg viewBox="0 0 32 32"><defs><linearGradient id="gd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe9a3"/><stop offset=".5" stop-color="#e2b23c"/><stop offset="1" stop-color="#b8861f"/></linearGradient></defs>${legs("#c9962b")}<rect x="2.5" y="13" width="27" height="4.5" rx="1" fill="url(#gd)" stroke="#9a7019" stroke-width="1"/><path d="M26 4 L27 7 L30 8 L27 9 L26 12 L25 9 L22 8 L25 7 Z" fill="#e2b23c"/></svg>`
 };
-/* Side view of a red train, so it reads clearly as a train at small sizes. */
-const TRAIN_SVG = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M1 26.5h30" stroke="#8a8f98" stroke-width="1.4" stroke-linecap="round"/><path d="M2.5 10.5h20.5c4 0 7 3.6 7.5 9.5v1.8c0 1-.8 1.7-1.8 1.7H2.5z" fill="#d62828" stroke="#9b1c1c" stroke-width="1"/><path d="M2.5 19.5h28" stroke="#ffd166" stroke-width="1.6"/><rect x="4" y="12.6" width="4.4" height="4.4" rx=".8" fill="#e8f4ff"/><rect x="10" y="12.6" width="4.4" height="4.4" rx=".8" fill="#e8f4ff"/><rect x="16" y="12.6" width="4.4" height="4.4" rx=".8" fill="#e8f4ff"/><path d="M23 12.6h1.4c2 0 3.6 1.9 4.2 4.4H23z" fill="#bfe1ff"/><circle cx="7" cy="24.6" r="1.9" fill="#2b2d33"/><circle cx="13" cy="24.6" r="1.9" fill="#2b2d33"/><circle cx="21" cy="24.6" r="1.9" fill="#2b2d33"/><circle cx="26.5" cy="24.6" r="1.9" fill="#2b2d33"/></svg>`;
-const DIST = {1:["🚶","Walk"],2:["🚌","Bus"],3:[TRAIN_SVG,"Train"],4:["✈️","Airplane"]};
-const DIST_OPT = {1:"🚶 Walk",2:"🚌 Bus",3:"🚆 Train",4:"✈️ Airplane"};
+const DIST = {1:["🚶","Walk"],2:["🚌","Bus"],3:["🚂","Train"],4:["✈️","Airplane"]};
+const DIST_OPT = {1:"🚶 Walk",2:"🚌 Bus",3:"🚂 Train",4:"✈️ Airplane"};
 const DIST_TXT = {1:"A place I'd walk to",2:"A place I'd take a bus to",3:"A place I'd take a train to",4:"A place I'd fly to"};
 const VIBE_TXT = {0:"Kiosk",1:"Okay to sit",2:"Normal vibe",3:"Nice vibe",4:"Really nice vibe"};
 const distIcon = n => DIST[n] ? `<span class="ic" role="img" aria-label="${DIST[n][1]}" title="${DIST_TXT[n]}">${DIST[n][0]}</span>` : "";
