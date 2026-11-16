@@ -1927,5 +1927,26 @@
     "lng": 34.975139
    }
   ]
+ },
+ {
+  "id": "blooms",
+  "name": "Blooms",
+  "mapsName": "בלומס בית קליה ועגלת קפה פרדס חנה",
+  "type": "Coffee",
+  "features": [
+   "specialty"
+  ],
+  "description": "Specialty coffee cart and roastery in the HaYadit compound.",
+  "locations": [
+   {
+    "street": "HaHaroshet 1 (HaYadit compound)",
+    "city": "Pardes Hanna-Karkur",
+    "address": "HaHaroshet 1, Pardes Hanna-Karkur, Israel",
+    "far": 2,
+    "vibe": 3,
+    "lat": 32.4749962,
+    "lng": 34.975139
+   }
+  ]
  }
 ]
