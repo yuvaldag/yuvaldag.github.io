@@ -1948,5 +1948,27 @@
     "lng": 34.978874
    }
   ]
+ },
+ {
+  "id": "habasta",
+  "name": "HaBasta",
+  "mapsName": "הבסטה",
+  "type": "Restaurant",
+  "features": [
+   "expensive",
+   "lunch"
+  ],
+  "description": "Famous, fresh ingredients, next to the market.",
+  "locations": [
+   {
+    "street": "HaShomer 4 (Carmel Market)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "HaShomer 4, Tel Aviv, Israel",
+    "far": 2,
+    "lat": 32.0685847,
+    "lng": 34.7692289
+   }
+  ]
  }
 ]
