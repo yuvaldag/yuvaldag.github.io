@@ -705,6 +705,9 @@ button{font:inherit;color:inherit}
 .ddmenu{position:absolute;z-index:1000;top:calc(100% + 6px);left:0;width:min(300px,calc(100vw - 48px));max-height:320px;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px}
 .ddopt{display:flex;align-items:center;gap:10px;width:100%;padding:7px 8px;border:0;background:none;color:var(--fg);font:inherit;font-size:.92rem;border-radius:8px;cursor:pointer;text-align:left}
 .ddopt:hover{background:var(--soft)}
+.ddcountry{font-weight:700}
+.ddcity{padding-left:26px!important}
+.ddopt:disabled{opacity:.55;cursor:default}
 .ddopt .ic{width:26px;height:22px;font-size:18px}
 .ddopt .tick{margin-left:auto;color:var(--accent);font-weight:700;visibility:hidden}
 .ddopt[aria-checked="true"] .tick{visibility:visible}
@@ -1041,7 +1044,10 @@ let showMode = "both"; try{ const v = localStorage.getItem("food-show"); if(v===
 const shown = p => showMode==="both" || (showMode==="want") === isWant(p);
 const SHOW_OPTS = [["been","!","Places I've been"],["want","?","Places I want to go"],["both","!?","Both"]];
 let cuisOpen = false;
-const F = { type:new Set(), cuis:new Set(), far:new Set(), vibe:new Set(), city:new Set() };
+const F = { type:new Set(), cuis:new Set(), far:new Set(), vibe:new Set(), city:new Set(), country:new Set() };
+let placeOpen = false;
+/* A location's country: its own field, else the last part of its address ("…, Israel"). */
+const countryOf = l => String(l.country || String(l.address||"").split(",").pop().trim() || "Israel");
 const openDesc = new Set(), openCmt = new Set(), openForm = new Set(), openItem = new Set();
 const drafts = {};
 
@@ -1061,7 +1067,7 @@ const locMatch = (p,l) =>
   (!F.cuis.size || cuisineOf(p).some(k => F.cuis.has(k))) &&
   (!F.far.size  || F.far.has(Number(l.far))) &&
   (!F.vibe.size || F.vibe.has(Number(l.vibe))) &&
-  (!F.city.size || F.city.has(String(l.city||"")));
+  ((!F.city.size && !F.country.size) || F.city.has(String(l.city||"")) || F.country.has(countryOf(l)));
 let sortMode = "default", myPos = null, locMsg = "";
 const R = 6371, rad = d => d*Math.PI/180;
 function km(a,b){ const dLat=rad(b[0]-a[0]), dLng=rad(b[1]-a[1]); const h=Math.sin(dLat/2)**2+Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
@@ -1168,7 +1174,7 @@ function askLocation(){
 function goToMe(){
   locate(() => { if(sortMode==="near") renderList(); showMe(15); });
 }
-const anyFilter = () => F.type.size+F.cuis.size+F.far.size+F.vibe.size+F.city.size > 0;
+const anyFilter = () => F.type.size+F.cuis.size+F.far.size+F.vibe.size+F.city.size+F.country.size > 0;
 function visible(){
   return places.filter(shown).map(p => ({p, locs: locsOf(p).filter(l => locMatch(p,l))})).filter(x => x.locs.length);
 }
@@ -1183,7 +1189,10 @@ function renderFilters(){
   // One chip per kind of place (a "restaurant & bar" shows under both), in the index order.
   const used = new Set(places.flatMap(kindsOf)), types = Object.keys(KIND).filter(k => used.has(k));
   const usedC = new Set(places.flatMap(cuisineOf)), cuisines = Object.keys(CUISINE).filter(k => usedC.has(k));
-  const cities=[...new Set(places.flatMap(p=>locsOf(p).map(l=>String(l.city||""))).filter(Boolean))].sort();
+  // Countries (Israel first) with their cities, for the Place dropdown.
+  const geo = {}; for(const l of places.flatMap(locsOf)){ const c = countryOf(l); (geo[c] ||= new Set()); if(l.city) geo[c].add(String(l.city)); }
+  const countries = Object.keys(geo).sort((a,b) => (b==="Israel")-(a==="Israel") || a.localeCompare(b));
+  const placeSel = [...F.country, ...F.city];
   const el=document.getElementById("filters");
   el.innerHTML = `
     <div class="ftitle">Filters</div><div class="fgroups">
@@ -1197,7 +1206,12 @@ function renderFilters(){
     <div class="fgroup"><span class="flabel">Vibe</span><div class="fchips">${[0,1,2,3,4].map(n=>chip("vibe",n,vibeIcon(n),VIBE_TXT[n],1)).join("")}</div></div>
     <div class="fgroup"><span class="flabel">Visited</span><div class="fchips" role="radiogroup" aria-label="Visited">${SHOW_OPTS.map(([v,ic,t])=>
       `<button class="chip ico" data-show="${v}" role="radio" aria-checked="${showMode===v}" aria-pressed="${showMode===v}" title="${t}" aria-label="${t}"><span class="want ${v}">${ic}</span></button>`).join("")}</div></div>
-    <div class="fgroup"><span class="flabel">City</span><div class="fchips">${cities.map(c=>chip("city",c,esc(c),c)).join("")}</div></div>
+    <div class="fgroup"><span class="flabel">Country / city</span><div class="fchips ddwrap">
+      <button class="chip ddbtn" id="placebtn" aria-haspopup="true" aria-expanded="${placeOpen}" aria-pressed="${placeSel.length>0}">${placeSel.length?esc(placeSel.join(", ")):"Everywhere"}<span class="car">▾</span></button>
+      ${placeOpen?`<div class="ddmenu" role="menu" aria-label="Country or city">${countries.map(c=>`<button class="ddopt ddcountry" role="menuitemcheckbox" data-country="${esc(c)}" aria-checked="${F.country.has(c)}">${esc(c)}<span class="cmeta" style="margin-left:6px">all</span><span class="tick">✓</span></button>
+        ${[...geo[c]].sort().map(ct=>`<button class="ddopt ddcity" role="menuitemcheckbox" data-city="${esc(ct)}" aria-checked="${F.city.has(ct)||F.country.has(c)}"${F.country.has(c)?" disabled":""}>${esc(ct)}<span class="tick">✓</span></button>`).join("")}`).join("")}
+        <div class="ddfoot"><button class="linkbtn" id="placeclear">Clear</button><button class="linkbtn" id="placedone">Done</button></div></div>`:""}
+    </div></div>
     </div>
     <div class="fbar"><span id="fcount"></span>${anyFilter()?`<button class="linkbtn" id="fclear">Clear filters</button>`:""}</div>`;
 }
@@ -1213,7 +1227,14 @@ document.getElementById("sortbar").addEventListener("click", e => {
   if(s.id==="sortdef"){ sortMode="default"; renderAll(false); } else askLocation();
 });
 document.getElementById("filters").addEventListener("click", e => {
-  if(e.target.closest("#cuisbtn")){ cuisOpen = !cuisOpen; renderFilters(); renderList(); return; }
+  if(e.target.closest("#cuisbtn")){ cuisOpen = !cuisOpen; placeOpen = false; renderFilters(); renderList(); return; }
+  if(e.target.closest("#placebtn")){ placeOpen = !placeOpen; cuisOpen = false; renderFilters(); renderList(); return; }
+  const pc = e.target.closest("[data-country]");
+  if(pc){ const c = pc.dataset.country; if(F.country.has(c)) F.country.delete(c); else { F.country.add(c); for(const ct of [...F.city]) if(places.flatMap(locsOf).some(l=>String(l.city)===ct && countryOf(l)===c)) F.city.delete(ct); } renderAll(true); return; }
+  const pt = e.target.closest("[data-city]");
+  if(pt && !pt.disabled){ const ct = pt.dataset.city; F.city.has(ct) ? F.city.delete(ct) : F.city.add(ct); renderAll(true); return; }
+  if(e.target.id==="placeclear"){ F.city.clear(); F.country.clear(); renderAll(true); return; }
+  if(e.target.id==="placedone"){ placeOpen = false; renderFilters(); renderList(); return; }
   const co = e.target.closest("[data-cuis]");
   if(co){ const k = co.dataset.cuis; F.cuis.has(k) ? F.cuis.delete(k) : F.cuis.add(k); renderAll(true); return; }
   if(e.target.id==="cuisclear"){ F.cuis.clear(); renderAll(true); return; }
@@ -1671,6 +1692,7 @@ function locFields(l){
   return `<fieldset class="loc"><legend>Location</legend>
     <div class="g2"><label>Street + number<input name="street" value="${esc(l.street||"")}" placeholder="Dizengoff 171"></label>
     <label>City<input name="city" value="${esc(l.city||"")}" placeholder="Tel Aviv"></label></div>
+    <label>Country<input name="country" value="${esc(l.city?countryOf(l):"Israel")}" placeholder="Israel"></label>
     <div class="g4"><label>How far<select name="far">${opt("",l.far??"","—")}${[1,2,3,4].map(n=>opt(n,l.far??"",DIST[n].join(" "))).join("")}</select></label>
     <label>Vibe<select name="vibe">${opt("",l.vibe??"","—")}${[0,1,2,3,4].map(n=>opt(n,l.vibe??"",VIBE_TXT[n])).join("")}</select></label>
     <label>Latitude<input name="lat" inputmode="decimal" value="${l.lat??""}"></label>
@@ -1726,7 +1748,7 @@ edf.addEventListener("click", async e => {
     if(!v("street")||!v("city")){ msg.textContent="Fill in street and city first."; return; }
     msg.textContent="Searching…";
     try{
-      const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q="+encodeURIComponent(`${v("street")}, ${v("city")}`));
+      const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q="+encodeURIComponent([v("street"), v("city"), fsEl.querySelector('[name="country"]')?.value.trim()||"Israel"].filter(Boolean).join(", ")));
       const [hit] = await r.json();
       if(!hit){ msg.textContent="Address not found — enter coordinates by hand (right-click the spot in Google Maps to copy them)."; return; }
       fsEl.querySelector('[name="lat"]').value = (+hit.lat).toFixed(6); fsEl.querySelector('[name="lng"]').value = (+hit.lon).toFixed(6);
@@ -1745,7 +1767,8 @@ edf.addEventListener("submit", async e => {
   const num = x => { const n = parseFloat(String(x).replace(",",".")); return isFinite(n) ? n : null; };
   const locations = [...document.querySelectorAll("#ed-locs fieldset")].map(fs => {
     const g = n => fs.querySelector(`[name="${n}"]`).value.trim();
-    const l = { street:g("street"), city:g("city"), address:[g("street"),g("city"),"Israel"].filter(Boolean).join(", ") };
+    const country = g("country") || "Israel";
+    const l = { street:g("street"), city:g("city"), country, address:[g("street"),g("city"),country].filter(Boolean).join(", ") };
     if(g("far")!=="") l.far = Number(g("far"));
     if(g("vibe")!=="") l.vibe = Number(g("vibe"));
     const la = num(g("lat")), ln = num(g("lng")); if(la!==null && ln!==null){ l.lat = la; l.lng = ln; }
@@ -1834,9 +1857,9 @@ document.addEventListener("click", e => {
   document.getElementById("place-"+pid)?.scrollIntoView({behavior:"smooth", block:"center"});
 });
 document.addEventListener("click", e => {
-  if(cuisOpen && !e.target.closest(".ddwrap")){ cuisOpen = false; renderFilters(); renderList(); }
+  if((cuisOpen || placeOpen) && !e.target.closest(".ddwrap")){ cuisOpen = placeOpen = false; renderFilters(); renderList(); }
 });
-document.addEventListener("keydown", e => { if(e.key==="Escape" && cuisOpen){ cuisOpen = false; renderFilters(); renderList(); document.getElementById("cuisbtn")?.focus(); } });
+document.addEventListener("keydown", e => { if(e.key==="Escape" && (cuisOpen || placeOpen)){ cuisOpen = placeOpen = false; renderFilters(); renderList(); document.getElementById("cuisbtn")?.focus(); } });
 /* ---------- render ---------- */
 let fitted=false;
 function renderAll(fit){ renderFilters(); renderList(); renderMap(fit || !fitted); if(places.length) fitted=true; }
