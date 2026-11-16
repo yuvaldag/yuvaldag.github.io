@@ -2044,5 +2044,65 @@
     "lng": 35.5783318
    }
   ]
+ },
+ {
+  "id": "kraft",
+  "name": "Kraft",
+  "mapsName": "Kraft Jerusalem",
+  "type": "Restaurant",
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "",
+    "city": "Jerusalem",
+    "country": "Israel",
+    "address": "Jerusalem, Israel",
+    "lat": 31.7788472,
+    "lng": 35.2257856
+   }
+  ]
+ },
+ {
+  "id": "hakatan",
+  "name": "HaKatan",
+  "mapsName": "הקטן לוינסקי",
+  "type": "Restaurant",
+  "wantToGo": true,
+  "description": "Tiny gourmet food bar in the Levinsky Market, by chef Ido Kabalan.",
+  "locations": [
+   {
+    "street": "Levinsky 46 (Levinsky Market)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Levinsky 46, Tel Aviv, Israel",
+    "lat": 32.0595101,
+    "lng": 34.7728557
+   }
+  ]
+ },
+ {
+  "id": "pimpinella",
+  "name": "Pimpinella",
+  "type": "Restaurant & Bar",
+  "kinds": [
+   "restaurant",
+   "bar"
+  ],
+  "cuisine": [
+   "fish"
+  ],
+  "wantToGo": true,
+  "description": "Anise bar (arak, ouzo…) with a fish kitchen, by the Levinsky Market.",
+  "locations": [
+   {
+    "street": "Nahalat Binyamin 115",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Nahalat Binyamin 115, Tel Aviv, Israel",
+    "lat": 32.0588376,
+    "lng": 34.772272
+   }
+  ]
  }
 ]
