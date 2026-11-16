@@ -2152,5 +2152,40 @@
     "lng": 34.772272
    }
   ]
+ },
+ {
+  "id": "rooster",
+  "name": "Rooster Coffee",
+  "mapsName": "Rooster Coffee פרדס חנה",
+  "type": "Coffee",
+  "features": [
+   "specialty"
+  ],
+  "description": "",
+  "photos": [
+   "photos/rooster/outside.webp",
+   "photos/rooster/counter.webp"
+  ],
+  "dishes": [
+   {
+    "name": "Espresso",
+    "rating": 2,
+    "photo": "photos/rooster/espresso.webp",
+    "price": "15",
+    "when": "2026-11"
+   }
+  ],
+  "locations": [
+   {
+    "street": "",
+    "city": "Pardes Hanna-Karkur",
+    "country": "Israel",
+    "address": "Pardes Hanna-Karkur, Israel",
+    "far": 1,
+    "vibe": 2,
+    "lat": 32.4749962,
+    "lng": 34.975139
+   }
+  ]
  }
 ]
