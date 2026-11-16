@@ -29,7 +29,7 @@ header.hero img{width:180px;height:198px;object-fit:cover;border-radius:12px;fle
 h1{font-family:var(--serif);font-weight:600;font-size:2.4rem;line-height:1.15;margin:0 0 10px}
 .role{margin:0;font-size:1.05rem}
 .role .dept{color:var(--muted)}
-.research{margin:14px 0 0;display:inline-block;background:var(--soft);color:var(--accent);font-weight:500;padding:4px 12px;border-radius:999px;font-size:.95rem}
+.research{margin:12px 0 0;font-size:1.05rem}
 .quick{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px 18px;font-size:.95rem}
 
 /* Dropdown sections */
@@ -69,6 +69,20 @@ ol.pubs li{margin:0 0 16px}
 .pv{color:var(--muted)}
 .pl a{margin-right:12px;font-size:.92rem}
 .note{font-size:.92rem;color:var(--muted)}
+.filters{margin:0 0 20px;display:grid;gap:10px}
+.frow{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.flabel{font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);width:64px;flex-shrink:0}
+.chip{font:inherit;font-size:.88rem;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fcount{font-size:.88rem;color:var(--muted)}
+.fcount button{font:inherit;background:none;border:0;padding:0;margin-left:8px;color:var(--accent);cursor:pointer}
+.ptags{margin-top:4px;display:flex;flex-wrap:wrap;gap:4px}
+.ptags span{font-size:.75rem;color:var(--muted);background:var(--soft);padding:1px 8px;border-radius:4px}
+ol.pubs li[hidden]{display:none}
+.noresults{color:var(--muted);font-style:italic}
+@media (max-width:600px){.flabel{width:100%}}
 
 .food{display:inline-flex;align-items:center;gap:8px;margin-top:28px;padding:10px 18px;border:1px solid var(--line);border-radius:999px;font-weight:500}
 .food:hover{background:var(--soft);text-decoration:none}
@@ -91,7 +105,7 @@ footer{margin-top:40px;color:var(--muted);font-size:.85rem}
     <h1>Yuval Dagan</h1>
     <p class="role">Assistant Professor (Senior Lecturer)<br>
       <span class="dept">School of Computer Science, Tel Aviv University</span></p>
-    <p class="research">Research: Machine Learning Theory</p>
+    <p class="research">Research: machine learning theory</p>
     <div class="quick">
       <a href="mailto:ydagan@tauex.tau.ac.il">ydagan@tauex.tau.ac.il</a>
       <a href="https://yuvaldagan.wordpress.com/wp-content/uploads/2025/10/cv-2.pdf">CV</a>
@@ -188,137 +202,143 @@ footer{margin-top:40px;color:var(--muted);font-size:.85rem}
 <details>
   <summary>Publications</summary>
   <div class="body">
+    <div class="filters">
+      <div class="frow" id="venue-filter" role="group" aria-label="Filter by venue"><span class="flabel">Venue</span></div>
+      <div class="frow" id="topic-filter" role="group" aria-label="Filter by topic"><span class="flabel">Topics</span></div>
+      <div class="fcount" id="pub-count" aria-live="polite"></div>
+    </div>
+    <p class="noresults" id="no-results" hidden>No papers match these filters.</p>
     <ol class="pubs">
-      <li><div class="pt">Breaking the T<sup>2/3</sup> Barrier for Sequential Calibration</div>
+      <li data-venue="theory" data-topics="online games"><div class="pt">Breaking the T<sup>2/3</sup> Barrier for Sequential Calibration</div>
         <div class="pa"><b>Yuval Dagan</b>, Constantinos Daskalakis, Maxwell Fishelson, Noah Golowich, Robert Kleinberg, Princewill Okoroafor</div>
         <div class="pv">STOC 2025. <span class="note">Invited to the STOC 2025 special issue.</span></div></li>
 
-      <li><div class="pt">Intractability of Strategizing against Online Learners</div>
+      <li data-venue="mltheory" data-topics="games lower"><div class="pt">Intractability of Strategizing against Online Learners</div>
         <div class="pa">Angelos Assos, <b>Yuval Dagan</b>, Nived Rajaraman</div>
         <div class="pv">COLT 2025</div></li>
 
-      <li><div class="pt">Maximizing Utility in Multi-Agent Environments by Anticipating the Behavior of Other Learners</div>
+      <li data-venue="ml" data-topics="games"><div class="pt">Maximizing Utility in Multi-Agent Environments by Anticipating the Behavior of Other Learners</div>
         <div class="pa">Angelos Assos, <b>Yuval Dagan</b>, Constantinos Daskalakis</div>
         <div class="pv">NeurIPS 2024</div></li>
 
-      <li><div class="pt">Dimension-free Private Mean Estimation for Anisotropic Distributions</div>
+      <li data-venue="ml" data-topics="privacy highdim"><div class="pt">Dimension-free Private Mean Estimation for Anisotropic Distributions</div>
         <div class="pa"><b>Yuval Dagan</b>, Michael I. Jordan, Xuelin Yang, Lydia Zakynthinou, Nikita Zhivotovskiy</div>
         <div class="pv">NeurIPS 2024</div></li>
 
-      <li><div class="pt">From External to Swap Regret 2.0: An Efficient Reduction and Oblivious Adversary for Large Action Spaces</div>
+      <li data-venue="theory" data-topics="games online"><div class="pt">From External to Swap Regret 2.0: An Efficient Reduction and Oblivious Adversary for Large Action Spaces</div>
         <div class="pa"><b>Yuval Dagan</b>, Constantinos Daskalakis, Maxwell Fishelson, Noah Golowich</div>
         <div class="pv">STOC 2024. <span class="note">Invited to the STOC 2024 special issue.</span></div>
         <div class="pl"><a href="https://www.youtube.com/watch?v=58ob2ITmfJk&amp;t=2s">Lecture (Natalie Collina, in Aaron Roth's class)</a></div></li>
 
-      <li><div class="pt">Consistent Diffusion Models: Mitigating Sampling Drift by Learning to be Consistent</div>
+      <li data-venue="ml" data-topics="diffusion"><div class="pt">Consistent Diffusion Models: Mitigating Sampling Drift by Learning to be Consistent</div>
         <div class="pa">Giannis Daras, <b>Yuval Dagan</b>, Alexandros G. Dimakis, Constantinos Daskalakis</div>
         <div class="pv">NeurIPS 2023</div>
         <div class="pl"><a href="https://arxiv.org/abs/2302.09057">arXiv</a></div></li>
 
-      <li><div class="pt">Ambient Diffusion: Learning Clean Distributions from Corrupted Data</div>
+      <li data-venue="ml" data-topics="diffusion"><div class="pt">Ambient Diffusion: Learning Clean Distributions from Corrupted Data</div>
         <div class="pa">Giannis Daras, Kulin Shah, <b>Yuval Dagan</b>, Aravind Gollakota, Alexandros G. Dimakis, Adam R. Klivans</div>
         <div class="pv">NeurIPS 2023</div>
         <div class="pl"><a href="https://arxiv.org/abs/2305.19256">arXiv</a></div></li>
 
-      <li><div class="pt">Online Learning and Solving Infinite Games with an ERM Oracle</div>
+      <li data-venue="mltheory" data-topics="online games"><div class="pt">Online Learning and Solving Infinite Games with an ERM Oracle</div>
         <div class="pa">Angelos Assos, Idan Attias, <b>Yuval Dagan</b>, Constantinos Daskalakis, Maxwell Fishelson</div>
         <div class="pv">COLT 2023</div>
         <div class="pl"><a href="https://arxiv.org/abs/2307.01689">arXiv</a></div></li>
 
-      <li><div class="pt">Learning and Testing Latent-Tree Ising Models Efficiently</div>
+      <li data-venue="mltheory" data-topics="dependent highdim"><div class="pt">Learning and Testing Latent-Tree Ising Models Efficiently</div>
         <div class="pa">Davin Choo, <b>Yuval Dagan</b>, Constantinos Daskalakis, Anthimos Vardis Kandiros</div>
         <div class="pv">COLT 2023</div>
         <div class="pl"><a href="https://arxiv.org/abs/2211.13291">arXiv</a></div></li>
 
-      <li><div class="pt">EM's Convergence in Gaussian Latent Tree Models</div>
+      <li data-venue="mltheory" data-topics="dependent"><div class="pt">EM's Convergence in Gaussian Latent Tree Models</div>
         <div class="pa"><b>Yuval Dagan</b>, Anthimos Vardis Kandiros, Constantinos Daskalakis</div>
         <div class="pv">COLT 2022</div>
         <div class="pl"><a href="https://arxiv.org/abs/2211.11904">arXiv</a></div></li>
 
-      <li><div class="pt">Smoothed Online Learning is as Easy as Statistical Learning</div>
+      <li data-venue="mltheory" data-topics="online"><div class="pt">Smoothed Online Learning is as Easy as Statistical Learning</div>
         <div class="pa">Adam Block, <b>Yuval Dagan</b>, Noah Golowich, Alexander Rakhlin</div>
         <div class="pv">COLT 2022</div>
         <div class="pl"><a href="https://arxiv.org/abs/2202.04690">arXiv</a><a href="https://slideslive.com/38985588">Video (Block)</a></div></li>
 
-      <li><div class="pt">A Bounded-Noise Mechanism for Differential Privacy</div>
+      <li data-venue="mltheory" data-topics="privacy"><div class="pt">A Bounded-Noise Mechanism for Differential Privacy</div>
         <div class="pa"><b>Yuval Dagan</b>, Gil Kur</div>
         <div class="pv">COLT 2022. <span class="note">Resolves an open problem from <a href="https://differentialprivacy.org/open-problem-avoid-union/">differentialprivacy.org</a>.</span></div>
         <div class="pl"><a href="https://arxiv.org/abs/2012.03817">arXiv</a><a href="https://slideslive.com/38985588">Video</a></div></li>
 
-      <li><div class="pt">Score-Guided Intermediate Level Optimization: Fast Langevin Mixing for Inverse Problems</div>
+      <li data-venue="ml" data-topics="diffusion"><div class="pt">Score-Guided Intermediate Level Optimization: Fast Langevin Mixing for Inverse Problems</div>
         <div class="pa">Giannis Daras, <b>Yuval Dagan</b>, Alexandros G. Dimakis, Constantinos Daskalakis</div>
         <div class="pv">ICML 2022</div>
         <div class="pl"><a href="https://arxiv.org/abs/2206.09104">arXiv</a><a href="https://slideslive.com/38983619">Video (Daras)</a></div></li>
 
-      <li><div class="pt">Adversarial Laws of Large Numbers and Optimal Regret in Online Classification</div>
+      <li data-venue="theory" data-topics="online"><div class="pt">Adversarial Laws of Large Numbers and Optimal Regret in Online Classification</div>
         <div class="pa">Noga Alon, Omri Ben-Eliezer, <b>Yuval Dagan</b>, Shay Moran, Moni Naor, Eylon Yogev</div>
         <div class="pv">STOC 2021. <span class="note">Invited to the STOC 2021 special issue.</span></div>
         <div class="pl"><a href="https://arxiv.org/abs/2101.09054">arXiv</a><a href="https://www.youtube.com/watch?v=DmR9aDqxVuI">Video</a></div></li>
 
-      <li><div class="pt">Learning Ising Models from One or Multiple Samples</div>
+      <li data-venue="theory" data-topics="dependent highdim"><div class="pt">Learning Ising Models from One or Multiple Samples</div>
         <div class="pa"><b>Yuval Dagan</b>, Constantinos Daskalakis, Nishanth Dikkala, Anthimos Vardis Kandiros</div>
         <div class="pv">STOC 2021</div>
         <div class="pl"><a href="https://arxiv.org/abs/2004.09370">arXiv</a><a href="https://www.youtube.com/watch?v=XPC-mqN4FXE">Video (Daskalakis, 66 min)</a><a href="https://www.youtube.com/watch?v=jE8KgEyrgJk">Video (Kandiros, 22 min)</a></div></li>
 
-      <li><div class="pt">Majorizing Measures, Sequential Complexities, and Online Learning</div>
+      <li data-venue="mltheory" data-topics="online"><div class="pt">Majorizing Measures, Sequential Complexities, and Online Learning</div>
         <div class="pa">Adam Block, <b>Yuval Dagan</b>, Alexander Rakhlin</div>
         <div class="pv">COLT 2021</div>
         <div class="pl"><a href="https://arxiv.org/abs/2102.01729">arXiv</a><a href="https://www.learningtheory.org/colt2021/virtual/poster_1318.html">Video (Block)</a></div></li>
 
-      <li><div class="pt">Statistical Estimation from Dependent Data</div>
+      <li data-venue="ml" data-topics="dependent"><div class="pt">Statistical Estimation from Dependent Data</div>
         <div class="pa">Anthimos Vardis Kandiros, <b>Yuval Dagan</b>, Nishanth Dikkala, Surbhi Goel, Constantinos Daskalakis</div>
         <div class="pv">ICML 2021</div>
         <div class="pl"><a href="https://arxiv.org/abs/2107.09773">arXiv</a><a href="https://slideslive.com/38959530">Video (Kandiros)</a></div></li>
 
-      <li><div class="pt">The Entropy of Lies: Playing Twenty Questions with a Liar</div>
+      <li data-venue="theory" data-topics="algcomplexity"><div class="pt">The Entropy of Lies: Playing Twenty Questions with a Liar</div>
         <div class="pa"><b>Yuval Dagan</b>, Yuval Filmus, Daniel Kane, Shay Moran</div>
         <div class="pv">ITCS 2021</div>
         <div class="pl"><a href="https://yuvaldagan.wordpress.com/wp-content/uploads/2018/11/lies.pdf">PDF</a><a href="https://www.youtube.com/watch?v=FxKKVvtyLDw&amp;t=1111s">Video</a></div></li>
 
-      <li><div class="pt">Interaction is Necessary for Distributed Learning with Privacy or Communication Constraints</div>
+      <li data-venue="theory" data-topics="lower privacy"><div class="pt">Interaction is Necessary for Distributed Learning with Privacy or Communication Constraints</div>
         <div class="pa"><b>Yuval Dagan</b>, Vitaly Feldman</div>
         <div class="pv">STOC 2020. <span class="note">Resolves a COLT 2019 open problem.</span></div>
         <div class="pl"><a href="https://arxiv.org/abs/1911.04014">arXiv</a><a href="https://www.youtube.com/watch?v=AWgzaFOU_HM">Video</a></div></li>
 
-      <li><div class="pt">PAC Learning with Stable and Private Predictions</div>
+      <li data-venue="mltheory" data-topics="privacy"><div class="pt">PAC Learning with Stable and Private Predictions</div>
         <div class="pa"><b>Yuval Dagan</b>, Vitaly Feldman</div>
         <div class="pv">COLT 2020</div>
         <div class="pl"><a href="https://arxiv.org/abs/1911.10541">arXiv</a><a href="https://www.youtube.com/watch?v=jZlgmBUQ4nU">Video</a></div></li>
 
-      <li><div class="pt">Space Lower Bounds for Linear Prediction in the Streaming Model</div>
+      <li data-venue="mltheory" data-topics="lower"><div class="pt">Space Lower Bounds for Linear Prediction in the Streaming Model</div>
         <div class="pa"><b>Yuval Dagan</b>, Gil Kur, Ohad Shamir</div>
         <div class="pv">COLT 2019</div>
         <div class="pl"><a href="https://arxiv.org/abs/1902.03498">arXiv</a><a href="https://www.youtube.com/watch?v=E8UGWwEiY18">Video</a></div></li>
 
-      <li><div class="pt">Learning from Weakly Dependent Data under Dobrushin's Condition</div>
+      <li data-venue="mltheory" data-topics="dependent"><div class="pt">Learning from Weakly Dependent Data under Dobrushin's Condition</div>
         <div class="pa"><b>Yuval Dagan</b>, Constantinos Daskalakis, Nishanth Dikkala, Siddhartha Jayanti</div>
         <div class="pv">COLT 2019</div>
         <div class="pl"><a href="https://arxiv.org/abs/1906.09247">arXiv</a><a href="https://www.youtube.com/watch?v=OdAonWHU7js">Video</a></div></li>
 
-      <li><div class="pt">The Log-Concave Maximum Likelihood Estimator is Optimal in High Dimensions</div>
+      <li data-venue="arxiv" data-topics="highdim"><div class="pt">The Log-Concave Maximum Likelihood Estimator is Optimal in High Dimensions</div>
         <div class="pa"><b>Yuval Dagan</b>, Gil Kur</div>
         <div class="pl"><a href="https://arxiv.org/abs/1903.05315">arXiv</a></div></li>
 
-      <li><div class="pt">Detecting Correlations with Little Memory and Communication</div>
+      <li data-venue="mltheory" data-topics="lower"><div class="pt">Detecting Correlations with Little Memory and Communication</div>
         <div class="pa"><b>Yuval Dagan</b>, Ohad Shamir</div>
         <div class="pv">COLT 2018</div>
         <div class="pl"><a href="https://arxiv.org/abs/1803.01420">arXiv</a><a href="https://www.youtube.com/watch?v=AfBi62kxpbw">Video</a></div></li>
 
-      <li><div class="pt">A Better Resource Allocation Algorithm with Semi-Bandit Feedback</div>
+      <li data-venue="mltheory" data-topics="online"><div class="pt">A Better Resource Allocation Algorithm with Semi-Bandit Feedback</div>
         <div class="pa"><b>Yuval Dagan</b>, Koby Crammer</div>
         <div class="pv">ALT 2018</div></li>
 
-      <li><div class="pt">Twenty (Simple) Questions</div>
+      <li data-venue="theory" data-topics="algcomplexity"><div class="pt">Twenty (Simple) Questions</div>
         <div class="pa"><b>Yuval Dagan</b>, Yuval Filmus, Ariel Gabizon, Shay Moran</div>
         <div class="pv">STOC 2017. <span class="note">Invited presentation at Highlights of Algorithms 2018.</span></div>
         <div class="pl"><a href="https://arxiv.org/abs/1611.01655">arXiv</a><a href="https://www.youtube.com/watch?v=lc1-DUyUkJ8">Video</a></div></li>
 
-      <li><div class="pt">Trading Information Complexity for Error</div>
+      <li data-venue="theory" data-topics="algcomplexity"><div class="pt">Trading Information Complexity for Error</div>
         <div class="pa"><b>Yuval Dagan</b>, Yuval Filmus, Hamed Hatami, Yaqiao Li</div>
         <div class="pv">CCC 2017. <span class="note">CCC 2017 special issue (Theory of Computing).</span></div>
         <div class="pl"><a href="https://theoryofcomputing.org/articles/v014a006/">Journal</a><a href="https://www.youtube.com/watch?v=vQf7bfWYr_k">Video (Hatami)</a></div></li>
 
-      <li><div class="pt">There is No Online Sparse Regressor with Sublinear Regret</div>
+      <li data-venue="arxiv" data-topics="online lower"><div class="pt">There is No Online Sparse Regressor with Sublinear Regret</div>
         <div class="pa"><b>Yuval Dagan</b>, Saar Zehavi</div>
         <div class="pv">Course project, "Advanced Topics in Machine Learning", Technion, 2015. <span class="note">Resolves an open problem from COLT 2014.</span></div>
         <div class="pl"><a href="https://yuvaldagan.wordpress.com/wp-content/uploads/2017/11/daganzehavi.pdf">PDF</a></div></li>
@@ -330,5 +350,59 @@ footer{margin-top:40px;color:var(--muted);font-size:.85rem}
 
 <footer>© Yuval Dagan</footer>
 </main>
+<script>
+(function(){
+  // Venue categories are exclusive (one per paper); topics are not.
+  var VENUES=[['theory','Theory venues'],['mltheory','ML theory venues'],['ml','ML venues'],['arxiv','arXiv']];
+  var TOPICS=[['games','Learning and Games'],['online','Online Learning'],['dependent','Learning from Dependent Data'],
+    ['lower','Computational Lower Bounds'],['algcomplexity','Algorithms and Complexity'],['privacy','Differential Privacy'],
+    ['diffusion','Diffusion Models'],['highdim','High-Dimensional Statistics']];
+  var topicName={}; TOPICS.forEach(function(t){topicName[t[0]]=t[1]});
+  var pubs=[].slice.call(document.querySelectorAll('ol.pubs > li'));
+  var venue=null, topics=new Set();
+
+  // Show each paper's topics under it.
+  pubs.forEach(function(li){
+    var box=document.createElement('div'); box.className='ptags';
+    li.dataset.topics.split(' ').forEach(function(k){
+      var s=document.createElement('span'); s.textContent=topicName[k]; box.appendChild(s);
+    });
+    li.appendChild(box);
+  });
+
+  function chip(parent,key,label,onClick){
+    var b=document.createElement('button'); b.type='button'; b.className='chip';
+    b.textContent=label; b.dataset.key=key; b.setAttribute('aria-pressed','false');
+    b.addEventListener('click',onClick); parent.appendChild(b); return b;
+  }
+  var vbox=document.getElementById('venue-filter'), tbox=document.getElementById('topic-filter');
+  VENUES.forEach(function(v){
+    chip(vbox,v[0],v[1],function(){ venue = venue===v[0] ? null : v[0]; update(); });
+  });
+  TOPICS.forEach(function(t){
+    chip(tbox,t[0],t[1],function(){ topics.has(t[0]) ? topics.delete(t[0]) : topics.add(t[0]); update(); });
+  });
+
+  var count=document.getElementById('pub-count'), none=document.getElementById('no-results');
+  function update(){
+    vbox.querySelectorAll('.chip').forEach(function(b){b.setAttribute('aria-pressed', String(b.dataset.key===venue))});
+    tbox.querySelectorAll('.chip').forEach(function(b){b.setAttribute('aria-pressed', String(topics.has(b.dataset.key)))});
+    var shown=0;
+    pubs.forEach(function(li){
+      var ok=(!venue || li.dataset.venue===venue) &&
+        (topics.size===0 || li.dataset.topics.split(' ').some(function(k){return topics.has(k)}));
+      li.hidden=!ok; if(ok) shown++;
+    });
+    none.hidden=shown>0;
+    count.textContent = (venue||topics.size) ? 'Showing '+shown+' of '+pubs.length+' papers' : pubs.length+' papers';
+    if(venue||topics.size){
+      var clr=document.createElement('button'); clr.type='button'; clr.textContent='Clear filters';
+      clr.addEventListener('click',function(){venue=null; topics.clear(); update();});
+      count.appendChild(clr);
+    }
+  }
+  update();
+})();
+</script>
 </body>
 </html>
