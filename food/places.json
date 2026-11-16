@@ -534,6 +534,18 @@
     "lat": 32.474763,
     "lng": 34.9793372
    }
+  ],
+  "photos": [
+   "photos/thai-underground/garden.webp",
+   "photos/thai-underground/inside.webp"
+  ],
+  "dishes": [
+   {
+    "name": "Alexander Lager (draft)",
+    "rating": 2,
+    "photo": "photos/thai-underground/alexander-lager.webp",
+    "url": "https://alexander-beer.co.il/"
+   }
   ]
  },
  {

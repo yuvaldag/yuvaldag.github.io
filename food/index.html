@@ -765,6 +765,26 @@ li.item:last-child{border-bottom:1px solid var(--line)}
 .legrow{display:inline-flex;align-items:center;justify-content:center;min-width:34px;color:var(--accent)}
 .legrow svg{width:20px;height:20px}
 .name{font-weight:600;font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gallery{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;margin:8px 0 4px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.gallery img{height:190px;width:auto;max-width:85%;object-fit:cover;border-radius:10px;scroll-snap-align:start;cursor:zoom-in;flex:none;background:var(--soft)}
+.pgal{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x mandatory;width:230px;margin:6px 0}
+.pgal img{width:230px;height:150px;object-fit:cover;border-radius:8px;scroll-snap-align:start;flex:none;cursor:zoom-in}
+.pgalnote{font-size:.72rem;color:var(--muted)}
+.dishes{list-style:none;margin:10px 0 0;padding:0}
+.dishes h4{margin:0 0 4px;font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.dish{display:flex;align-items:center;gap:10px;padding:6px 0}
+.dish+.dish{border-top:1px dashed var(--line)}
+.dish .face{font-size:1.35rem;line-height:1;width:28px;text-align:center}
+.dish .dn{flex:1;min-width:0}
+.dish .dn a{color:var(--accent)}
+.dish img{width:52px;height:52px;object-fit:cover;border-radius:8px;cursor:zoom-in;flex:none}
+.lb{position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.92);display:flex;align-items:center}
+.lb .track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;width:100%;height:100%}
+.lb .track div{flex:0 0 100%;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;padding:16px;box-sizing:border-box}
+.lb img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px}
+.lb button{position:absolute;background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:50%;width:42px;height:42px;font-size:22px;cursor:pointer}
+.lb .x{top:14px;right:14px}.lb .pv{left:10px;top:50%}.lb .nx{right:10px;top:50%}
+.lb .cap{position:absolute;bottom:14px;left:0;right:0;text-align:center;color:#ddd;font-size:.9rem}
 .desc{margin:6px 0 0;padding:8px 12px;border-left:3px solid var(--accent);background:var(--soft);border-radius:0 8px 8px 0;font-size:.95rem}
 .locs{margin:6px 0 0}
 .lrow2{display:flex;align-items:center;gap:12px;padding:6px 0}
@@ -859,7 +879,7 @@ dialog.ed::backdrop{background:rgba(0,0,0,.45)}
     <h2>Index</h2>
     <div class="lgrid">
       <div><h3>Kind of place</h3><div id="lg-kind"></div><h3 style="margin-top:18px">Restaurant type</h3><div id="lg-cuisine"></div></div>
-      <div><h3>Extras</h3><div id="lg-feat"></div><h3 style="margin-top:18px">Buttons</h3><div id="lg-btn"></div></div>
+      <div><h3>Extras</h3><div id="lg-feat"></div><h3 style="margin-top:18px">Dishes</h3><div id="lg-dish"></div><h3 style="margin-top:18px">Buttons</h3><div id="lg-btn"></div></div>
       <div><h3>How far I'd go</h3><div id="lg-dist"></div></div>
       <div><h3>Vibe</h3><div id="lg-vibe"></div></div>
     </div>
@@ -918,7 +938,45 @@ const CMT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 const ADD_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.4A8 8 0 1 1 21 12z"/><path d="M12 8.5v7M8.5 12h7"/></svg>`;
 const CHEV_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`;
 const EDIT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>`;
+const DISH_FACE = {3:["😋","Yummy"], 2:["🙂","Good"], 1:["😐","Okay"]};
+const photoSrc = u => /^(https?:)?\/\//.test(u) ? u : u;   // relative paths are served from /food/
+const photosOf = p => (Array.isArray(p.photos)?p.photos:[]).filter(Boolean);
+const dishesOf = p => (Array.isArray(p.dishes)?p.dishes:[]).filter(d => d && d.name);
+function galleryHtml(p){
+  const ph = photosOf(p); if(!ph.length) return "";
+  return `<div class="gallery" role="list" aria-label="Photos of ${esc(p.name)}">${ph.map((u,i)=>`<img role="listitem" loading="lazy" src="${esc(photoSrc(u))}" alt="${esc(p.name)} photo ${i+1}" data-lb="${esc(p.id)}" data-i="${i}">`).join("")}</div>`;
+}
+function dishesHtml(p){
+  const ds = dishesOf(p); if(!ds.length) return "";
+  return `<ul class="dishes"><h4>Dishes</h4>${ds.map((d,i)=>{ const f = DISH_FACE[d.rating]||DISH_FACE[2];
+    const nm = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.name)} ↗</a>` : esc(d.name);
+    return `<li class="dish"><span class="face" role="img" aria-label="${f[1]}" title="${f[1]}">${f[0]}</span><span class="dn">${nm}${d.note?`<div class="cmeta">${esc(d.note)}</div>`:""}</span>${d.photo?`<img loading="lazy" src="${esc(photoSrc(d.photo))}" alt="${esc(d.name)}" data-lbd="${esc(p.id)}" data-i="${i}">`:""}</li>`; }).join("")}</ul>`;
+}
+/* Full-screen photo viewer: swipe or use the arrows; Esc or × closes. */
+function openLightbox(srcs, start, caps){
+  const el = document.createElement("div"); el.className = "lb"; el.setAttribute("role","dialog"); el.setAttribute("aria-label","Photo viewer");
+  el.innerHTML = `<div class="track">${srcs.map((u,i)=>`<div><img src="${esc(u)}" alt="${esc((caps&&caps[i])||"Photo "+(i+1))}"></div>`).join("")}</div>
+    <button class="x" aria-label="Close">×</button>${srcs.length>1?`<button class="pv" aria-label="Previous">‹</button><button class="nx" aria-label="Next">›</button>`:""}
+    ${caps?`<div class="cap"></div>`:""}`;
+  document.body.append(el); const tr = el.querySelector(".track"), cap = el.querySelector(".cap");
+  const go = i => tr.scrollTo({left: i*tr.clientWidth, behavior:"smooth"});
+  const cur = () => Math.round(tr.scrollLeft / tr.clientWidth);
+  const upd = () => { if(cap) cap.textContent = caps[cur()]||""; };
+  requestAnimationFrame(()=>{ tr.scrollLeft = start*tr.clientWidth; upd(); });
+  tr.addEventListener("scroll", upd);
+  const close = () => { el.remove(); document.removeEventListener("keydown", key); };
+  const key = e => { if(e.key==="Escape") close(); else if(e.key==="ArrowRight") go(cur()+1); else if(e.key==="ArrowLeft") go(cur()-1); };
+  document.addEventListener("keydown", key);
+  el.addEventListener("click", e => { if(e.target.closest(".x") || e.target===el || e.target.parentElement===tr) close(); else if(e.target.closest(".pv")) go(cur()-1); else if(e.target.closest(".nx")) go(cur()+1); });
+}
+document.addEventListener("click", e => {
+  const g = e.target.closest("img[data-lb]"), d = e.target.closest("img[data-lbd]");
+  if(g){ const p = places.find(x=>x.id===g.dataset.lb); if(p) openLightbox(photosOf(p).map(photoSrc), +g.dataset.i); }
+  else if(d){ const p = places.find(x=>x.id===d.dataset.lbd); if(!p) return; const ds = dishesOf(p).filter(x=>x.photo);
+    const i = ds.indexOf(dishesOf(p)[+d.dataset.i]); openLightbox(ds.map(x=>photoSrc(x.photo)), Math.max(0,i), ds.map(x=>x.name)); }
+});
 const MAP_SVG = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>`;
+document.getElementById("lg-dish").innerHTML = [3,2,1].map(n=>`<div class="lrow"><span class="ic">${DISH_FACE[n][0]}</span><span>${DISH_FACE[n][1]}</span></div>`).join("");
 document.getElementById("lg-cuisine").innerHTML = Object.values(CUISINE).map(([e,n])=>`<div class="lrow"><span class="ic">${e}</span><span>${n}</span></div>`).join("");
 document.getElementById("lg-kind").innerHTML = Object.values(KIND).map(([e,n])=>`<div class="lrow"><span class="ic">${e}</span><span>${n}</span></div>`).join("");
 document.getElementById("lg-feat").innerHTML = Object.values(FEAT).map(([e,n])=>`<div class="lrow"><span class="ic">${e}</span><span>${n}</span></div>`).join("")
@@ -1176,11 +1234,13 @@ function _renderList(){
       </div>
       <div class="sub">${sub}</div>
       ${open?`<div class="details">
+        ${galleryHtml(p)}
         ${p.description?`<p class="desc">${esc(p.description)}</p>`:""}
         <ul class="locs">${locs.map(l=>`<li class="lrow2">
           <span class="where">${l.street?`<span>${esc(l.street)}</span>`:""}${l.city?`<span class="city">${l.street?", ":""}${esc(l.city)}</span>`:""}${near?` <span class="dist">· ${fmtKm(locKm(l))}</span>`:""}</span>
           <span class="icons">${distIcon(l.far)}${vibeIcon(l.vibe)}</span>
           <a class="map" href="${mapsUrl(p,l)}" target="_blank" rel="noopener" aria-label="Open ${esc(p.name)}${l.street?" on "+esc(l.street):""} in Google Maps">${MAP_SVG}Map</a></li>`).join("")}</ul>
+        ${dishesHtml(p)}
         ${renderComments(p)}
         <div class="dacts">${(commentsOn && !openForm.has(p.id))?`<button class="linkbtn" data-act="af" data-p="${esc(p.id)}">${ADD_SVG} Add a comment</button>`:""}${isOwner?`<button class="linkbtn" data-act="edit" data-p="${esc(p.id)}">${EDIT_SVG} Edit</button>`:""}</div>
       </div>`:""}
@@ -1493,6 +1553,15 @@ function locFields(l){
     <div class="row"><button type="button" class="linkbtn" data-ed="find">📍 Find coordinates from the address</button><span class="cmeta" data-ed="msg"></span>
     <button type="button" class="linkbtn" data-ed="rmloc" style="margin-left:auto;color:#c0392b">Remove location</button></div></fieldset>`;
 }
+function dishFields(d){
+  d = d || {};
+  return `<fieldset class="dishf"><legend>Dish</legend>
+    <div class="g2"><label>Name<input name="dname" value="${esc(d.name||"")}"></label>
+    <label>Rating<select name="drating">${[3,2,1].map(n=>opt(n,d.rating??2,DISH_FACE[n].join(" "))).join("")}</select></label></div>
+    <div class="g2"><label>Photo (optional path)<input name="dphoto" value="${esc(d.photo||"")}"></label>
+    <label>Link (optional)<input name="durl" value="${esc(d.url||"")}"></label></div>
+    <div class="row"><button type="button" class="linkbtn" data-ed="rmdish" style="margin-left:auto;color:#c0392b">Remove dish</button></div></fieldset>`;
+}
 function openEditor(pid, pre){
   const p = pid ? places.find(x=>x.id===pid) : (pre ? {name:pre.name, description:pre.description, locations:[{city:pre.city}]} : null); edId = pid && p ? p.id : null;
   const types = [...new Set(places.map(x=>String(x.type||"")).filter(Boolean))].sort();
@@ -1507,6 +1576,9 @@ function openEditor(pid, pre){
     <span class="cmeta">If no icon is ticked, it's chosen from the type.</span>
     <div class="checks"><label><input type="checkbox" name="want"${p?.wantToGo?" checked":""}>${WANT_ICON} Want to go (haven't been yet)</label></div>
     <label>Description<textarea name="description">${esc(p?.description||"")}</textarea></label>
+    <label>Photos (one per line, e.g. photos/${esc(p?.id||"place-id")}/name.webp)<textarea name="photos" rows="2">${esc(photosOf(p||{}).join("\n"))}</textarea></label>
+    <div id="ed-dishes">${dishesOf(p||{}).map(dishFields).join("")}</div>
+    <div><button type="button" class="linkbtn" data-ed="adddish">＋ Add a dish</button></div>
     <div id="ed-locs">${(p ? locsOf(p) : [{}]).map(locFields).join("")}</div>
     <div><button type="button" class="linkbtn" data-ed="addloc">＋ Add another location</button></div>
     <div class="row foot"><button type="submit" class="btn" value="save">Save</button><button type="button" class="linkbtn" data-ed="cancel">Cancel</button>
@@ -1517,6 +1589,8 @@ edf.addEventListener("click", async e => {
   const a = e.target.closest("[data-ed]")?.dataset.ed; if(!a) return;
   const fsEl = e.target.closest("fieldset.loc");
   if(a==="cancel") ed.close();
+  else if(a==="adddish") document.getElementById("ed-dishes").insertAdjacentHTML("beforeend", dishFields({}));
+  else if(a==="rmdish") e.target.closest("fieldset.dishf").remove();
   else if(a==="addloc") document.getElementById("ed-locs").insertAdjacentHTML("beforeend", locFields({}));
   else if(a==="rmloc"){ if(document.querySelectorAll("#ed-locs fieldset").length>1) fsEl.remove(); }
   else if(a==="find"){
@@ -1558,6 +1632,10 @@ edf.addEventListener("submit", async e => {
   const cuis = f.getAll("cuisine"); if(cuis.length) data.cuisine = cuis;
   if(feats.length) data.features = feats;
   if(f.get("want")) data.wantToGo = true;
+  const photos = String(f.get("photos")||"").split("\n").map(x=>x.trim()).filter(Boolean); if(photos.length) data.photos = photos;
+  const dishes = [...document.querySelectorAll("#ed-dishes fieldset")].map(fs => { const g = n => fs.querySelector(`[name="${n}"]`).value.trim();
+    const d = {name:g("dname"), rating:Number(g("drating"))}; if(g("dphoto")) d.photo = g("dphoto"); if(g("durl")) d.url = g("durl"); return d; }).filter(d => d.name);
+  if(dishes.length) data.dishes = dishes;
   let id = edId;
   if(!id){ id = slug(data.name); let i = 2; while(places.some(x=>x.id===id)) id = slug(data.name)+"-"+(i++); }
   err.textContent = "Saving…";
@@ -1602,7 +1680,8 @@ function renderMap(fit){
     for(const l of locs){
       if(typeof l.lat!=="number"||typeof l.lng!=="number") continue;
       const m = L.marker([l.lat,l.lng],{icon:L.divIcon({className:"",html:`<div class="pin${isWant(p)?" wantpin":""}">${pinIcon(p)}${isWant(p)?'<span class="pinq">?</span>':""}</div>`,iconSize:[30,30],iconAnchor:[15,15]}),title:p.name,keyboard:true});
-      m.bindPopup(`<b>${esc(p.name)}</b>${isWant(p)?` ${WANT_ICON}`:""}<br>${esc([l.street,l.city].filter(Boolean).join(", "))}<div class="pi">${distIcon(l.far)}${vibeIcon(l.vibe)}<a class="map" href="${mapsUrl(p,l)}" target="_blank" rel="noopener">${MAP_SVG}Map</a></div><a href="#place-${esc(p.id)}" class="linkbtn">Show in list</a>`);
+      const ph = photosOf(p);
+      m.bindPopup(`<b>${esc(p.name)}</b>${isWant(p)?` ${WANT_ICON}`:""}${ph.length?`<div class="pgal">${ph.map((u,i)=>`<img loading="lazy" src="${esc(photoSrc(u))}" alt="${esc(p.name)} photo ${i+1}" data-lb="${esc(p.id)}" data-i="${i}">`).join("")}</div>${ph.length>1?`<div class="pgalnote">${ph.length} photos · swipe</div>`:""}`:"<br>"}${esc([l.street,l.city].filter(Boolean).join(", "))}<div class="pi">${distIcon(l.far)}${vibeIcon(l.vibe)}<a class="map" href="${mapsUrl(p,l)}" target="_blank" rel="noopener">${MAP_SVG}Map</a></div><a href="#place-${esc(p.id)}" class="linkbtn">Show in list</a>`, {maxWidth:260});
       m.addTo(layer); pts.push([l.lat,l.lng]);
     }
   }
