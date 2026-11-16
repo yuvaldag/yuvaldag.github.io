@@ -1890,5 +1890,22 @@
     "lng": 34.9474014
    }
   ]
+ },
+ {
+  "id": "dansky",
+  "name": "Dansky",
+  "mapsName": "דנסקי אורוות האמנים פרדס חנה",
+  "type": "Restaurant",
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Artists' Stables (Urvot HaOmanim)",
+    "city": "Pardes Hanna-Karkur",
+    "address": "Artists' Stables, Pardes Hanna-Karkur, Israel",
+    "lat": 32.4749962,
+    "lng": 34.975139
+   }
+  ]
  }
 ]
