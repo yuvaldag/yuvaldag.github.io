@@ -836,6 +836,13 @@ footer.legend h2{font-family:var(--serif);font-weight:600;font-size:1.2rem;margi
 /* owner bar + editor */
 .ownerbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:.88rem;color:var(--muted);margin:-12px 0 18px}
 .ownerfoot{margin-top:28px;font-size:.8rem;color:var(--muted)}
+.sortbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:14px 0 4px;padding:10px 14px;border:1.5px solid var(--rule);border-radius:12px;background:var(--bg)}
+.sortlbl{font-weight:700;font-size:1rem}
+.seg{display:inline-flex;border:1.5px solid var(--accent);border-radius:999px;overflow:hidden}
+.seg button{font:inherit;font-size:.95rem;font-weight:600;padding:8px 16px;border:0;background:var(--bg);color:var(--accent);cursor:pointer;min-height:40px}
+.seg button+button{border-left:1.5px solid var(--accent)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--bg)}
+.sortbar .dist{flex-basis:100%}
 .suggestbar{display:flex;justify-content:center;margin:14px 0 4px}
 .suggestbar .btn{font-size:.95rem;padding:9px 18px;border-radius:999px}
 .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:9px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--bg);color:var(--fg);font:inherit;font-weight:600;cursor:pointer}
@@ -873,6 +880,7 @@ dialog.ed::backdrop{background:rgba(0,0,0,.45)}
   <div id="mapbox"><div id="map" role="region" aria-label="Map of the places shown"></div><div class="mapnote">Tap a pin for details. Pin positions are approximate.</div></div>
   <div id="lochelp" class="lochelp" role="alert" hidden></div>
   <section class="filters" id="filters" aria-label="Filters"></section>
+  <div class="sortbar" id="sortbar"></div>
   <div class="suggestbar"><button class="btn" id="suggestbtn">＋ Add place (everyone can)</button></div>
   <ul id="list"><li class="state">Loading…</li></ul>
   <footer class="legend">
@@ -1132,6 +1140,7 @@ function chip(group, value, inner, label, ico){
   return `<button class="chip${ico?" ico":""}" data-g="${group}" data-v="${esc(String(value))}" aria-pressed="${on}" aria-label="${esc(label)}" title="${esc(label)}">${inner}</button>`;
 }
 function renderFilters(){
+  renderSort();
   // One chip per kind of place (a "restaurant & bar" shows under both), in the index order.
   const used = new Set(places.flatMap(kindsOf)), types = Object.keys(KIND).filter(k => used.has(k));
   const usedC = new Set(places.flatMap(cuisineOf)), cuisines = Object.keys(CUISINE).filter(k => usedC.has(k));
@@ -1150,13 +1159,20 @@ function renderFilters(){
     <div class="fgroup"><span class="flabel">Visited</span><div class="fchips" role="radiogroup" aria-label="Visited">${SHOW_OPTS.map(([v,ic,t])=>
       `<button class="chip ico" data-show="${v}" role="radio" aria-checked="${showMode===v}" aria-pressed="${showMode===v}" title="${t}" aria-label="${t}"><span class="want ${v}">${ic}</span></button>`).join("")}</div></div>
     <div class="fgroup"><span class="flabel">City</span><div class="fchips">${cities.map(c=>chip("city",c,esc(c),c)).join("")}</div></div>
-    <div class="fgroup"><span class="flabel">Sort</span><div class="fchips sortrow">
-      <button class="chip ico" id="sortdef" aria-pressed="${sortMode==="default"}" title="Sort by type" aria-label="Sort by type">🏷️</button>
-      <button class="chip ico" id="sortnear" aria-pressed="${sortMode==="near"}" title="Closest first" aria-label="Closest first">📍</button></div></div>
     </div>
-    ${locMsg?`<div class="dist" style="margin-top:6px">${esc(locMsg)}</div>`:""}
     <div class="fbar"><span id="fcount"></span>${anyFilter()?`<button class="linkbtn" id="fclear">Clear filters</button>`:""}</div>`;
 }
+function renderSort(){
+  document.getElementById("sortbar").innerHTML = `<span class="sortlbl">Sort places</span>
+    <div class="seg" role="group" aria-label="Sort places">
+      <button id="sortdef" aria-pressed="${sortMode==="default"}">By type</button>
+      <button id="sortnear" aria-pressed="${sortMode==="near"}">Closest to me</button></div>
+    ${locMsg?`<span class="dist">${esc(locMsg)}</span>`:""}`;
+}
+document.getElementById("sortbar").addEventListener("click", e => {
+  const s = e.target.closest("#sortdef,#sortnear"); if(!s) return;
+  if(s.id==="sortdef"){ sortMode="default"; renderAll(false); } else askLocation();
+});
 document.getElementById("filters").addEventListener("click", e => {
   if(e.target.closest("#cuisbtn")){ cuisOpen = !cuisOpen; renderFilters(); renderList(); return; }
   const co = e.target.closest("[data-cuis]");
@@ -1256,7 +1272,7 @@ list.addEventListener("click", async e => {
   const pid = b.dataset.p, act = b.dataset.act;
   if(act==="tog"){ if(openItem.has(pid)){ openItem.delete(pid); openForm.delete(pid); } else openItem.add(pid); renderList(); }
   else if(act==="tc"){ openCmt.has(pid)?(openCmt.delete(pid),openForm.delete(pid)):(openCmt.add(pid),openForm.add(pid)); renderList(); }
-  else if(act==="af"){ if(openForm.has(pid)){ openForm.delete(pid); renderList(); return; } openForm.add(pid); renderList(); const t=list.querySelector(`textarea[data-p="${CSS.escape(pid)}"]`); t&&t.focus(); }
+  else if(act==="af"){ if(openForm.has(pid)){ openForm.delete(pid); renderList(); return; } openCommentForm(pid); }
   else if(act==="close"){ openForm.delete(pid); renderList(); }
   else if(act==="post") await postComment(pid, b);
   else if(act==="edit") openEditor(pid);
@@ -1386,7 +1402,15 @@ async function maybeSeed(){
   }catch(e){ alert("Couldn't copy the places into Firebase: "+e.message); }
   seeding = false;
 }
+/* Commenting needs a signed-in user; signed-out visitors are asked to sign in first. */
+function openCommentForm(pid){
+  if(!user){ sgCommentPid = pid; sgWantsSuggest = false; openSg("signin"); return; }
+  if(names[pid]===undefined && !savedName && user.displayName) names[pid] = user.displayName;
+  openForm.add(pid); openItem.add(pid); renderList();
+  const t = list.querySelector(`textarea[data-p="${CSS.escape(pid)}"]`); t && t.focus();
+}
 async function postComment(pid, btn){
+  if(!user){ openCommentForm(pid); return; }
   const err = document.getElementById("err-"+pid);
   const name = (names[pid]||"").trim(), text = (drafts[pid]||"").trim();
   if(!name){ err.textContent="Please add your name."; return; }
@@ -1395,7 +1419,7 @@ async function postComment(pid, btn){
   if(commentsFor(pid).length >= MAX_PER_PLACE){ err.textContent="This place has reached the comment limit."; return; }
   btn.disabled=true; err.textContent="";
   try{
-    await fb.fs.addDoc(fb.fs.collection(fb.db,"comments"), {place:pid, name:name.slice(0,60), body:text, created_at: fb.fs.serverTimestamp()});
+    await fb.fs.addDoc(fb.fs.collection(fb.db,"comments"), {place:pid, name:name.slice(0,60), body:text, uid:user.uid, created_at: fb.fs.serverTimestamp()});
     drafts[pid]=""; openForm.delete(pid); openItem.add(pid); renderList();
     try{ localStorage.setItem("food-name", name); }catch(e){}
   }catch(e){ err.textContent = "Couldn't post the comment. Try again."; btn.disabled=false; }
@@ -1416,16 +1440,16 @@ function renderOwner(){
 }
 document.addEventListener("click", async e => {
   const id = e.target.closest("button")?.id;
-  if(id==="signin") openSg("signin", false);
+  if(id==="signin"){ sgCommentPid = null; openSg("signin", false); }
   else if(id==="signout") fb.au.signOut(fb.auth);
   else if(id==="addplace") openEditor(null);
-  else if(id==="suggestbtn"){ if(!fb) return alert("Suggestions are unavailable right now. Try again later."); isOwner ? openEditor(null) : openSg(user ? "suggest" : "signin", true); }
+  else if(id==="suggestbtn"){ sgCommentPid = null; if(!fb) return alert("Suggestions are unavailable right now. Try again later."); isOwner ? openEditor(null) : openSg(user ? "suggest" : "signin", true); }
   else if(id==="sgview") openSgList();
 });
 /* ---------- sign-in + "add a place" suggestions (everyone) ---------- */
 const sgd = document.getElementById("sgdlg"), sgf = document.getElementById("sgform");
 const G_SVG = `<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>`;
-let sgWantsSuggest = false, sgCreate = false;
+let sgWantsSuggest = false, sgCreate = false, sgCommentPid = null;
 function authErr(x){
   const c = x.code||"";
   if(/popup-closed|cancelled-popup/.test(c)) return "";
@@ -1439,7 +1463,7 @@ function authErr(x){
 function openSg(mode, wantsSuggest){
   if(wantsSuggest !== undefined) sgWantsSuggest = wantsSuggest;
   if(mode==="signin"){
-    sgf.innerHTML = `<h2 id="sg-title">${sgWantsSuggest?"Sign in to recommend a place":"Sign in"}</h2>
+    sgf.innerHTML = `<h2 id="sg-title">${sgWantsSuggest?"Sign in to recommend a place":sgCommentPid?"Sign in to comment":"Sign in"}</h2>
       ${sgWantsSuggest?`<p class="cmeta">Anyone can recommend a place — just sign in first so I know who it's from.</p>`:""}
       <button type="button" class="gbtn" data-sg="google">${G_SVG} Continue with Google</button>
       <div class="orline">or with email</div>
@@ -1463,11 +1487,12 @@ function openSg(mode, wantsSuggest){
   }
   sgf.dataset.mode = mode;
   if(!sgd.open) sgd.showModal();
-  sgf.querySelector("input")?.focus();
+  (mode==="signin" ? sgf.querySelector(".gbtn") : sgf.querySelector("input"))?.focus();
 }
 async function afterSignIn(){
   // isOwner is worked out by onAuthStateChanged; wait briefly for it.
   for(let i=0;i<20 && (!user || ownerCheckPending);i++) await new Promise(r=>setTimeout(r,100));
+  if(sgCommentPid){ const pid = sgCommentPid; sgCommentPid = null; sgd.close(); openCommentForm(pid); return; }
   if(isOwner){ sgd.close(); if(sgWantsSuggest) openEditor(null); }
   else if(sgWantsSuggest) openSg("suggest");
   else sgd.close();
