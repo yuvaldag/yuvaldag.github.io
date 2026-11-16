@@ -816,6 +816,15 @@ footer.legend h2{font-family:var(--serif);font-weight:600;font-size:1.2rem;margi
 /* owner bar + editor */
 .ownerbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:.88rem;color:var(--muted);margin:-12px 0 18px}
 .ownerfoot{margin-top:28px;font-size:.8rem;color:var(--muted)}
+.suggestbar{display:flex;justify-content:center;margin:14px 0 4px}
+.suggestbar .btn{font-size:.95rem;padding:9px 18px;border-radius:999px}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:9px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--bg);color:var(--fg);font:inherit;font-weight:600;cursor:pointer}
+.gbtn svg{width:18px;height:18px}
+.orline{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.8rem}.orline::before,.orline::after{content:"";flex:1;border-top:1px solid var(--line)}
+.ok{color:#2e9e5b;font-weight:600}
+.sglist{display:flex;flex-direction:column;gap:10px}
+.sgitem{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.sgitem .row{margin-top:6px}
 dialog.ed{border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--fg);padding:0;width:min(640px,calc(100vw - 24px));max-height:calc(100vh - 24px)}
 dialog.ed::backdrop{background:rgba(0,0,0,.45)}
 .ed form{padding:18px 18px 14px;display:flex;flex-direction:column;gap:10px}
@@ -844,6 +853,7 @@ dialog.ed::backdrop{background:rgba(0,0,0,.45)}
   <div id="mapbox"><div id="map" role="region" aria-label="Map of the places shown"></div><div class="mapnote">Tap a pin for details. Pin positions are approximate.</div></div>
   <div id="lochelp" class="lochelp" role="alert" hidden></div>
   <section class="filters" id="filters" aria-label="Filters"></section>
+  <div class="suggestbar"><button class="btn" id="suggestbtn">＋ Add place (everyone can)</button></div>
   <ul id="list"><li class="state">Loading…</li></ul>
   <footer class="legend">
     <h2>Index</h2>
@@ -856,6 +866,7 @@ dialog.ed::backdrop{background:rgba(0,0,0,.45)}
   </footer>
   <div class="ownerfoot" id="ownerfoot"></div>
 </main>
+<dialog class="ed" id="sgdlg" aria-labelledby="sg-title"><form id="sgform" novalidate></form></dialog>
 <dialog class="ed" id="editor" aria-labelledby="ed-title"><form method="dialog" id="edform"></form></dialog>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
@@ -1204,6 +1215,7 @@ const FB_CONFIG = {
 const FB_V = "11.10.0";
 const MAX_PER_PLACE = 50, MAX_WORDS = 1000;
 const wordCount = s => (String(s).trim().match(/\S+/g)||[]).length;
+let ownerCheckPending = false;
 let fb = null, user = null, isOwner = false, fbPlacesEmpty = false, seeding = false;
 async function initFirebase(){
   const base = `https://www.gstatic.com/firebasejs/${FB_V}/`;
@@ -1224,8 +1236,9 @@ async function initFirebase(){
     renderList();
   }, err => console.warn("comments:", err.message));
   au.onAuthStateChanged(fb.auth, async u => {
-    user = u; isOwner = false;
+    user = u; isOwner = false; ownerCheckPending = true;
     if(u){ try{ await fs.getDoc(fs.doc(fb.db,"meta","owner")); isOwner = true; }catch(e){ isOwner = false; } }
+    ownerCheckPending = false; loadSuggestions();
     renderOwner(); renderList(); await maybeSeed(); runMigrations();
   });
   renderOwner(); renderList();
@@ -1333,31 +1346,135 @@ function renderOwner(){
   if(!fb){ bar.hidden = true; foot.innerHTML = ""; return; }
   if(isOwner){
     bar.hidden = false;
-    bar.innerHTML = `<span>Editing as ${esc(user.email)}</span><span id="migstat" class="cmeta"></span><button class="btn" id="addplace">＋ Add place</button><button class="linkbtn" id="signout">Sign out</button>`;
+    bar.innerHTML = `<span>Editing as ${esc(user.email)}</span><span id="migstat" class="cmeta"></span><button class="btn" id="addplace">＋ Add place</button><button class="linkbtn" id="sgview">Suggestions${sgCount?` (${sgCount})`:""}</button><button class="linkbtn" id="signout">Sign out</button>`;
     foot.innerHTML = "";
   } else {
     bar.hidden = true;
-    foot.innerHTML = user ? `Signed in as ${esc(user.email)} (not an editor). <button class="linkbtn" id="signout">Sign out</button>`
-                          : `<button class="linkbtn" id="signin">Owner sign-in</button>
-      <form id="signinform" style="display:none;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">
-        <input type="email" name="email" autocomplete="username" placeholder="Email" required style="font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)">
-        <input type="password" name="password" autocomplete="current-password" placeholder="Password" required style="font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)">
-        <button class="btn" type="submit">Sign in</button><span class="err" id="signinerr"></span></form>`;
+    foot.innerHTML = user ? `Signed in as ${esc(user.email||"")}. <button class="linkbtn" id="signout">Sign out</button>`
+                          : `<button class="linkbtn" id="signin">Sign in</button>`;
   }
 }
 document.addEventListener("click", async e => {
-  const id = e.target.id;
-  if(id==="signin"){ const f=document.getElementById("signinform"); const show=f.style.display==="none"; f.style.display=show?"flex":"none"; if(show) f.email.focus(); }
+  const id = e.target.closest("button")?.id;
+  if(id==="signin") openSg("signin", false);
   else if(id==="signout") fb.au.signOut(fb.auth);
   else if(id==="addplace") openEditor(null);
+  else if(id==="suggestbtn"){ if(!fb) return alert("Suggestions are unavailable right now. Try again later."); isOwner ? openEditor(null) : openSg(user ? "suggest" : "signin", true); }
+  else if(id==="sgview") openSgList();
 });
-document.addEventListener("submit", async e => {
-  if(e.target.id!=="signinform") return;
+/* ---------- sign-in + "add a place" suggestions (everyone) ---------- */
+const sgd = document.getElementById("sgdlg"), sgf = document.getElementById("sgform");
+const G_SVG = `<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>`;
+let sgWantsSuggest = false, sgCreate = false;
+function authErr(x){
+  const c = x.code||"";
+  if(/popup-closed|cancelled-popup/.test(c)) return "";
+  if(/invalid-credential|wrong-password|user-not-found|invalid-email|invalid-login/.test(c)) return "Wrong email or password.";
+  if(/email-already-in-use/.test(c)) return "There's already an account with this email — sign in instead.";
+  if(/weak-password/.test(c)) return "Choose a password of at least 6 characters.";
+  if(/admin-restricted|operation-not-allowed/.test(c)) return "Creating accounts is turned off right now. Use Google instead.";
+  if(/too-many/.test(c)) return "Too many tries — wait a few minutes.";
+  return "Couldn't sign in: "+(c||x.message);
+}
+function openSg(mode, wantsSuggest){
+  if(wantsSuggest !== undefined) sgWantsSuggest = wantsSuggest;
+  if(mode==="signin"){
+    sgf.innerHTML = `<h2 id="sg-title">${sgWantsSuggest?"Sign in to recommend a place":"Sign in"}</h2>
+      ${sgWantsSuggest?`<p class="cmeta">Anyone can recommend a place — just sign in first so I know who it's from.</p>`:""}
+      <button type="button" class="gbtn" data-sg="google">${G_SVG} Continue with Google</button>
+      <div class="orline">or with email</div>
+      <label>Email<input type="email" name="email" autocomplete="username" required></label>
+      <label>Password<input type="password" name="password" autocomplete="${sgCreate?"new-password":"current-password"}" minlength="6" required></label>
+      <div class="row foot"><button type="submit" class="btn">${sgCreate?"Create account":"Sign in"}</button>
+        <button type="button" class="linkbtn" data-sg="toggle">${sgCreate?"I have an account":"New here? Create an account"}</button>
+        <button type="button" class="linkbtn" data-sg="close" style="margin-left:auto">Cancel</button></div>
+      <span class="err" id="sg-err"></span>`;
+  } else if(mode==="suggest"){
+    sgf.innerHTML = `<h2 id="sg-title">Recommend a place</h2>
+      <p class="cmeta">Signed in as ${esc(user?.email||"")}. I'll read every recommendation.</p>
+      <label>Place name<input name="place" maxlength="100" required></label>
+      <label>City<input name="city" maxlength="80" required></label>
+      <label>Why I like it<textarea name="why" maxlength="2000" required></textarea></label>
+      <label>Your name (optional)<input name="name" maxlength="60" value="${esc(savedName)}"></label>
+      <div class="row foot"><button type="submit" class="btn">Send recommendation</button><button type="button" class="linkbtn" data-sg="close">Cancel</button><span class="err" id="sg-err"></span></div>`;
+  } else {
+    sgf.innerHTML = `<h2 id="sg-title">Thank you!</h2><p class="ok">Your recommendation was sent.</p>
+      <div class="row foot"><button type="button" class="btn" data-sg="another">Recommend another</button><button type="button" class="linkbtn" data-sg="close">Close</button></div>`;
+  }
+  sgf.dataset.mode = mode;
+  if(!sgd.open) sgd.showModal();
+  sgf.querySelector("input")?.focus();
+}
+async function afterSignIn(){
+  // isOwner is worked out by onAuthStateChanged; wait briefly for it.
+  for(let i=0;i<20 && (!user || ownerCheckPending);i++) await new Promise(r=>setTimeout(r,100));
+  if(isOwner){ sgd.close(); if(sgWantsSuggest) openEditor(null); }
+  else if(sgWantsSuggest) openSg("suggest");
+  else sgd.close();
+}
+sgf.addEventListener("click", async e => {
+  const a = e.target.closest("[data-sg]")?.dataset.sg; if(!a) return;
+  const err = document.getElementById("sg-err");
+  if(a==="close") sgd.close();
+  else if(a==="toggle"){ sgCreate = !sgCreate; openSg("signin"); }
+  else if(a==="another") openSg("suggest");
+  else if(a==="google"){
+    try{ await fb.au.signInWithPopup(fb.auth, new fb.au.GoogleAuthProvider()); await afterSignIn(); }
+    catch(x){ if(err) err.textContent = authErr(x); }
+  }
+});
+sgf.addEventListener("submit", async e => {
   e.preventDefault();
-  const f = e.target, err = document.getElementById("signinerr");
-  err.textContent = "Signing in…";
-  try{ await fb.au.signInWithEmailAndPassword(fb.auth, f.email.value.trim(), f.password.value); }
-  catch(x){ err.textContent = /invalid-credential|wrong-password|user-not-found|invalid-email/.test(x.code||"") ? "Wrong email or password." : /too-many/.test(x.code||"") ? "Too many tries — wait a few minutes." : "Couldn't sign in: "+(x.code||x.message); }
+  const f = new FormData(sgf), err = document.getElementById("sg-err"), mode = sgf.dataset.mode;
+  if(mode==="signin"){
+    const email = String(f.get("email")||"").trim(), pw = String(f.get("password")||"");
+    if(!email || !pw){ err.textContent = "Enter your email and password."; return; }
+    err.textContent = sgCreate ? "Creating your account…" : "Signing in…";
+    try{
+      if(sgCreate) await fb.au.createUserWithEmailAndPassword(fb.auth, email, pw);
+      else await fb.au.signInWithEmailAndPassword(fb.auth, email, pw);
+      await afterSignIn();
+    }catch(x){ err.textContent = authErr(x); }
+  } else if(mode==="suggest"){
+    const place = String(f.get("place")||"").trim(), city = String(f.get("city")||"").trim(), why = String(f.get("why")||"").trim(), name = String(f.get("name")||"").trim().slice(0,60);
+    if(!place || !city || !why){ err.textContent = "Please fill in the place, the city and why you like it."; return; }
+    if(!user?.email){ err.textContent = "Your account has no email address — try signing in with Google."; return; }
+    err.textContent = "Sending…";
+    try{
+      await fb.fs.addDoc(fb.fs.collection(fb.db,"suggestions"), {place, city, why, name, email:user.email, uid:user.uid, created_at: fb.fs.serverTimestamp(), notified:false});
+      if(name){ savedName = name; try{ localStorage.setItem("food-name", name); }catch(x){} }
+      openSg("thanks");
+    }catch(x){ err.textContent = "Couldn't send it: "+(x.code||x.message); }
+  }
+});
+/* ---------- the owner's view of suggestions ---------- */
+let sgCount = 0, sgDocs = [];
+async function loadSuggestions(){
+  if(!isOwner) return;
+  try{
+    const snap = await fb.fs.getDocs(fb.fs.query(fb.fs.collection(fb.db,"suggestions"), fb.fs.orderBy("created_at","desc")));
+    sgDocs = snap.docs.map(d => ({id:d.id, ...d.data()})); sgCount = sgDocs.length; renderOwner();
+  }catch(x){ console.warn("suggestions:", x.message); }
+}
+function openSgList(){
+  sgf.dataset.mode = "list";
+  sgf.innerHTML = `<h2 id="sg-title">Suggestions</h2>
+    ${sgDocs.length ? `<div class="sglist">${sgDocs.map(d=>`<div class="sgitem"><b>${esc(d.place)}</b> — ${esc(d.city)}
+      <p style="margin:6px 0;white-space:pre-wrap">${esc(d.why)}</p>
+      <div class="cmeta">${esc(d.name||"")}${d.name?" · ":""}${esc(d.email)}${d.created_at?.toDate?" · "+esc(fmtDate(d.created_at.toDate().toISOString())):""}</div>
+      <div class="row"><button type="button" class="btn" data-sgl="add" data-id="${esc(d.id)}">Add as place</button><button type="button" class="linkbtn" data-sgl="del" data-id="${esc(d.id)}" style="color:#c0392b">Dismiss</button></div></div>`).join("")}</div>`
+      : `<p class="cmeta">No suggestions right now.</p>`}
+    <div class="row foot"><button type="button" class="linkbtn" data-sg="close">Close</button></div>`;
+  if(!sgd.open) sgd.showModal();
+}
+sgf.addEventListener("click", async e => {
+  const b = e.target.closest("[data-sgl]"); if(!b) return;
+  const d = sgDocs.find(x => x.id===b.dataset.id); if(!d) return;
+  if(b.dataset.sgl==="add"){ sgd.close(); openEditor(null, {name:d.place, city:d.city, description:d.why}); }
+  else if(confirm(`Dismiss the suggestion "${d.place}"?`)){
+    try{ await fb.fs.deleteDoc(fb.fs.doc(fb.db,"suggestions",d.id)); sgDocs = sgDocs.filter(x=>x.id!==d.id); sgCount = sgDocs.length; renderOwner(); openSgList(); }
+    catch(x){ alert("Couldn't dismiss: "+x.message); }
+  }
 });
 /* ---------- place editor (owner only) ---------- */
 const ed = document.getElementById("editor"), edf = document.getElementById("edform");
@@ -1376,11 +1493,11 @@ function locFields(l){
     <div class="row"><button type="button" class="linkbtn" data-ed="find">📍 Find coordinates from the address</button><span class="cmeta" data-ed="msg"></span>
     <button type="button" class="linkbtn" data-ed="rmloc" style="margin-left:auto;color:#c0392b">Remove location</button></div></fieldset>`;
 }
-function openEditor(pid){
-  const p = pid ? places.find(x=>x.id===pid) : null; edId = p ? p.id : null;
+function openEditor(pid, pre){
+  const p = pid ? places.find(x=>x.id===pid) : (pre ? {name:pre.name, description:pre.description, locations:[{city:pre.city}]} : null); edId = pid && p ? p.id : null;
   const types = [...new Set(places.map(x=>String(x.type||"")).filter(Boolean))].sort();
   const ks = Array.isArray(p?.kinds) ? p.kinds : [];
-  edf.innerHTML = `<h2 id="ed-title">${p?"Edit place":"Add place"}</h2>
+  edf.innerHTML = `<h2 id="ed-title">${edId?"Edit place":"Add place"}</h2>
     <div class="g2"><label>Name<input name="name" required value="${esc(p?.name||"")}"></label>
     <label>Type<input name="type" list="ed-types" required value="${esc(p?.type||"")}" placeholder="Coffee"><datalist id="ed-types">${types.map(t=>`<option value="${esc(t)}">`).join("")}</datalist></label></div>
     <label>Name to search on Google Maps (optional, if different)<input name="mapsName" value="${esc(p?.mapsName||"")}"></label>
@@ -1393,7 +1510,7 @@ function openEditor(pid){
     <div id="ed-locs">${(p ? locsOf(p) : [{}]).map(locFields).join("")}</div>
     <div><button type="button" class="linkbtn" data-ed="addloc">＋ Add another location</button></div>
     <div class="row foot"><button type="submit" class="btn" value="save">Save</button><button type="button" class="linkbtn" data-ed="cancel">Cancel</button>
-      ${p?`<button type="button" class="btn danger" data-ed="delete" style="margin-left:auto">Delete place</button>`:""}<span class="err" id="ed-err"></span></div>`;
+      ${edId?`<button type="button" class="btn danger" data-ed="delete" style="margin-left:auto">Delete place</button>`:""}<span class="err" id="ed-err"></span></div>`;
   ed.showModal();
 }
 edf.addEventListener("click", async e => {

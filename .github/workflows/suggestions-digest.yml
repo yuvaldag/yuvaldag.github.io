@@ -1,0 +1,26 @@
+name: Food suggestions digest
+
+# Once a day (about 19:20 in Israel). Emails only when there are new suggestions.
+on:
+  schedule:
+    - cron: "17 17 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Email new suggestions
+        env:
+          FOOD_OWNER_EMAIL: ${{ secrets.FOOD_OWNER_EMAIL }}
+          FOOD_OWNER_PASSWORD: ${{ secrets.FOOD_OWNER_PASSWORD }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python scripts/suggestions_digest.py
