@@ -2334,5 +2334,25 @@
     "vibe": 0
    }
   ]
+ },
+ {
+  "id": "alexander-bakery",
+  "name": "Alexander Bread & Bakery",
+  "type": "Bakery",
+  "kinds": [
+   "bakery"
+  ],
+  "wantToGo": true,
+  "description": "Known for its sourdough bread; the line can get long on Friday mornings.",
+  "locations": [
+   {
+    "street": "Lilienblum 18",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Lilienblum 18, Tel Aviv, Israel",
+    "lat": 32.061979,
+    "lng": 34.7691415
+   }
+  ]
  }
 ]
