@@ -2187,5 +2187,42 @@
     "lng": 34.975139
    }
   ]
+ },
+ {
+  "id": "gallery-coffee-machines",
+  "name": "Gallery Coffee Machines",
+  "type": "Coffee",
+  "features": [
+   "specialty"
+  ],
+  "description": "Coffee-machine repair lab with a boutique coffee bar: fresh espresso on site.",
+  "locations": [
+   {
+    "street": "Matalon 74",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Matalon 74, Tel Aviv, Israel",
+    "lat": 32.057719,
+    "lng": 34.775581
+   }
+  ]
+ },
+ {
+  "id": "the-coffee-gallery",
+  "name": "The Coffee Gallery",
+  "mapsName": "The Coffee Gallery הגלריה לקפה",
+  "type": "Coffee",
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Chlenov 25",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Chlenov 25, Tel Aviv, Israel",
+    "lat": 32.057194,
+    "lng": 34.774936
+   }
+  ]
  }
 ]

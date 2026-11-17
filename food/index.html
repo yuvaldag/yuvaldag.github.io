@@ -676,7 +676,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
 .wrap{max-width:760px;margin:0 auto;padding:40px 24px 64px}
-h1{font-family:var(--serif);font-weight:600;font-size:2.2rem;line-height:1.15;margin:0 0 24px}
+h1{font-family:var(--serif);font-weight:600;font-size:2.2rem;line-height:1.15;margin:0 0 8px}
+.intro{margin:0 0 22px;font-size:1.05rem;color:var(--muted)}
 button{font:inherit;color:inherit}
 /* map */
 #mapbox{margin:0 0 20px}
@@ -891,6 +892,7 @@ dialog.ed::backdrop{background:rgba(0,0,0,.45)}
 <body>
 <main class="wrap">
   <h1>Food &amp; Coffee</h1>
+  <p class="intro">These are places that I really like and I would never feel like they are a waste of money!</p>
   <div id="ownerbar" class="ownerbar" hidden></div>
   <div id="mapbox"><div id="map" role="region" aria-label="Map of the places shown"></div><div class="mapnote">Tap a pin for details. Pin positions are approximate.</div></div>
   <div id="lochelp" class="lochelp" role="alert" hidden></div>
