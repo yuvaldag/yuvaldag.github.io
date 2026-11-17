@@ -2245,5 +2245,38 @@
     "lng": 34.777888
    }
   ]
+ },
+ {
+  "id": "nachmani",
+  "name": "Nachmani",
+  "mapsName": "Nachmani cafe Nachmani 36",
+  "type": "Coffee",
+  "features": [
+   "specialty"
+  ],
+  "description": "Great spot to work with a laptop, fair prices for the city; known for its carrot cake.",
+  "photos": [
+   "photos/nachmani/inside.webp",
+   "photos/nachmani/outside.webp"
+  ],
+  "dishes": [
+   {
+    "name": "Batch brew (iced)",
+    "rating": 2,
+    "photo": "photos/nachmani/batch-brew.webp",
+    "price": "15",
+    "when": "2026-11"
+   }
+  ],
+  "locations": [
+   {
+    "street": "Nachmani 36",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Nachmani 36, Tel Aviv, Israel",
+    "lat": 32.065142,
+    "lng": 34.777509
+   }
+  ]
  }
 ]
