@@ -10,11 +10,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#fff;--fg:#1d2433;--muted:#5d6678;--line:#e6e8ee;--accent:#1f4e8c;--soft:#eef3fa;--rule:#c9d0dc;
+  --bg:#fff;--fg:#1d2433;--muted:#5d6678;--line:#e6e8ee;--accent:#1f4e8c;--soft:#eef3fa;--rule:#c9d0dc;--strong:#0b1020;
   --serif:"Source Serif 4",Georgia,serif;--sans:Inter,"Helvetica Neue",Arial,sans-serif;
 }
 @media (prefers-color-scheme:dark){
-  :root{--bg:#11151c;--fg:#e4e7ee;--muted:#9aa3b5;--line:#262d3a;--accent:#8fb4ea;--soft:#1a2433;--rule:#3a4352}
+  :root{--bg:#11151c;--fg:#e4e7ee;--muted:#9aa3b5;--line:#262d3a;--accent:#8fb4ea;--soft:#1a2433;--rule:#3a4352;--strong:#f5f7fb}
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -73,6 +73,7 @@ ol.pubs li{margin:0 0 16px}
 .body .filters h3{margin:0;font-family:var(--serif);font-size:1.1rem;font-weight:600;text-transform:none;letter-spacing:0;color:var(--fg)}
 .fhint{font-size:.88rem;color:var(--muted)}
 .thesis{color:var(--fg);margin-top:2px}
+.distinction{font-weight:600;color:var(--strong)}
 .thread{margin:14px 0 0}
 .thread h4{margin:0 0 4px;font-family:var(--serif);font-weight:600;font-size:1.05rem}
 .thread p{margin:0}
@@ -135,13 +136,21 @@ footer{margin-top:40px;color:var(--muted);font-size:.85rem}
       <li><b>M.Sc. in Computer Science</b>, Technion – Israel Institute of Technology, 2015–2017. Advisor: <a href="https://yuvalfilmus.cs.technion.ac.il/">Prof. Yuval Filmus</a>.
         <div class="thesis">Thesis: <a href="https://yuvalfilmus.cs.technion.ac.il/Manuscripts/MSC-2018-01.pdf"><i>Twenty Questions Game Using Restricted Sets of Questions</i></a></div></li>
       <li><b>B.Sc. in Computer Science</b>, Technion – Israel Institute of Technology, 2011–2015.
-        <div class="thesis">Highest average grade among all of the program's graduates in the same year.</div></li>
+        <div class="thesis distinction">Highest average grade among all of the program's graduates in the same year.</div></li>
     </ul>
 
     <h3>Postdoctoral studies</h3>
     <ul>
       <li><b>Postdoctoral Researcher</b>, UC Berkeley, 2023–2024.
         <div class="thesis">Studied learning theory under the Machine Learning Pod of the Simons Institute for the Theory of Computing and the Foundations of Data Science Institute (FODSI).</div></li>
+    </ul>
+
+    <h3>Industry</h3>
+    <ul>
+      <li><b>Pearl Research</b>, 2025–present.</li>
+      <li><b>Google Research</b>, research internship, 2019. Manager: Vitaly Feldman.</li>
+      <li><b>Facebook</b>, software engineering internship, 2015.</li>
+      <li><b>Mellanox Technologies</b>, 2013–2014.</li>
     </ul>
   </div>
 </details>
