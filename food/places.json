@@ -2278,5 +2278,61 @@
     "lng": 34.777509
    }
   ]
+ },
+ {
+  "id": "hummus-hasson",
+  "name": "Hummus Hasson",
+  "mapsName": "חומוס חסון",
+  "type": "Restaurant",
+  "cuisine": [
+   "hummus"
+  ],
+  "features": [
+   "unique"
+  ],
+  "description": "Very lively place (in a good way), excellent, warm service, tasty food, good prices.",
+  "locations": [
+   {
+    "street": "Wolfson 18 (Florentin)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Wolfson 18, Tel Aviv, Israel",
+    "lat": 32.058043,
+    "lng": 34.770977
+   },
+   {
+    "street": "Allenby 87",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Allenby 87, Tel Aviv, Israel",
+    "lat": 32.0659832,
+    "lng": 34.7722291
+   }
+  ]
+ },
+ {
+  "id": "hayafim-vehamitzim",
+  "name": "HaYafim VeHaMitzim",
+  "mapsName": "היפים והמיצים שינקין",
+  "type": "Juice",
+  "kinds": [
+   "juice"
+  ],
+  "features": [
+   "unique"
+  ],
+  "description": "The juice shop on Sheinkin (\"the beautiful ones and the juices\"), going since the late '80s.",
+  "locations": [
+   {
+    "street": "Sheinkin 7",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Sheinkin 7, Tel Aviv, Israel",
+    "lat": 32.069804,
+    "lng": 34.771334,
+    "far": 2,
+    "vibe": 0
+   }
+  ]
  }
 ]
