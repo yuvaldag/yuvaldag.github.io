@@ -2363,5 +2363,27 @@
     "lng": 34.7691415
    }
   ]
+ },
+ {
+  "id": "rozenbaum",
+  "name": "Rozenbaum",
+  "mapsName": "רוזנבאום",
+  "type": "Coffee",
+  "kinds": [
+   "coffee",
+   "bar"
+  ],
+  "wantToGo": true,
+  "description": "Coffee by day, wine by evening; the wine and burrata salad are a great pairing.",
+  "locations": [
+   {
+    "street": "Rozenbaum 10",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Rozenbaum 10, Tel Aviv, Israel",
+    "lat": 32.07415,
+    "lng": 34.781511
+   }
+  ]
  }
 ]
