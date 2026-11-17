@@ -1172,6 +1172,19 @@ function askLocation(){
   locate(() => { locMsg=""; sortMode="near"; renderAll(false); showMe(); },
          () => { locMsg=""; sortMode="default"; renderAll(false); });
 }
+/* On load: if this browser already allows location for the site, sort by distance without asking.
+   If permission isn't granted yet, or the visitor picked "By type", keep sorting by type. */
+async function autoNearby(){
+  let pref = null; try{ pref = localStorage.getItem("food-sort"); }catch(e){}
+  if(pref === "type" || !navigator.geolocation || !navigator.permissions) return;
+  let st; try{ st = await navigator.permissions.query({name:"geolocation"}); }catch(e){ return; }
+  if(st.state !== "granted") return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    if(sortMode === "near" && myPos) return;
+    myPos = [pos.coords.latitude, pos.coords.longitude]; myAcc = pos.coords.accuracy;
+    sortMode = "near"; renderAll(false); showMe(14, false);
+  }, () => {}, {enableHighAccuracy:false, timeout:15000, maximumAge:300000});
+}
 /* Map button: go to my location (does not change the sort). */
 function goToMe(){
   locate(() => { if(sortMode==="near") renderList(); showMe(15); });
@@ -1226,7 +1239,7 @@ function renderSort(){
 }
 document.getElementById("sortbar").addEventListener("click", e => {
   const s = e.target.closest("#sortdef,#sortnear"); if(!s) return;
-  if(s.id==="sortdef"){ sortMode="default"; renderAll(false); } else askLocation();
+  if(s.id==="sortdef"){ sortMode="default"; try{ localStorage.setItem("food-sort","type"); }catch(x){} renderAll(false); } else { try{ localStorage.removeItem("food-sort"); }catch(x){} askLocation(); }
 });
 document.getElementById("filters").addEventListener("click", e => {
   if(e.target.closest("#cuisbtn")){ cuisOpen = !cuisOpen; placeOpen = false; renderFilters(); renderList(); return; }
@@ -1251,7 +1264,7 @@ document.getElementById("filters").addEventListener("click", e => {
     } else { F[g].has(v)?F[g].delete(v):F[g].add(v); }
     renderAll(true); return; }
   const s=e.target.closest("#sortdef,#sortnear");
-  if(s){ if(s.id==="sortdef"){ sortMode="default"; renderAll(false); } else askLocation(); return; }
+  if(s){ if(s.id==="sortdef"){ sortMode="default"; try{ localStorage.setItem("food-sort","type"); }catch(x){} renderAll(false); } else { try{ localStorage.removeItem("food-sort"); }catch(x){} askLocation(); } return; }
   const sh = e.target.closest("[data-show]");
   if(sh){ showMode = sh.dataset.show; try{ localStorage.setItem("food-show", showMode); }catch(e2){} renderAll(true); return; }
   if(e.target.id==="fclear"){ for(const k in F) F[k].clear(); renderAll(true); }
@@ -1903,11 +1916,11 @@ function renderMap(fit){
 }
 
 let meMarker=null, meCircle=null;
-function showMe(minZoom=14){ if(!map||!myPos) return; if(meMarker) meMarker.remove(); if(meCircle) meCircle.remove();
+function showMe(minZoom=14, move=true){ if(!map||!myPos) return; if(meMarker) meMarker.remove(); if(meCircle) meCircle.remove();
   if(myAcc && myAcc < 3000) meCircle=L.circle(myPos,{radius:myAcc,color:"#2a7de1",weight:1,fillOpacity:.1,interactive:false}).addTo(map);
   meMarker=L.marker(myPos,{icon:L.divIcon({className:"",html:'<div class="mepin"></div>',iconSize:[16,16],iconAnchor:[8,8]}),title:"You are here",zIndexOffset:1000}).bindPopup("You are here").addTo(map);
   document.querySelector(".locbtn")?.classList.add("on");
-  map.setView(myPos, Math.max(map.getZoom(),minZoom)); }
+  if(move) map.setView(myPos, Math.max(map.getZoom(),minZoom)); }
 document.addEventListener("click", e => {
   const a = e.target.closest('a[href^="#place-"]'); if(!a) return;
   e.preventDefault(); const pid = decodeURIComponent(a.getAttribute("href").slice(7));
@@ -1928,6 +1941,7 @@ initMap();
   try{
     const r = await fetch("places.json", {cache:"no-cache"}); places = await r.json(); seedPlaces = places.slice();
     renderAll(false);
+    autoNearby();
   }catch(e){ list.innerHTML = `<li class="state">Couldn't load the list right now.</li>`; }
   try{ await initFirebase(); }catch(e){ console.warn("Firebase unavailable:", e); }
 })();
