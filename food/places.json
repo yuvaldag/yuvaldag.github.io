@@ -1047,6 +1047,15 @@
     "lng": 34.77493,
     "far": 2
    }
+  ],
+  "dishes": [
+   {
+    "name": "Blueberry tart",
+    "rating": 2,
+    "photo": "photos/alon-shabo/blueberry-tart.webp",
+    "price": "41",
+    "when": "2026-11"
+   }
   ]
  },
  {
