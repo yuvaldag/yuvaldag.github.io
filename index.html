@@ -73,7 +73,12 @@ ol.pubs li{margin:0 0 16px}
 .body .filters h3{margin:0;font-family:var(--serif);font-size:1.1rem;font-weight:600;text-transform:none;letter-spacing:0;color:var(--fg)}
 .fhint{font-size:.88rem;color:var(--muted)}
 .thesis{color:var(--fg);margin-top:2px}
-.profiles{display:flex;flex-wrap:wrap;gap:10px;margin:-8px 0 28px}
+.profiles{display:flex;flex-wrap:wrap;gap:10px;margin:-8px 0 24px}
+.highlights{margin:0 0 28px;padding:16px 18px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;background:var(--soft)}
+.highlights h2{margin:0 0 10px;font-family:var(--serif);font-weight:600;font-size:1.15rem}
+.highlights ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.highlights li{line-height:1.5}
+.hl-tag{display:inline-block;margin-right:8px;padding:1px 9px;border-radius:999px;background:var(--accent);color:var(--bg);font-size:.75rem;font-weight:600;letter-spacing:.03em;text-transform:uppercase;vertical-align:2px}
 .blob{display:inline-block;padding:7px 18px;border-radius:999px;background:var(--soft);border:1px solid var(--rule);color:var(--accent);font-weight:500;font-size:.95rem}
 .blob:hover{background:var(--accent);border-color:var(--accent);color:var(--bg);text-decoration:none}
 .sthesis{font-size:.85rem;color:var(--muted);margin-top:2px}
@@ -125,6 +130,15 @@ footer{margin-top:40px;color:var(--muted);font-size:.85rem}
   <a class="blob" href="https://scholar.google.com/citations?user=X91gWisAAAAJ">Google Scholar</a>
   <a class="blob" href="https://dblp.org/pid/190/7292.html">DBLP</a>
 </nav>
+
+<section class="highlights" aria-labelledby="hl-title">
+  <h2 id="hl-title">Highlights</h2>
+  <ul>
+    <li><span class="hl-tag">Recent paper</span>
+      <a href="https://arxiv.org/abs/2611.07078"><b>Optimistic Hedge in General-Sum Games: Fundamental Limits and Regret Bounds via Temporal Approximation</b></a>
+      <span class="muted">with Nadav Eisen, Liad Erez and Tomer Koren. arXiv, 2026.</span></li>
+  </ul>
+</section>
 
 <details>
   <summary>Contact</summary>
@@ -272,6 +286,12 @@ footer{margin-top:40px;color:var(--muted);font-size:.85rem}
     </section>
     <p class="noresults" id="no-results" hidden>No papers match these filters.</p>
     <ol class="pubs">
+      <li data-venue="arxiv" data-topics="games online" data-extra="">
+        <div class="pt">Optimistic Hedge in General-Sum Games: Fundamental Limits and Regret Bounds via Temporal Approximation</div>
+        <div class="pa"><b>Yuval Dagan</b>, Nadav Eisen, Liad Erez, Tomer Koren</div>
+        <div class="pv">arXiv preprint, 2026</div>
+        <div class="pl"><a href="https://arxiv.org/abs/2611.07078">arXiv</a></div></li>
+
       <li data-venue="arxiv" data-topics="games online" data-extra="">
         <div class="pt">Learning Local Stackelberg Equilibria from Repeated Interactions with a Learning Agent</div>
         <div class="pa">Nivasini Ananthakrishnan, <b>Yuval Dagan</b>, Kunhe Yang</div>
