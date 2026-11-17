@@ -2384,6 +2384,287 @@
     "lat": 32.07415,
     "lng": 34.781511
    }
+  ],
+  "features": [
+   "expensive"
+  ]
+ },
+ {
+  "id": "selas",
+  "type": "Restaurant",
+  "wantToGo": true,
+  "features": [
+   "expensive"
+  ],
+  "description": "",
+  "name": "Selas",
+  "locations": [
+   {
+    "street": "Tankhum 6",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Tankhum 6, Tel Aviv, Israel",
+    "lat": 32.05304,
+    "lng": 34.754998
+   }
+  ]
+ },
+ {
+  "id": "ocd",
+  "type": "Restaurant",
+  "wantToGo": true,
+  "features": [
+   "expensive"
+  ],
+  "description": "Exceptional service, exquisite food, and a warm atmosphere (from a review).",
+  "name": "OCD TLV",
+  "locations": [
+   {
+    "street": "Tirtsa 17 (Jaffa)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Tirtsa 17, Tel Aviv, Israel",
+    "lat": 32.0557,
+    "lng": 34.76065
+   }
+  ]
+ },
+ {
+  "id": "pastel",
+  "type": "Restaurant",
+  "wantToGo": true,
+  "features": [
+   "expensive",
+   "lunch"
+  ],
+  "description": "",
+  "name": "Pastel",
+  "mapsName": "Pastel restaurant Tel Aviv",
+  "locations": [
+   {
+    "street": "Sha'ul HaMelech 27 (Tel Aviv Museum of Art)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Sha'ul HaMelech 27, Tel Aviv, Israel",
+    "lat": 32.07761,
+    "lng": 34.78685
+   }
+  ]
+ },
+ {
+  "id": "hiba",
+  "type": "Restaurant",
+  "wantToGo": true,
+  "features": [
+   "expensive"
+  ],
+  "description": "",
+  "name": "HIBA",
+  "mapsName": "HIBA Restaurant",
+  "locations": [
+   {
+    "street": "Menachem Begin 144 (Midtown)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Menachem Begin 144, Tel Aviv, Israel",
+    "lat": 32.0778569,
+    "lng": 34.7936101
+   }
+  ]
+ },
+ {
+  "id": "claro",
+  "type": "Restaurant",
+  "wantToGo": true,
+  "features": [
+   "expensive"
+  ],
+  "description": "Roomy, rustic-chic restaurant with an extensive wine list and farm-to-table Mediterranean food.",
+  "name": "Claro",
+  "mapsName": "claro tel aviv",
+  "locations": [
+   {
+    "street": "HaArba'a 23 (Sarona)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "HaArba'a 23, Tel Aviv, Israel",
+    "lat": 32.070628,
+    "lng": 34.786398
+   }
+  ]
+ },
+ {
+  "id": "milgo-milbar",
+  "type": "Restaurant",
+  "wantToGo": true,
+  "features": [
+   "expensive"
+  ],
+  "description": "",
+  "name": "Milgo Milbar",
+  "locations": [
+   {
+    "street": "Rothschild 142",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Rothschild 142, Tel Aviv, Israel",
+    "lat": 32.0717295,
+    "lng": 34.779429
+   }
+  ]
+ },
+ {
+  "id": "otello",
+  "name": "Otello",
+  "type": "Ice cream",
+  "dice": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Dizengoff 165",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Dizengoff 165, Tel Aviv, Israel",
+    "lat": 32.083985,
+    "lng": 34.774029
+   },
+   {
+    "street": "Herzl 12",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Herzl 12, Tel Aviv, Israel",
+    "lat": 32.0622318,
+    "lng": 34.7699992
+   },
+   {
+    "street": "Arania Osvaldo 17 (Sarona)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Arania Osvaldo 17, Tel Aviv, Israel",
+    "lat": 32.071298,
+    "lng": 34.78628
+   },
+   {
+    "street": "Einstein 40 (Ramat Aviv)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Einstein 40, Tel Aviv, Israel",
+    "lat": 32.1121687,
+    "lng": 34.795753
+   }
+  ]
+ },
+ {
+  "id": "bretonne",
+  "name": "Bretonne",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant",
+   "dessert"
+  ],
+  "dice": true,
+  "description": "Crêperie.",
+  "locations": [
+   {
+    "street": "Ibn Gabirol 52",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Ibn Gabirol 52, Tel Aviv, Israel",
+    "lat": 32.077703,
+    "lng": 34.781492
+   },
+   {
+    "street": "Sderot Washington 22",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Sderot Washington 22, Tel Aviv, Israel",
+    "lat": 32.0556138,
+    "lng": 34.7694694
+   },
+   {
+    "street": "HaBarzel 4 (Ramat HaHayal)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "HaBarzel 4, Tel Aviv, Israel",
+    "lat": 32.1067122,
+    "lng": 34.8361454
+   }
+  ]
+ },
+ {
+  "id": "fat-cow",
+  "name": "Fat Cow",
+  "type": "Restaurant",
+  "cuisine": [
+   "burger"
+  ],
+  "dice": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Dizengoff 265",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Dizengoff 265, Tel Aviv, Israel",
+    "lat": 32.09463,
+    "lng": 34.776426
+   }
+  ]
+ },
+ {
+  "id": "brooklyn-pizza",
+  "name": "Brooklyn Pizza",
+  "type": "Restaurant",
+  "cuisine": [
+   "pizza"
+  ],
+  "dice": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Dizengoff 276",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Dizengoff 276, Tel Aviv, Israel",
+    "lat": 32.0920302,
+    "lng": 34.7764373
+   },
+   {
+    "street": "King George 88",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "King George 88, Tel Aviv, Israel",
+    "lat": 32.0776873,
+    "lng": 34.7781324
+   },
+   {
+    "street": "Yehuda HaLevi 45",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Yehuda HaLevi 45, Tel Aviv, Israel",
+    "lat": 32.062034,
+    "lng": 34.773195
+   }
+  ]
+ },
+ {
+  "id": "jasmino",
+  "name": "Jasmino",
+  "mapsName": "ג'סמינו",
+  "type": "Restaurant",
+  "cuisine": [
+   "skewers"
+  ],
+  "description": "Pita and kebab.",
+  "locations": [
+   {
+    "street": "Allenby 99",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Allenby 99, Tel Aviv, Israel",
+    "lat": 32.064609,
+    "lng": 34.772695
+   }
   ]
  }
 ]
