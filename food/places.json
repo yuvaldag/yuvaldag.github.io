@@ -2224,5 +2224,26 @@
     "lng": 34.774936
    }
   ]
+ },
+ {
+  "id": "tulip",
+  "name": "Tulip",
+  "mapsName": "Tulip Hungarian restaurant Yehuda HaLevi",
+  "type": "Restaurant",
+  "cuisine": [
+   "hungarian"
+  ],
+  "wantToGo": true,
+  "description": "Hungarian home cooking. Known for goulash with nokedli; the dining space is small.",
+  "locations": [
+   {
+    "street": "Yehuda HaLevi 52",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Yehuda HaLevi 52, Tel Aviv, Israel",
+    "lat": 32.064954,
+    "lng": 34.777888
+   }
+  ]
  }
 ]
