@@ -2666,5 +2666,25 @@
     "lng": 34.772695
    }
   ]
+ },
+ {
+  "id": "haggai-bread",
+  "name": "Haggai and the Bread",
+  "mapsName": "חגי והלחם",
+  "type": "Bakery",
+  "kinds": [
+   "bakery"
+  ],
+  "description": "Excellent sourdough bread.",
+  "locations": [
+   {
+    "street": "Vital 25 (Florentin)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Vital 25, Tel Aviv, Israel",
+    "lat": 32.0550796,
+    "lng": 34.7678205
+   }
+  ]
  }
 ]
