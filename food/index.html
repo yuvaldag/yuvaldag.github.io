@@ -962,7 +962,7 @@ const pinIcon = p => CUISINE[cuisineOf(p)[0]]?.[0] || KIND[kindsOf(p)[0]]?.[0] |
 const WANT_TXT = "Want to go (haven't been yet)";
 const WANT_ICON = `<span class="want" role="img" aria-label="${WANT_TXT}" title="${WANT_TXT}">?</span>`;
 const isWant = p => !!p.wantToGo;
-const DICE_ICON = `<span class="want dice" role="img" aria-label="Just for fun" title="Just for fun">🎲</span>`;
+const DICE_ICON = `<span class="want dice" role="img" aria-label="Fun to go, but the quality might be below my strict standard" title="Fun to go, but the quality might be below my strict standard">🎲</span>`;
 const listBadge = p => p.dice ? DICE_ICON : p.wantToGo ? WANT_ICON : "";
 const featHtml = fs => (Array.isArray(fs)?fs:[]).filter(f=>FEAT[f]).map(f=>`<span class="ficon" role="img" aria-label="${FEAT[f][1]}" title="${FEAT[f][1]}">${FEAT[f][0]}</span>`).join("");
 const DESC_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h6"/></svg>`;
@@ -1042,7 +1042,7 @@ document.getElementById("lg-kind").innerHTML = Object.values(KIND).map(([e,n])=>
 document.getElementById("lg-feat").innerHTML = Object.values(FEAT).map(([e,n])=>`<div class="lrow"><span class="ic">${e}</span><span>${n}</span></div>`).join("")
   + `<div class="lrow"><span class="ic"><span class="want been">!</span></span><span>Places I especially like</span></div>`
   + `<div class="lrow"><span class="ic">${WANT_ICON}</span><span>${WANT_TXT}</span></div>`
-  + `<div class="lrow"><span class="ic">${DICE_ICON}</span><span>Just for fun (hidden unless you turn on 🎲)</span></div>`;
+  + `<div class="lrow"><span class="ic">${DICE_ICON}</span><span>Fun to go, but the quality might be below my strict standard (hidden unless you turn on 🎲)</span></div>`;
 document.getElementById("lg-btn").innerHTML = [[CHEV_SVG,"Show details, branches and comments"],[CMT_SVG+"2","Comments (with how many)"],[ADD_SVG,"Add a comment"],[MAP_SVG+"Map","Open in Google Maps"]].map(([i,n])=>`<div class="lrow"><span class="legrow">${i}</span><span>${n}</span></div>`).join("");
 
 /* ---------- state ---------- */
@@ -1059,7 +1059,7 @@ const listOf = p => isDice(p) ? "dice" : isWant(p) ? "want" : "been";
 let showSet = {been:true, want:true, dice:false};
 try{ const v = JSON.parse(localStorage.getItem("food-show2")||"null"); if(v && typeof v==="object") showSet = {...showSet, ...v}; }catch(e){}
 const shown = p => !!showSet[listOf(p)];
-const SHOW_OPTS = [["been","!","Places I especially like"],["want","?","Places I want to go"],["dice","🎲","Just for fun"]];
+const SHOW_OPTS = [["been","!","Places I especially like"],["want","?","Places I want to go"],["dice","🎲","Fun to go, but the quality might be below my strict standard"]];
 let cuisOpen = false;
 const F = { type:new Set(), cuis:new Set(), far:new Set(), vibe:new Set(), city:new Set(), country:new Set() };
 let placeOpen = false;
@@ -1808,7 +1808,7 @@ function openEditor(pid, pre){
       ${Object.entries(FEAT).map(([k,[,n]])=>`<label><input type="checkbox" name="feat" value="${k}"${(p?.features||[]).includes(k)?" checked":""}>${n}</label>`).join("")}</div>
     <span class="cmeta">If no icon is ticked, it's chosen from the type.</span>
     <div class="checks"><label><input type="checkbox" name="want"${p?.wantToGo?" checked":""}>${WANT_ICON} Want to go (haven't been yet)</label>
-      <label><input type="checkbox" name="dice"${p?.dice?" checked":""}>${DICE_ICON} Just for fun</label></div>
+      <label><input type="checkbox" name="dice"${p?.dice?" checked":""}>${DICE_ICON} Fun to go, but the quality might be below my strict standard</label></div>
     <label>Description<textarea name="description">${esc(p?.description||"")}</textarea></label>
     ${photosOf(p||{}).some(u=>String(u).startsWith("data:"))?`<div class="cmeta">Photos from the recommendation (tap to remove)</div><div class="sgprev" id="ed-dataphotos">${photosOf(p).filter(u=>String(u).startsWith("data:")).map(u=>`<img src="${u}" alt="" data-ed="rmphoto" title="Remove">`).join("")}</div>`:""}
     <label>Photos (one per line, e.g. photos/${esc(p?.id||"place-id")}/name.webp)<textarea name="photos" rows="2">${esc(photosOf(p||{}).filter(u=>!String(u).startsWith("data:")).join("\n"))}</textarea></label>
