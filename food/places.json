@@ -2762,5 +2762,33 @@
     "lng": 34.7719672
    }
   ]
+ },
+ {
+  "id": "bijoux",
+  "name": "Bijoux",
+  "mapsName": "Bijoux Allenby 108",
+  "type": "Restaurant & Bar",
+  "kinds": [
+   "restaurant",
+   "bar"
+  ],
+  "cuisine": [
+   "sushi"
+  ],
+  "features": [
+   "expensive"
+  ],
+  "wantToGo": true,
+  "description": "Hand-roll and cocktail bar, about ₪200–300 per person.",
+  "locations": [
+   {
+    "street": "Allenby 108",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Allenby 108, Tel Aviv, Israel",
+    "lat": 32.064814,
+    "lng": 34.77219
+   }
+  ]
  }
 ]
