@@ -2713,5 +2713,33 @@
     "lng": 34.8819264
    }
   ]
+ },
+ {
+  "id": "hatraklin",
+  "name": "Hatraklin Meat & Wine",
+  "mapsName": "הטרקלין",
+  "type": "Restaurant & Bar",
+  "kinds": [
+   "restaurant",
+   "bar"
+  ],
+  "cuisine": [
+   "meat"
+  ],
+  "features": [
+   "romantic"
+  ],
+  "wantToGo": true,
+  "description": "Cook your steak on a hot stone; taste several boutique wines before choosing a bottle; in a charming 1920s building.",
+  "locations": [
+   {
+    "street": "Heichal HaTalmud 4 (Neve Tzedek)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Heichal HaTalmud 4, Tel Aviv, Israel",
+    "lat": 32.0616522,
+    "lng": 34.7686466
+   }
+  ]
  }
 ]
