@@ -2686,5 +2686,31 @@
     "lng": 34.7678205
    }
   ]
+ },
+ {
+  "id": "osaka-bashuk",
+  "name": "Osaka in the Shuk",
+  "mapsName": "אוסקה בשוק פתח תקווה",
+  "type": "Restaurant & Bar",
+  "kinds": [
+   "restaurant",
+   "bar"
+  ],
+  "cuisine": [
+   "japanese",
+   "skewers"
+  ],
+  "wantToGo": true,
+  "description": "Japanese food bar in the heart of the Petah Tikva market.",
+  "locations": [
+   {
+    "street": "Petah Tikva Market",
+    "city": "Petah Tikva",
+    "country": "Israel",
+    "address": "Petah Tikva Market, Petah Tikva, Israel",
+    "lat": 32.0903432,
+    "lng": 34.8819264
+   }
+  ]
  }
 ]
