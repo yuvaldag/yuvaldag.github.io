@@ -2741,5 +2741,26 @@
     "lng": 34.7686466
    }
   ]
+ },
+ {
+  "id": "kimura-ya",
+  "name": "Kimura-ya.J",
+  "mapsName": "Kimura-ya.J Authentic Japanese",
+  "type": "Restaurant",
+  "cuisine": [
+   "japanese"
+  ],
+  "wantToGo": true,
+  "description": "Authentic Japanese.",
+  "locations": [
+   {
+    "street": "Maze 3",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Maze 3, Tel Aviv, Israel",
+    "lat": 32.0672751,
+    "lng": 34.7719672
+   }
+  ]
  }
 ]
