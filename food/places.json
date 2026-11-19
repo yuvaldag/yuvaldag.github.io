@@ -2207,14 +2207,15 @@
   "description": "Coffee-machine repair lab with a boutique coffee bar: fresh espresso on site.",
   "locations": [
    {
-    "street": "Matalon 74",
+    "street": "Lincoln 10",
     "city": "Tel Aviv",
     "country": "Israel",
-    "address": "Matalon 74, Tel Aviv, Israel",
-    "lat": 32.057719,
-    "lng": 34.775581
+    "address": "Lincoln 10, Tel Aviv, Israel",
+    "lat": 32.066925,
+    "lng": 34.781264
    }
-  ]
+  ],
+  "mapsName": "Gallery Coffee machines"
  },
  {
   "id": "the-coffee-gallery",
