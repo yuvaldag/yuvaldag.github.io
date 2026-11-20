@@ -2802,5 +2802,61 @@
     "lng": 34.77219
    }
   ]
+ },
+ {
+  "id": "my-coffee-roastery",
+  "name": "MY Coffee Roastery",
+  "mapsName": "MY Coffee Roastery Berkeley",
+  "type": "Coffee",
+  "kinds": [
+   "coffee"
+  ],
+  "features": [
+   "specialty"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "2080 Martin Luther King Jr Way",
+    "city": "Berkeley",
+    "country": "United States",
+    "address": "2080 Martin Luther King Jr Way, Berkeley, United States",
+    "lat": 37.8707046,
+    "lng": -122.2731401
+   }
+  ]
+ },
+ {
+  "id": "the-coffee-movement",
+  "name": "The Coffee Movement",
+  "mapsName": "The Coffee Movement",
+  "type": "Coffee",
+  "kinds": [
+   "coffee"
+  ],
+  "features": [
+   "specialty"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "1030 Washington St",
+    "city": "San Francisco",
+    "country": "United States",
+    "address": "1030 Washington St, San Francisco, United States",
+    "lat": 37.7948141,
+    "lng": -122.4103165
+   },
+   {
+    "street": "1737 Balboa St",
+    "city": "San Francisco",
+    "country": "United States",
+    "address": "1737 Balboa St, San Francisco, United States",
+    "lat": 37.7764741,
+    "lng": -122.4777614
+   }
+  ]
  }
 ]
