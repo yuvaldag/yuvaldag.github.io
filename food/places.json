@@ -2923,5 +2923,29 @@
     "lng": 34.772307
    }
   ]
+ },
+ {
+  "id": "hamafiya-hateimanit",
+  "name": "HaMafiya HaTeimanit",
+  "mapsName": "המאפייה התימנית נחליאל 11",
+  "type": "Bakery",
+  "kinds": [
+   "bakery"
+  ],
+  "cuisine": [
+   "jahnun"
+  ],
+  "wantToGo": true,
+  "description": "Yemenite bakery in Kerem HaTeimanim; known for its saluf flatbread.",
+  "locations": [
+   {
+    "street": "Nahliel 11 (Kerem HaTeimanim)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Nahliel 11, Tel Aviv, Israel",
+    "lat": 32.068672,
+    "lng": 34.767126
+   }
+  ]
  }
 ]
