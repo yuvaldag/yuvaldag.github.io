@@ -2355,6 +2355,18 @@
     "far": 2,
     "vibe": 0
    }
+  ],
+  "photos": [
+   "photos/hayafim-vehamitzim/stand.webp"
+  ],
+  "dishes": [
+   {
+    "name": "Açaí bowl",
+    "rating": 2,
+    "photo": "photos/hayafim-vehamitzim/acai-bowl.webp",
+    "price": "42",
+    "when": "2026-11"
+   }
   ]
  },
  {
@@ -2854,6 +2866,56 @@
     "address": "1737 Balboa St, San Francisco, United States",
     "lat": 37.7764741,
     "lng": -122.4777614
+   }
+  ]
+ },
+ {
+  "id": "hod-hamachat",
+  "name": "Hod HaMachat",
+  "mapsName": "חוד המחט דיזנגוף 225",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant",
+   "coffee"
+  ],
+  "cuisine": [
+   "pizza",
+   "jahnun"
+  ],
+  "wantToGo": true,
+  "description": "Café and record store; Don Pinci's Neapolitan pizza in the evenings.",
+  "locations": [
+   {
+    "street": "Dizengoff 225",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Dizengoff 225, Tel Aviv, Israel",
+    "lat": 32.090441,
+    "lng": 34.775644
+   }
+  ]
+ },
+ {
+  "id": "sheinkin-17",
+  "name": "Sheinkin Sheva Esre",
+  "mapsName": "שינקין שבע עשרה",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "cuisine": [
+   "homefood",
+   "jahnun"
+  ],
+  "description": "Nice home-made food.",
+  "locations": [
+   {
+    "street": "Sheinkin 17",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Sheinkin 17, Tel Aviv, Israel",
+    "lat": 32.069549,
+    "lng": 34.772307
    }
   ]
  }
