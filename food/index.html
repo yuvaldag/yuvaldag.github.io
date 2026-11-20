@@ -938,7 +938,7 @@ const vibeIcon = n => (n!=null && TABLE[n]) ? `<span class="ic" role="img" aria-
 document.getElementById("lg-dist").innerHTML = [1,2,3,4].map(n=>`<div class="lrow">${distIcon(n)}<span>${DIST_TXT[n]}</span></div>`).join("");
 document.getElementById("lg-vibe").innerHTML = [0,1,2,3,4].map(n=>`<div class="lrow">${vibeIcon(n)}<span>${VIBE_TXT[n]}</span></div>`).join("");
 
-const KIND = {coffee:["☕","Coffee"], icecream:["🍦","Ice cream"], restaurant:["🍽️","Restaurant"], bar:["🍸","Bar"], dessert:["🍰","Desserts"], bakery:["🥐","Bakery"], juice:["🧃","Juice"]};
+const KIND = {coffee:["☕","Coffee"], icecream:["🍨","Ice cream"], restaurant:["🍽️","Restaurant"], bar:["🍸","Bar"], dessert:["🍰","Desserts"], bakery:["🥐","Bakery"], juice:["🧃","Juice"]};
 const flag = inner => `<svg viewBox="0 0 30 20" style="width:1.15em;height:.77em;vertical-align:-0.08em;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.18)" aria-hidden="true">${inner}</svg>`;
 const JP_FLAG = flag(`<rect width="30" height="20" fill="#fff"/><circle cx="15" cy="10" r="6" fill="#bc002d"/>`);
 const TH_FLAG = flag(`<rect width="30" height="20" fill="#a51931"/><rect y="3.33" width="30" height="13.34" fill="#f4f5f8"/><rect y="6.67" width="30" height="6.66" fill="#2d2a4a"/>`);
