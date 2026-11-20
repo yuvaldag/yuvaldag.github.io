@@ -244,7 +244,9 @@
   "type": "Coffee",
   "features": [
    "specialty",
-   "talk"
+   "talk",
+   "softserve",
+   "affogato"
   ],
   "description": "",
   "locations": [
@@ -257,6 +259,9 @@
     "far": 1,
     "vibe": 2
    }
+  ],
+  "photos": [
+   "photos/kafe-bashuk/bar.webp"
   ]
  },
  {
