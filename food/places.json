@@ -297,6 +297,18 @@
   ],
   "features": [
    "specialty"
+  ],
+  "photos": [
+   "photos/luca/outside.webp"
+  ],
+  "dishes": [
+   {
+    "name": "Luca special",
+    "rating": 3,
+    "photo": "photos/luca/luca-special.webp",
+    "price": "22",
+    "when": "2026-11"
+   }
   ]
  },
  {
