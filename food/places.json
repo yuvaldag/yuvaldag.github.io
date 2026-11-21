@@ -3131,5 +3131,25 @@
     "lng": 34.7700546
    }
   ]
+ },
+ {
+  "id": "saffe",
+  "name": "Saffe",
+  "mapsName": "Saffe סמטת בית הבד 3",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "description": "Syrian-style food in an alley behind Beit Romano: garden courtyard by day, street tables at night.",
+  "locations": [
+   {
+    "street": "Simtat Beit HaBad 3",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Simtat Beit HaBad 3, Tel Aviv, Israel",
+    "lat": 32.0608175,
+    "lng": 34.769904
+   }
+  ]
  }
 ]
