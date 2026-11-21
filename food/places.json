@@ -3085,5 +3085,51 @@
     "vibe": 3
    }
   ]
+ },
+ {
+  "id": "simulev",
+  "name": "Simulev",
+  "mapsName": "שימו לב Simulev",
+  "type": "Restaurant & Bar",
+  "kinds": [
+   "restaurant",
+   "bar"
+  ],
+  "wantToGo": true,
+  "description": "Eastern European food: draniki and syrniki, with a good craft beer selection.",
+  "locations": [
+   {
+    "street": "Yehuda HaLevi 21",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Yehuda HaLevi 21, Tel Aviv, Israel",
+    "lat": 32.06158,
+    "lng": 34.770047
+   }
+  ]
+ },
+ {
+  "id": "shmulik-cohen",
+  "name": "Shmulik Cohen",
+  "mapsName": "מסעדת שמוליק כהן",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "cuisine": [
+   "homefood"
+  ],
+  "wantToGo": true,
+  "description": "Family-run Ashkenazi restaurant, said to be the oldest in the country: hamin, kreplach and chicken soup.",
+  "locations": [
+   {
+    "street": "Herzl 146",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Herzl 146, Tel Aviv, Israel",
+    "lat": 32.0517918,
+    "lng": 34.7700546
+   }
+  ]
  }
 ]
