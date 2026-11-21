@@ -3039,5 +3039,29 @@
    }
   ],
   "id": "cafe-aljir"
+ },
+ {
+  "id": "tchernichovsky-6",
+  "name": "Tchernichovsky 6",
+  "mapsName": "טשרניחובסקי 6",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "features": [
+   "expensive"
+  ],
+  "wantToGo": true,
+  "description": "Restaurant with a big selection of Portuguese wines, about ₪200–250 per person.",
+  "locations": [
+   {
+    "street": "Tchernichovsky 6",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Tchernichovsky 6, Tel Aviv, Israel",
+    "lat": 32.071192,
+    "lng": 34.770798
+   }
+  ]
  }
 ]
