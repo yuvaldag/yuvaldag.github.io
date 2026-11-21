@@ -850,6 +850,20 @@
     "lat": 32.073403,
     "lng": 34.77099
    }
+  ],
+  "photos": [
+   "photos/amita/bialik-garden.webp",
+   "photos/amita/bialik-inside.webp",
+   "photos/amita/bialik-counter.webp"
+  ],
+  "dishes": [
+   {
+    "name": "Kimchi pastry",
+    "rating": 3,
+    "photo": "photos/amita/kimchi-pastry.webp",
+    "price": "18",
+    "when": "2026-11"
+   }
   ]
  },
  {
