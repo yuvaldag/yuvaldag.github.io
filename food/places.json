@@ -3063,5 +3063,27 @@
     "lng": 34.770798
    }
   ]
+ },
+ {
+  "id": "isla-coffee",
+  "name": "Isla Coffee",
+  "mapsName": "Isla Coffee Montefiore 27",
+  "type": "Coffee",
+  "kinds": [
+   "coffee"
+  ],
+  "wantToGo": true,
+  "description": "Very nice and comfortable seating.",
+  "locations": [
+   {
+    "street": "Montefiore 27 (ISLA)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Montefiore 27, Tel Aviv, Israel",
+    "lat": 32.0656701,
+    "lng": 34.7726772,
+    "vibe": 3
+   }
+  ]
  }
 ]
