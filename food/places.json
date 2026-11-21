@@ -2950,5 +2950,51 @@
     "lng": 34.767126
    }
   ]
+ },
+ {
+  "id": "molam",
+  "name": "Molam",
+  "mapsName": "Molam Har Sinai 2",
+  "type": "Restaurant & Bar",
+  "kinds": [
+   "restaurant",
+   "bar"
+  ],
+  "cuisine": [
+   "thai"
+  ],
+  "wantToGo": true,
+  "description": "Thai restaurant and cocktail bar, about ₪100–300 per person.",
+  "locations": [
+   {
+    "street": "Har Sinai 2",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Har Sinai 2, Tel Aviv, Israel",
+    "lat": 32.064412,
+    "lng": 34.771751
+   }
+  ]
+ },
+ {
+  "id": "yafa-cafe",
+  "name": "Yafa Cafe",
+  "mapsName": "Yafa Cafe Yehuda Margoza 33",
+  "type": "Coffee",
+  "kinds": [
+   "coffee"
+  ],
+  "wantToGo": true,
+  "description": "Jaffa café and bookshop with live music evenings.",
+  "locations": [
+   {
+    "street": "Yehuda Margoza 33",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "Yehuda Margoza 33, Tel Aviv-Yafo, Israel",
+    "lat": 32.050949,
+    "lng": 34.753232
+   }
+  ]
  }
 ]
