@@ -828,9 +828,10 @@
   "mapsName": "עמיתה",
   "type": "Bakery",
   "kinds": [
-   "bakery"
+   "bakery",
+   "coffee"
   ],
-  "description": "",
+  "description": "The Bialik branch has a nice location in a square.",
   "locations": [
    {
     "street": "Derech Shlomo 10 (Salame)",
@@ -840,6 +841,14 @@
     "vibe": 1,
     "lat": 32.0546135,
     "lng": 34.7615049
+   },
+   {
+    "street": "Bialik 27 (Bialik Square, city museum)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Bialik 27, Tel Aviv, Israel",
+    "lat": 32.073403,
+    "lng": 34.77099
    }
   ]
  },
@@ -2996,5 +3005,25 @@
     "lng": 34.753232
    }
   ]
+ },
+ {
+  "name": "Café Aljir",
+  "mapsName": "קפה אלג'יר ביאליק 26",
+  "type": "Coffee",
+  "kinds": [
+   "coffee"
+  ],
+  "description": "Nice location in a square (Bialik Square).",
+  "locations": [
+   {
+    "street": "Bialik 26 (Bialik Square)",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Bialik 26, Tel Aviv, Israel",
+    "lat": 32.073309,
+    "lng": 34.771181
+   }
+  ],
+  "id": "cafe-aljir"
  }
 ]
