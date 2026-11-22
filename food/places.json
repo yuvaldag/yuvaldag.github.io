@@ -3174,5 +3174,27 @@
     "lng": 34.760257
    }
   ]
+ },
+ {
+  "id": "dama",
+  "name": "Dama",
+  "mapsName": "dama Rabbi Nachman 1 Jaffa",
+  "type": "Coffee",
+  "kinds": [
+   "coffee",
+   "bakery"
+  ],
+  "wantToGo": true,
+  "description": "Café with bread and pastries baked on site. Laptops limited to 1 hour.",
+  "locations": [
+   {
+    "street": "Rabbi Nachman 1",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "Rabbi Nachman 1, Tel Aviv-Yafo, Israel",
+    "lat": 32.053201,
+    "lng": 34.756044
+   }
+  ]
  }
 ]
