@@ -3151,5 +3151,28 @@
     "lng": 34.769904
    }
   ]
+ },
+ {
+  "id": "alkalha-yafa",
+  "name": "Alkalha Yafa",
+  "mapsName": "Alkalha yafa Shalma 3",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "cuisine": [
+   "hummus"
+  ],
+  "description": "Amazing dish: hummus with labaneh.",
+  "locations": [
+   {
+    "street": "Salame (Derech Shlomo) 3",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "Derech Shlomo 3, Tel Aviv-Yafo, Israel",
+    "lat": 32.055053,
+    "lng": 34.760257
+   }
+  ]
  }
 ]
