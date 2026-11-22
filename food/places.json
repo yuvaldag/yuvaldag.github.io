@@ -3222,6 +3222,15 @@
     "lat": 32.054441,
     "lng": 34.756989
    }
+  ],
+  "dishes": [
+   {
+    "name": "Batch brew",
+    "rating": 2,
+    "photo": "photos/tfwc/batch-brew.webp",
+    "price": "15",
+    "when": "2026-11"
+   }
   ]
  }
 ]
