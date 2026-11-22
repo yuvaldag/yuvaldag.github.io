@@ -100,7 +100,8 @@ ol.pubs li[hidden]{display:none}
 .noresults{color:var(--muted);font-style:italic}
 @media (max-width:600px){.flabel{width:100%}}
 
-.food{display:inline-flex;align-items:center;gap:8px;margin-top:28px;padding:10px 18px;border:1px solid var(--line);border-radius:999px;font-weight:500}
+.extras{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px}
+.food{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid var(--line);border-radius:999px;font-weight:500}
 .food:hover{background:var(--soft);text-decoration:none}
 footer{margin-top:40px;color:var(--muted);font-size:.85rem}
 
@@ -483,7 +484,10 @@ footer{margin-top:40px;color:var(--muted);font-size:.85rem}
   </div>
 </details>
 
-<a class="food" href="food/">🍽️ Food recommendations!</a>
+<div class="extras">
+  <a class="food" href="food/">🍽️ Food recommendations!</a>
+  <a class="food" href="https://github.com/yuvaldag/paper-reader">📖 Guided paper reading with AI</a>
+</div>
 
 <footer>© Yuval Dagan</footer>
 </main>
