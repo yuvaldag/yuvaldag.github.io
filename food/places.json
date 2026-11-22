@@ -3196,5 +3196,32 @@
     "lng": 34.756044
    }
   ]
+ },
+ {
+  "id": "tfwc",
+  "name": "TFWC",
+  "mapsName": "TFWC Pinkhas Ben Ya'ir 8 Jaffa",
+  "type": "Coffee",
+  "kinds": [
+   "coffee"
+  ],
+  "features": [
+   "specialty",
+   "cozy"
+  ],
+  "description": "Chill and nice vibe, great specialty coffee.",
+  "photos": [
+   "photos/tfwc/inside.webp"
+  ],
+  "locations": [
+   {
+    "street": "Pinchas Ben Yair 8",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "Pinchas Ben Yair 8, Tel Aviv-Yafo, Israel",
+    "lat": 32.054441,
+    "lng": 34.756989
+   }
+  ]
  }
 ]
