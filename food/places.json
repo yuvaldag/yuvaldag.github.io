@@ -3232,5 +3232,41 @@
     "when": "2026-11"
    }
   ]
+ },
+ {
+  "id": "sufra",
+  "name": "Sufra",
+  "mapsName": "Sufra Shalma 3",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "cuisine": [
+   "homefood"
+  ],
+  "features": [
+   "value",
+   "lunch"
+  ],
+  "description": "",
+  "dishes": [
+   {
+    "name": "Lunch deal",
+    "rating": 2,
+    "photo": "photos/sufra/lunch-deal.webp",
+    "price": "49",
+    "when": "2026-11"
+   }
+  ],
+  "locations": [
+   {
+    "street": "Salame (Derech Shlomo) 3",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "Derech Shlomo 3, Tel Aviv-Yafo, Israel",
+    "lat": 32.055053,
+    "lng": 34.760257
+   }
+  ]
  }
 ]
