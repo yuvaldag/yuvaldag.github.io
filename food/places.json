@@ -3271,5 +3271,47 @@
     "lng": 34.76036
    }
   ]
+ },
+ {
+  "id": "masala",
+  "name": "Masala",
+  "mapsName": "מסאלה מטבח הודי אותנטי",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "cuisine": [
+   "indian"
+  ],
+  "description": "Authentic Indian kitchen.",
+  "photos": [
+   "photos/masala/inside.webp"
+  ],
+  "dishes": [
+   {
+    "name": "Butter chicken",
+    "rating": 2,
+    "photo": "photos/masala/butter-chicken.webp",
+    "price": "69",
+    "when": "2026-11"
+   },
+   {
+    "name": "Basmati rice",
+    "rating": 2,
+    "photo": "photos/masala/basmati-rice.webp",
+    "price": "21",
+    "when": "2026-11"
+   }
+  ],
+  "locations": [
+   {
+    "street": "Jabotinsky 99",
+    "city": "Ramat Gan",
+    "country": "Israel",
+    "address": "Jabotinsky 99, Ramat Gan, Israel",
+    "lat": 32.0889598,
+    "lng": 34.8151131
+   }
+  ]
  }
 ]
