@@ -3076,7 +3076,7 @@
    "coffee"
   ],
   "wantToGo": true,
-  "description": "Very nice and comfortable seating.",
+  "description": "Very comfortable, coffee quality just okay.",
   "locations": [
    {
     "street": "Montefiore 27 (ISLA)",
@@ -3086,6 +3086,17 @@
     "lat": 32.0656701,
     "lng": 34.7726772,
     "vibe": 3
+   }
+  ],
+  "photos": [
+   "photos/isla-coffee/inside.webp"
+  ],
+  "dishes": [
+   {
+    "name": "Freddo espresso",
+    "rating": 1,
+    "price": "15",
+    "when": "2026-11"
    }
   ]
  },
