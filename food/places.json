@@ -3324,5 +3324,30 @@
     "lng": 34.8151131
    }
   ]
+ },
+ {
+  "id": "bbq-mirage",
+  "name": "BBQ Mirage",
+  "mapsName": "BBQ MIRAGE חורפיש",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "cuisine": [
+   "shawarma",
+   "meat"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Hurfeish",
+    "city": "Hurfeish",
+    "country": "Israel",
+    "address": "Hurfeish, Israel",
+    "lat": 33.01737,
+    "lng": 35.3469551
+   }
+  ]
  }
 ]
