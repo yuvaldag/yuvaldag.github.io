@@ -3349,5 +3349,147 @@
     "lng": 35.3469551
    }
   ]
+ },
+ {
+  "id": "puaa",
+  "name": "Puaa",
+  "mapsName": "Cafe Puaa פועה יפו",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant",
+   "coffee"
+  ],
+  "description": "",
+  "dishes": [
+   {
+    "name": "Glass noodle salad",
+    "rating": 2,
+    "photo": "photos/puaa/glass-noodle-salad.webp",
+    "when": "2026-11"
+   },
+   {
+    "name": "Rice with minced meat and almonds",
+    "rating": 2,
+    "photo": "photos/puaa/rice-minced-meat.webp",
+    "when": "2026-11"
+   },
+   {
+    "name": "Red iced drink",
+    "rating": 2,
+    "photo": "photos/puaa/red-iced-drink.webp",
+    "when": "2026-11"
+   },
+   {
+    "name": "Lemonade with mint",
+    "rating": 2,
+    "photo": "photos/puaa/mint-lemonade.webp",
+    "when": "2026-11"
+   }
+  ],
+  "locations": [
+   {
+    "street": "Rabbi Yohanan 8 (Flea Market)",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "Rabbi Yohanan 8, Tel Aviv-Yafo, Israel",
+    "lat": 32.0526181,
+    "lng": 34.756154
+   }
+  ]
+ },
+ {
+  "id": "hayerushalmit",
+  "name": "HaYerushalmit",
+  "mapsName": "הירושלמית יפו",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "cuisine": [
+   "skewers"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Olei Zion 15 (Flea Market)",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "Olei Zion 15, Tel Aviv-Yafo, Israel",
+    "lat": 32.052076,
+    "lng": 34.758038
+   }
+  ]
+ },
+ {
+  "id": "italkia-bapishpeshim",
+  "name": "HaItalkia",
+  "mapsName": "איטלקיה בפשפשים",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "cuisine": [
+   "italian"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Olei Zion 16 (Flea Market)",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "Olei Zion 16, Tel Aviv-Yafo, Israel",
+    "lat": 32.052865,
+    "lng": 34.756719
+   }
+  ]
+ },
+ {
+  "id": "ito-sando-burger",
+  "name": "ITO Sando Burger",
+  "mapsName": "ITO סנדו בורגר יפו",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "cuisine": [
+   "burger",
+   "japanese"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Greek Market",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "Greek Market, Jaffa, Tel Aviv-Yafo, Israel",
+    "lat": 32.05468,
+    "lng": 34.7572
+   }
+  ]
+ },
+ {
+  "id": "avigail",
+  "name": "Avigail",
+  "mapsName": "אביגיל יהודה הימית 33 יפו",
+  "type": "Bakery",
+  "kinds": [
+   "coffee",
+   "bakery"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Yehuda HaYamit 33",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "Yehuda HaYamit 33, Tel Aviv-Yafo, Israel",
+    "lat": 32.049703,
+    "lng": 34.75625
+   }
+  ]
  }
 ]
