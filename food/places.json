@@ -3601,5 +3601,48 @@
     "lng": 34.75929
    }
   ]
+ },
+ {
+  "id": "danny-foul",
+  "name": "Danny Foul",
+  "mapsName": "Danny Foul HaTkuma 46 Jaffa",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "cuisine": [
+   "hummus"
+  ],
+  "description": "Old hummus, the way it should be. Fool is cooked the right way, hummus is tasty, falafel is juicy and a bit oily.",
+  "dishes": [
+   {
+    "name": "Hummus with ful",
+    "rating": 2,
+    "photo": "photos/danny-foul/hummus-ful.webp",
+    "when": "2026-11"
+   },
+   {
+    "name": "Falafel",
+    "rating": 2,
+    "photo": "photos/danny-foul/falafel.webp",
+    "when": "2026-11"
+   },
+   {
+    "name": "Salad",
+    "rating": 2,
+    "photo": "photos/danny-foul/salad.webp",
+    "when": "2026-11"
+   }
+  ],
+  "locations": [
+   {
+    "street": "HaTkuma 46",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "HaTkuma 46, Tel Aviv-Yafo, Israel",
+    "lat": 32.051244,
+    "lng": 34.759467
+   }
+  ]
  }
 ]
