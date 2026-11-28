@@ -3580,5 +3580,26 @@
     "lng": 34.7599386
    }
   ]
+ },
+ {
+  "id": "palette",
+  "name": "Palette",
+  "mapsName": "Bistro Palette Jaffa",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Jerusalem Blvd 22",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "Jerusalem Blvd 22, Tel Aviv-Yafo, Israel",
+    "lat": 32.053143,
+    "lng": 34.75929
+   }
+  ]
  }
 ]
