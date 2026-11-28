@@ -3533,5 +3533,27 @@
     "lng": 35.2178666
    }
   ]
+ },
+ {
+  "id": "fugazi",
+  "name": "Fugazi",
+  "mapsName": "Fugazi Nahalat Binyamin 12",
+  "type": "Coffee",
+  "kinds": [
+   "coffee",
+   "bar"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Nahalat Binyamin 12",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Nahalat Binyamin 12, Tel Aviv, Israel",
+    "lat": 32.068399,
+    "lng": 34.769887
+   }
+  ]
  }
 ]
