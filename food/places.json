@@ -3555,5 +3555,30 @@
     "lng": 34.769887
    }
   ]
+ },
+ {
+  "id": "par-derriere",
+  "name": "Par Derriere",
+  "mapsName": "Par Derriere Bat Ami 7",
+  "type": "Restaurant & Bar",
+  "kinds": [
+   "restaurant",
+   "bar"
+  ],
+  "features": [
+   "shishi"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Bat Ami 7",
+    "city": "Jaffa",
+    "country": "Israel",
+    "address": "Bat Ami 7, Tel Aviv-Yafo, Israel",
+    "lat": 32.0554441,
+    "lng": 34.7599386
+   }
+  ]
  }
 ]
