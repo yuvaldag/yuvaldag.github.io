@@ -3644,5 +3644,30 @@
     "lng": 34.759467
    }
   ]
+ },
+ {
+  "id": "nilus",
+  "name": "Nilus",
+  "mapsName": "Nilus Allenby 33",
+  "type": "Restaurant & Bar",
+  "kinds": [
+   "restaurant",
+   "bar"
+  ],
+  "features": [
+   "shishi"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Allenby 33",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Allenby 33, Tel Aviv, Israel",
+    "lat": 32.072173,
+    "lng": 34.769334
+   }
+  ]
  }
 ]
