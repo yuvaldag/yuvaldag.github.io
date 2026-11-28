@@ -3669,5 +3669,29 @@
     "lng": 34.769334
    }
   ]
+ },
+ {
+  "id": "pizza-cotta",
+  "name": "Pizza Cotta",
+  "mapsName": "Pizza Cotta Geula 44",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "cuisine": [
+   "pizza"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Geula 44",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Geula 44, Tel Aviv, Israel",
+    "lat": 32.0709,
+    "lng": 34.76945
+   }
+  ]
  }
 ]
