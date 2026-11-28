@@ -3491,5 +3491,47 @@
     "lng": 34.75625
    }
   ]
+ },
+ {
+  "id": "gai-tod",
+  "name": "Gai Tod",
+  "mapsName": "Gai Tod Nahalat Binyamin 84",
+  "type": "Restaurant",
+  "kinds": [
+   "restaurant"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Nahalat Binyamin 84",
+    "city": "Tel Aviv",
+    "country": "Israel",
+    "address": "Nahalat Binyamin 84, Tel Aviv, Israel",
+    "lat": 32.059802,
+    "lng": 34.772385
+   }
+  ]
+ },
+ {
+  "id": "kafe-orna",
+  "name": "Kafe Orna",
+  "mapsName": "קפה אורנע ירושלים",
+  "type": "Coffee",
+  "kinds": [
+   "coffee"
+  ],
+  "wantToGo": true,
+  "description": "",
+  "locations": [
+   {
+    "street": "Darom St (Nahalat Shiva)",
+    "city": "Jerusalem",
+    "country": "Israel",
+    "address": "Darom St, Jerusalem, Israel",
+    "lat": 31.7806632,
+    "lng": 35.2178666
+   }
+  ]
  }
 ]
